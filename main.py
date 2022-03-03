@@ -1,16 +1,62 @@
-# This is a sample Python script.
+# -*- coding: utf-8 -*-
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# -------------------------- Preprocessing Directives -------------------------
+
+# Standard Libraries
+import logging
+import matplotlib.pyplot as plt
+import numpy as np
+import os as os
+from sys import exit
+
+# 3rd Party packages
+# Add here
+
+# My packages/Header files
+# Here
+
+# ----------------------------- Program Information ----------------------------
+
+"""
+Description of what foo.py does
+"""
+PROGRAM_NAME = "foo.py"
+"""
+Created on (date) by (author)
+"""
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+# ---------------------------- Function Declarations ---------------------------
+
+def loggingSetup():
+    """
+    Minimum Working Example (MWE) for logging. Pre-defined levels are:
+        
+        Highest               ---->            Lowest
+        CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+    """
+    logging.basicConfig(filename='logfile.log',
+                        filemode='w',
+                        level=logging.DEBUG,
+                        format='%(asctime)s - %(messages)s',
+                        datefmt='%d/%m/%Y %I:%M:%S %p',
+                        force=True)
 
 
-# Press the green button in the gutter to run the script.
+# --------------------------- main() implementation ---------------------------
+
+def main():
+    logging.info(f"{PROGRAM_NAME} start")
+
+    # Enter code here
+
+    logging.info(f"{PROGRAM_NAME} end")
+    exit()
+
+
+# ------------------------------ Implementations ------------------------------
+
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    loggingSetup()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    main()
