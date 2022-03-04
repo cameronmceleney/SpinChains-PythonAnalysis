@@ -2,11 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Standard libraries
-import logging as lg
-import matplotlib.pyplot as plt
-import numpy as np
-import os as os
-import sys as sys
+from sys import platform, exit
 
 # 3rd Party Packages
 # Add here
@@ -26,21 +22,33 @@ import sys as sys
     Filename    : globalvariables
     IDE         : PyCharm
 """
-
-
-def logging_setup():
-    # Initialisation of basic logging information. 
-    lg.basicConfig(filename='logfile.log',
-                   filemode='w',
-                   level=lg.DEBUG,
-                   format='%(asctime)s - %(message)s',
-                   datefmt='%d/%m/%Y %I:%M:%S %p',
-                   force=True)
+current_date_mac = "03 Mar 22"
+current_date_windows = "03 Mar 22"
 
 
 def set_file_paths():
     # Detect the user's operating system in order to set file_paths
-    operating_system = os.name()
 
-    return operating_system
+    if platform == "linux" or platform == "linux2":
+        # linux
+        print("Detected Linux. Exiting")
 
+        exit()
+
+    elif platform == "darwin":
+        # OS X
+        mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"
+
+        input_data_directory = f"{mac_dir_root}{current_date_mac}/RK2 Shockwaves Tests Data/"
+        output_data_directory = f"{mac_dir_root}{current_date_mac}/RK2 Shockwaves Tests Outputs/"
+
+        return input_data_directory, output_data_directory
+
+    elif platform == "win32":
+        # Windows
+        windows_dir_root = "D:\\Data\\"
+
+        input_data_directory = f"{windows_dir_root}{current_date_windows}\\RK2 Shockwaves Tests Data\\"
+        output_data_directory = f"{windows_dir_root}{current_date_windows}\\RK2 Shockwaves Tests Outputs\\"
+
+        return input_data_directory, output_data_directory

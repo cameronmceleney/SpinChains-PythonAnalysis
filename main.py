@@ -53,13 +53,14 @@ def fft_example():
     normalised_tone = np.int16((mixed_tone / mixed_tone.max()) * 32767)
     # write("mysinewave.wav", SAMPLE_RATE, normalised_tone)
 
-    yf = fftpack.rfft(normalised_tone)  # Calculates the transform itself
     # Calculates the frequencies in the centre of each bin in the output of fft()
     xf = fftpack.rfftfreq(N, 1.0 / sample_rate)
+    yf = fftpack.rfft(normalised_tone)  # Calculates the transform itself
 
     # plt.plot(normalised_tone[:1000])
     plt.plot(xf, np.abs(yf))
     plt.xlim(0, 5000)
+    plt.savefig(f"{gv.set_file_paths()[1]}test.png")
     plt.show()
 
 
@@ -173,9 +174,7 @@ def main():
     lg.info(f"{PROGRAM_NAME} Start")
 
     # plot_cpp_data(42.5 * 1e9)
-    # FFTExample()
-
-
+    fft_example()
 
     lg.info(f"{PROGRAM_NAME} End")
 
