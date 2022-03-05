@@ -64,7 +64,7 @@ def fft_example():
     plt.show()
 
 
-def custom_fft(frequency, maximum_real_time, m_values):
+def custom_fft(frequency, maximum_real_time, m_values, time_array):
     """
     Copy code from cpp_plot_rk2.py
 
@@ -74,6 +74,8 @@ def custom_fft(frequency, maximum_real_time, m_values):
 
     """
 
+    sampling_rate = 1428571428571428
+
     # Code from FFT example found online # Hertz
     N = int(1 / 1e-6)  # Number of samples in normalised tone
 
@@ -81,18 +83,111 @@ def custom_fft(frequency, maximum_real_time, m_values):
     normal_magVals = m_values / norm
 
     # Calculates the frequencies in the centre of each bin in the output of fft()
-    xf = fftpack.rfftfreq(N, 1 / int(frequency))
-    yf = fftpack.rfft(normal_magVals)  # Calculates the transform itself
+    xf = fftpack.fftfreq(len(time_array), 1 / (2 * 1e6))
+    yf = fftpack.fft(m_values)  # Calculates the transform itself
 
     fig2 = plt.figure()
     plt.title("FFT (freq)")
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("M$_x$")
     plt.plot(xf, np.abs(yf))
-    plt.xlim(0, 18e7)
-    plt.ylim(0, 10)
-    fig2.savefig("D:\\Data\\03 Mar 22\\RK2 Shockwaves Tests Outputs\\LLGTest1626FFT.png")
+    # plt.xlim(0, 10e9)
+    plt.yscale('log')
+    # plt.ylim(1e-6, 1e-4)
+    # fig2.savefig("D:\\Data\\03 Mar 22\\RK2 Shockwaves Tests Outputs\\LLGTest1626FFT.png")
     plt.show()
+
+
+def new_custom_fft():
+    # Produces a plot with the correct shape, but the wrong x-axis
+
+    # Code from FFT example found online
+    sample_rate = int(42.5e9)  # Hertz
+    total_duration = int(1e-15 * 1.75e5 * 4e2)  # Seconds
+    N = int(1 / 1e-6)  # Number of samples in normalised tone
+
+    # Generate a 2 hertz sine wave that lasts for 5 seconds
+    timeStamp = 1839
+    FILE_IDENT = 'LLGTest'
+    mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
+    mx_time = mx[:, 0]
+    mx_spin1 = mx[:, 1]
+    # plt.plot(mx_time, mx_spin1) # Plot the single in the time domain
+    # plt.xlim(0, 1e-8)
+
+    # Frequency domain representation
+    amplitude = mx_spin1
+    samplingFrequency = int(42.5e9)
+    fourierTransform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
+    fourierTransform = fourierTransform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
+    tpCount = len(amplitude)
+    values = np.arange(int(tpCount / 2))
+    timePeriod = tpCount / samplingFrequency
+    frequencies = values / timePeriod
+    plt.plot(frequencies, abs(fourierTransform), marker='o', lw=0)
+    lim = 1e7
+    plt.xlim(0.4e7, 1.4e7)
+    plt.yscale('log')
+    plt.ylim(1e-6, 1e-3)
+    plt.show()
+    # Calculates the frequencies in the centre of each bin in the output of fft()
+    # xf = fftpack.fftfreq(N, 1.0 / sample_rate)
+    # yf = fftpack.fft(mx_spin1)  # Calculates the transform itself
+
+    # plt.plot(normalised_tone[:1000])
+    # plt.plot(xf, np.abs(yf))
+    # plt.yscale('log')
+    # plt.savefig(f"{gv.set_file_paths()[1]}test.png")
+    # plt.show()
+
+
+def new_custom_fft2():
+
+    # Code from FFT example found online
+    sample_rate = int(42.5e9)  # Hertz
+    total_duration = int(1e-15 * 1.75e5 * 4e2)  # Seconds
+    N = int(1 / 1e-6)  # Number of samples in normalised tone
+
+    # Generate a 2 hertz sine wave that lasts for 5 seconds
+    timeStamp = 1839
+    FILE_IDENT = 'LLGTest'
+    mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
+    mx_time = mx[:, 0]
+    mx_spin1 = mx[:, 1]
+    # plt.plot(mx_time, mx_spin1) # Plot the single in the time domain
+    # plt.xlim(0, 1e-8)
+
+    # Frequency domain representation
+    amplitude = mx_spin1
+    samplingFrequency = int(1e6)
+    fourierTransform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
+    fourierTransform = fourierTransform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
+    tpCount = len(amplitude)
+    values = np.arange(int(tpCount / 2))
+    timePeriod = tpCount / samplingFrequency
+    frequencies = values / timePeriod
+
+    tpCount2 = len(mx_time)
+    #values2 = np.arange(int(tpCount2 / 2))
+    values2 = mx_time[int(len(mx_time)/2):] # need to fix scaling
+    timePeriod2 = tpCount2 / samplingFrequency
+    frequencies2 = values2 / timePeriod2
+
+    plt.plot(frequencies2, abs(fourierTransform), marker='o', lw=0, color='black')
+    lim = 1e7
+    plt.xlim(3.0e-8, 4.0e-8)
+    plt.yscale('log')
+    plt.ylim(1e-6, 1e-3)
+    plt.show()
+    # Calculates the frequencies in the centre of each bin in the output of fft()
+    # xf = fftpack.fftfreq(N, 1.0 / sample_rate)
+    # yf = fftpack.fft(mx_spin1)  # Calculates the transform itself
+
+    # plt.plot(normalised_tone[:1000])
+    # plt.plot(xf, np.abs(yf))
+    # plt.yscale('log')
+    # plt.savefig(f"{gv.set_file_paths()[1]}test.png")
+    # plt.show()
 
 
 def logging_setup():
@@ -117,19 +212,12 @@ def plot_cpp_data(frequency):
     """
 
     FILE_IDENT = 'LLGTest'
-    timeStamp = input("Enter the unique identifier that all filenames will share: ")
-    # timeStamp = 1358
-    filepath_input_data = "D:\\Data\\03 Mar 22\\RK2 Shockwaves Tests Data\\"
-    filepath_save_output = "D:\\Data\03 Mar 22\\RK2 Shockwaves Tests Outputs\\"
+    # timeStamp = input("Enter the unique identifier that all filenames will share: ")
+    timeStamp = 1839
 
     lg.info(f"{PROGRAM_NAME} Begin importing data")
-    file_mx = open(f"{filepath_input_data}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv")
-    # file_my = open(f"{filepath_input_data}rk2_my_{FILE_IDENT}{str(timeStamp)}.csv")
-    # file_mz = open(f"{filepath_input_data}rk2_mz_{FILE_IDENT}{str(timeStamp)}.csv")
-
-    mx = np.loadtxt(file_mx, delimiter=",")
-    # my = np.loadtxt(file_my, delimiter=",")
-    # mz = np.loadtxt(file_mz, delimiter=",")
+    # file_mx = csv.reader(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
+    mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
     lg.info(f"{PROGRAM_NAME} Finish importing data")
 
     # Separate here into new function
@@ -140,32 +228,26 @@ def plot_cpp_data(frequency):
         iterations = 7e5
     """
 
-    stepsize = 1e-17
+    stepsize = 1e-15
     iterations = 1.75e5 * 4e2
     maximum_real_time = int(stepsize * iterations)
 
-    total_datapoints = int(1 / 1e-6)
+    total_datapoints = int(1.0 / 1e-6)
 
-    targetSpin = int(input("Plot which spin: "))
-    # sel_iter = int(total_datapoints)
+    # targetSpin = int(input("Plot which spin: "))
+    targetSpin = 1
 
-    mx_spin = mx[1:, targetSpin]
+    mx_time = mx[1:, 0]
+    mx_spin = mx[:, targetSpin]
 
     lg.info(f"{PROGRAM_NAME} Begin FFT plotting")
-    custom_fft(int(frequency), maximum_real_time, mx_spin)
     lg.info(f"{PROGRAM_NAME} Finish FFT plotting")
-    # contains all the names of all subplots to be created
-    # m_names = ['Mx', 'My', 'Mz']
 
-    # contains all the labels needed for the plots. 1st row: titles. 2nd row: x-axis labels. 3rd row: y-axis labels
-    # plot_labels = [f'Chain Spin ({str(frequency)}) (RK2 - Midpoint) [C++]', 'Iterations', 'Spin Site', 'M Value',
-    # 'Value']
-
-    fig1 = plt.figure()
-    plt.title("Signal (x)")
-    plt.plot(np.arange(0, total_datapoints), mx_spin)
-    fig1.savefig(f"{filepath_save_output}{FILE_IDENT}{str(timeStamp)}.png")
-    plt.show()
+    # fig1 = plt.figure()
+    # plt.title("Signal (x)")
+    # plt.plot(np.arange(0, total_datapoints), mx_spin)
+    # fig1.savefig(f"{gv.set_file_paths()[1]}{FILE_IDENT}{str(timeStamp)}.png")
+    # plt.show()
 
 
 # --------------------------- main() implementation ---------------------------
@@ -173,8 +255,7 @@ def plot_cpp_data(frequency):
 def main():
     lg.info(f"{PROGRAM_NAME} Start")
 
-    # plot_cpp_data(42.5 * 1e9)
-    fft_example()
+    new_custom_fft2()
 
     lg.info(f"{PROGRAM_NAME} End")
 
