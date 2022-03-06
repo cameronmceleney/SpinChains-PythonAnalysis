@@ -143,51 +143,38 @@ def new_custom_fft():
 
 def new_custom_fft2():
 
-    # Code from FFT example found online
-    sample_rate = int(42.5e9)  # Hertz
-    total_duration = int(1e-15 * 1.75e5 * 4e2)  # Seconds
-    N = int(1 / 1e-6)  # Number of samples in normalised tone
+    # Produces a plot with the correct shape, but the wrong x-axis
 
-    # Generate a 2 hertz sine wave that lasts for 5 seconds
     timeStamp = 1839
     FILE_IDENT = 'LLGTest'
     mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
     mx_time = mx[:, 0]
     mx_spin1 = mx[:, 1]
     # plt.plot(mx_time, mx_spin1) # Plot the single in the time domain
-    # plt.xlim(0, 1e-8)
+    # plt.xlim(0, 0.5e-8)
+    # plt.show()
 
     # Frequency domain representation
+    timeInterval = 7e-8
+    nSamples = len(mx_spin1)
+    dt = timeInterval / nSamples
+
     amplitude = mx_spin1
-    samplingFrequency = int(1e6)
+    samplingFrequency = int(42.5e9)
     fourierTransform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
     fourierTransform = fourierTransform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
     tpCount = len(amplitude)
     values = np.arange(int(tpCount / 2))
     timePeriod = tpCount / samplingFrequency
-    frequencies = values / timePeriod
-
-    tpCount2 = len(mx_time)
-    #values2 = np.arange(int(tpCount2 / 2))
-    values2 = mx_time[int(len(mx_time)/2):] # need to fix scaling
-    timePeriod2 = tpCount2 / samplingFrequency
-    frequencies2 = values2 / timePeriod2
-
-    plt.plot(frequencies2, abs(fourierTransform), marker='o', lw=0, color='black')
+    frequencies = values / (dt * nSamples)
+    plt.plot(frequencies, abs(fourierTransform), marker='o', lw=0, color='black')
     lim = 1e7
-    plt.xlim(3.0e-8, 4.0e-8)
+    plt.xlim(1e9, 0.6e10)
     plt.yscale('log')
     plt.ylim(1e-6, 1e-3)
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("Amplitude")
     plt.show()
-    # Calculates the frequencies in the centre of each bin in the output of fft()
-    # xf = fftpack.fftfreq(N, 1.0 / sample_rate)
-    # yf = fftpack.fft(mx_spin1)  # Calculates the transform itself
-
-    # plt.plot(normalised_tone[:1000])
-    # plt.plot(xf, np.abs(yf))
-    # plt.yscale('log')
-    # plt.savefig(f"{gv.set_file_paths()[1]}test.png")
-    # plt.show()
 
 
 def logging_setup():
