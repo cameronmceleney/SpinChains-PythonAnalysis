@@ -1,189 +1,152 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# -------------------------- Preprocessing Directives -------------------------
-
-# Standard Libraries
+# Standard libraries
 import logging as lg
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import fftpack
-from sys import exit
-import globalvariables as gv
+import seaborn as sns
 
-# 3rd Party packages
+# 3rd Party Packages
 # Add here
 
-# My packages/Header files
-
-# ----------------------------- Program Information ----------------------------
+# My packages / Any header files
+import globalvariables as gv
 
 """
-Description of what foo.py does
+    Description of what globalvariables does
 """
 PROGRAM_NAME = "ShockwavesFFT.py"
 """
-Created on (date) by (author)
+    Core Details
+    
+    Author      : cameronmceleney
+    Created on  : 06/03/2022 22:08
+    Filename    : main
+    IDE         : PyCharm
 """
 
 
-# ---------------------------- Function Declarations ---------------------------
+def rc_params_update():
+    sns.set(context='notebook', style='dark', font='Kohinoor Devanagari', palette='muted', color_codes=True)
+    ##############################################################################
+    # Sets global conditions including font sizes, ticks and sheet style
+    # Sets various font size. fsize: general text. lsize: legend. tsize: title. ticksize: numbers next to ticks
+    fsize = 18
+    lsize = 12
+    tsize = 24
+    ticksize = 14
 
-def fft_example():
-    # Copy code from cpp_plot_rk2.py
+    # sets the tick direction. Options: 'in', 'out', 'inout'
+    t_dir = 'in'
+    # sets the tick size(s) and tick width(w) for the major and minor axes of all plots
+    t_maj_s = 10
+    t_min_s = 5
+    t_maj_w = 1.2
+    t_min_w = 1
 
-    # Code from FFT example found online
-    sample_rate = 44100  # Hertz
-    total_duration = 5  # Seconds
-    N = sample_rate * total_duration  # Number of samples in normalised tone
-
-    def generate_sine_wave(select_frequency, select_sample_rate, select_duration):
-        x = np.linspace(0, select_duration, select_sample_rate * select_duration, endpoint=False)
-        frequencies = x * select_frequency  # 2pi because np.sin takes radians
-        y = np.sin((2 * np.pi) * frequencies)
-        return x, y
-
-    # Generate a 2 hertz sine wave that lasts for 5 seconds
-
-    _, nice_tone = generate_sine_wave(1000, sample_rate, total_duration)
-    _, noise_tone = generate_sine_wave(4000, sample_rate, total_duration)
-    noise_tone = noise_tone * 0.3
-
-    mixed_tone = nice_tone + noise_tone
-
-    normalised_tone = np.int16((mixed_tone / mixed_tone.max()) * 32767)
-    # write("mysinewave.wav", SAMPLE_RATE, normalised_tone)
-
-    # Calculates the frequencies in the centre of each bin in the output of fft()
-    xf = fftpack.rfftfreq(N, 1.0 / sample_rate)
-    yf = fftpack.rfft(normalised_tone)  # Calculates the transform itself
-
-    # plt.plot(normalised_tone[:1000])
-    plt.plot(xf, np.abs(yf))
-    plt.xlim(0, 5000)
-    plt.savefig(f"{gv.set_file_paths()[1]}test.png")
-    plt.show()
+    # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
+    plt.rcParams.update({'axes.titlesize': tsize, 'axes.labelsize': fsize, 'font.size': fsize, 'legend.fontsize': lsize,
+                         'xtick.labelsize': ticksize, 'ytick.labelsize': ticksize,
+                         'axes.edgecolor': 'black', 'axes.linewidth': 1.2,
+                         "xtick.bottom": True, "ytick.left": True,
+                         'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
+                         'text.color': 'black',
+                         'xtick.major.size': t_maj_s, 'xtick.major.width': t_maj_w,
+                         'xtick.minor.size': t_min_s, 'xtick.minor.width': t_min_w,
+                         'ytick.major.size': t_maj_s, 'ytick.major.width': t_maj_w,
+                         'ytick.minor.size': t_min_s, 'ytick.minor.width': t_min_w,
+                         'xtick.direction': t_dir, 'ytick.direction': t_dir,
+                         'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
+                         'axes.spines.right': False,
+                         'figure.titlesize': 24,
+                         'figure.dpi': 300})
 
 
-def custom_fft(frequency, maximum_real_time, m_values, time_array):
+def plot_data():
     """
-    Copy code from cpp_plot_rk2.py
-
-                frequency               Frequency of the drivers                    [Hz]
-                maximum_real_time       Total duration of the simulation            [s]
-                m_values                Tuple containing magnetic moment values     [arb.]
-
+    Imports a dataset in csv format, before plotting the signal and the corresponding FFT of the signal. Ensure
+    that the first column of the dataset is the timestamps that each measurement was taken at.
     """
+    rc_params_update()
 
-    sampling_rate = 1428571428571428
+    # timeStamp = input("Enter the unique identifier that all filenames will share: ")
+    timeStamp = 1839  # Use this line to set a literal in order to minimise user inputs (good for testing)
+    FILE_IDENT = 'LLGTest'  # This is the 'filename' variable in the C++ code
 
-    # Code from FFT example found online # Hertz
-    N = int(1 / 1e-6)  # Number of samples in normalised tone
+    lg.info(f"{PROGRAM_NAME} Begin importing data")
+    spin_data_mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"),
+                              delimiter=",", skiprows=1)
+    lg.info(f"{PROGRAM_NAME} Finish importing data")
 
-    norm = np.linalg.norm(m_values)
-    normal_magVals = m_values / norm
+    # Each column of data is the magnetisation amplitudes at moments of time for a single spin
+    mx_time = spin_data_mx[:, 0]  # First column of data file is always timestamps
+    mx_spin1 = spin_data_mx[:, 1]
 
-    # Calculates the frequencies in the centre of each bin in the output of fft()
-    xf = fftpack.fftfreq(len(time_array), 1 / (2 * 1e6))
-    yf = fftpack.fft(m_values)  # Calculates the transform itself
+    # Invoke plotting functions
+    # temporal_plot(mx_time, mx_spin1)
+    fft_plot(mx_spin1)
 
-    fig2 = plt.figure()
-    plt.title("FFT (freq)")
-    plt.xlabel("Frequency (Hz)")
-    plt.ylabel("M$_x$")
-    plt.plot(xf, np.abs(yf))
-    # plt.xlim(0, 10e9)
-    plt.yscale('log')
-    # plt.ylim(1e-6, 1e-4)
-    # fig2.savefig("D:\\Data\\03 Mar 22\\RK2 Shockwaves Tests Outputs\\LLGTest1626FFT.png")
+
+def temporal_plot(time_data, y_axis_data):
+    """
+    Plots the given data showing the magnitude against time. Will output the 'signal'.
+    """
+    plt.plot(time_data, y_axis_data)  # Plot the single in the time domain
     plt.show()
 
 
-def new_custom_fft():
-    # Produces a plot with the correct shape, but the wrong x-axis
+def fft_plot(amplitude_data):
+    """
+    Uses simulation parameters to perform a Fast Fourier Transform (FFT) of the given data. This function only performs
+    a single FFT on the given dataset, so it can be looped over by multiple function invocations.
 
-    # Code from FFT example found online
-    sample_rate = int(42.5e9)  # Hertz
-    total_duration = int(1e-15 * 1.75e5 * 4e2)  # Seconds
-    N = int(1 / 1e-6)  # Number of samples in normalised tone
+    See https://mathematica.stackexchange.com/questions/105439/discrete-fourier-transform-help-on-how-to-convert-x-axis-in-to-the-frequency-wh
+    for a Mathematica example.
+    """
+    stepsize = 1e-15
+    total_iterations = 7e7
+    # total_datapoints = 1e6  # Can be used as the 'number of samples'
+    hz_to_ghz = 1e-9
 
-    # Generate a 2 hertz sine wave that lasts for 5 seconds
-    timeStamp = 1839
-    FILE_IDENT = 'LLGTest'
-    mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
-    mx_time = mx[:, 0]
-    mx_spin1 = mx[:, 1]
-    # plt.plot(mx_time, mx_spin1) # Plot the single in the time domain
-    # plt.xlim(0, 1e-8)
-
-    # Frequency domain representation
-    amplitude = mx_spin1
-    samplingFrequency = int(42.5e9)
-    fourierTransform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
-    fourierTransform = fourierTransform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
-    tpCount = len(amplitude)
-    values = np.arange(int(tpCount / 2))
-    timePeriod = tpCount / samplingFrequency
-    frequencies = values / timePeriod
-    plt.plot(frequencies, abs(fourierTransform), marker='o', lw=0)
-    lim = 1e7
-    plt.xlim(0.4e7, 1.4e7)
-    plt.yscale('log')
-    plt.ylim(1e-6, 1e-3)
-    plt.show()
-    # Calculates the frequencies in the centre of each bin in the output of fft()
-    # xf = fftpack.fftfreq(N, 1.0 / sample_rate)
-    # yf = fftpack.fft(mx_spin1)  # Calculates the transform itself
-
-    # plt.plot(normalised_tone[:1000])
-    # plt.plot(xf, np.abs(yf))
-    # plt.yscale('log')
-    # plt.savefig(f"{gv.set_file_paths()[1]}test.png")
-    # plt.show()
-
-
-def new_custom_fft2():
-
-    # Produces a plot with the correct shape, but the wrong x-axis
-
-    timeStamp = 1839
-    FILE_IDENT = 'LLGTest'
-    mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
-    mx_time = mx[:, 0]
-    mx_spin1 = mx[:, 1]
-    # plt.plot(mx_time, mx_spin1) # Plot the single in the time domain
-    # plt.xlim(0, 0.5e-8)
-    # plt.show()
-
-    # Frequency domain representation
-    timeInterval = 7e-8
-    nSamples = len(mx_spin1)
+    # Set values using simulation parameters
+    timeInterval = stepsize * total_iterations
+    nSamples = len(amplitude_data)
+    # Could also find this by multiplying the stepsize by the number of iterations between data recordings
     dt = timeInterval / nSamples
 
-    amplitude = mx_spin1
-    samplingFrequency = int(42.5e9)
-    fourierTransform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
-    fourierTransform = fourierTransform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
-    tpCount = len(amplitude)
-    values = np.arange(int(tpCount / 2))
-    timePeriod = tpCount / samplingFrequency
-    frequencies = values / (dt * nSamples)
-    plt.plot(frequencies, abs(fourierTransform), marker='o', lw=0, color='black')
-    lim = 1e7
-    plt.xlim(1e9, 0.6e10)
-    plt.yscale('log')
-    plt.ylim(1e-6, 1e-3)
-    plt.xlabel("Frequency (Hz)")
-    plt.ylabel("Amplitude")
+    # Compute the FFT
+    fourierTransform = np.fft.fft(amplitude_data) / nSamples  # Normalize amplitude
+    fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency
+    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * hz_to_ghz
+
+    # Plot the FFT and configure graph
+    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+
+    plt.plot(frequencies, abs(fourierTransform),
+             marker='o', lw=0, color='black')
+
+    axes.vlines(x=2.92, ymin=1e-6, ymax=1e-3,
+                colors='red', alpha=0.5,
+                label='2.92')
+
+    axes.set(title="FFT to Examine Peak Frequencies",
+             xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
+             xlim=(1, 0.6e1), ylim=(1e-6, 1e-3),
+             yscale='log')
+
+    axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                title='Resonant\nFreq. [GHz]', fontsize=12)
+
+    axes.grid(color='white')
+
+    fig.tight_layout()
     plt.show()
 
 
 def logging_setup():
-    """
-    Minimum Working Example (MWE) for logging. Pre-defined levels are:
-
-        The highest        ---->           The lowest
-        CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
-    """
+    # Initialisation of basic logging information. 
     lg.basicConfig(filename='logfile.log',
                    filemode='w',
                    level=lg.DEBUG,
@@ -192,64 +155,15 @@ def logging_setup():
                    force=True)
 
 
-def plot_cpp_data(frequency):
-    """
-    Default values:
-        freq = 42.5e9
-    """
-
-    FILE_IDENT = 'LLGTest'
-    # timeStamp = input("Enter the unique identifier that all filenames will share: ")
-    timeStamp = 1839
-
-    lg.info(f"{PROGRAM_NAME} Begin importing data")
-    # file_mx = csv.reader(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
-    mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"), delimiter=",", skiprows=1)
-    lg.info(f"{PROGRAM_NAME} Finish importing data")
-
-    # Separate here into new function
-    """
-    Default values are:
-        numberOfSpins = 4000
-        total_datapoints = 100 (used to be called itermax)
-        iterations = 7e5
-    """
-
-    stepsize = 1e-15
-    iterations = 1.75e5 * 4e2
-    maximum_real_time = int(stepsize * iterations)
-
-    total_datapoints = int(1.0 / 1e-6)
-
-    # targetSpin = int(input("Plot which spin: "))
-    targetSpin = 1
-
-    mx_time = mx[1:, 0]
-    mx_spin = mx[:, targetSpin]
-
-    lg.info(f"{PROGRAM_NAME} Begin FFT plotting")
-    lg.info(f"{PROGRAM_NAME} Finish FFT plotting")
-
-    # fig1 = plt.figure()
-    # plt.title("Signal (x)")
-    # plt.plot(np.arange(0, total_datapoints), mx_spin)
-    # fig1.savefig(f"{gv.set_file_paths()[1]}{FILE_IDENT}{str(timeStamp)}.png")
-    # plt.show()
-
-
-# --------------------------- main() implementation ---------------------------
-
 def main():
-    lg.info(f"{PROGRAM_NAME} Start")
+    lg.info("Program start")
 
-    new_custom_fft2()
+    plot_data()
 
-    lg.info(f"{PROGRAM_NAME} End")
+    lg.info("Program end")
 
     exit()
 
-
-# ------------------------------ Implementations ------------------------------
 
 if __name__ == '__main__':
     logging_setup()
