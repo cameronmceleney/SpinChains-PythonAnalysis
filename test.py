@@ -5,16 +5,13 @@
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
-import os as os
 from sys import exit
-import seaborn as sns
-import matplotlib as mpl
 
 """
 Completes all lab tasks from ENG4099 Lab 1. Written in a slightly funny odd
 way in order to match how the problems/code is presented in the labscript
 """
-mpl.rcParams['font.family'] = 'DejaVu Sans'
+
 # Declare constants using PEP-9 format
 JOULE_TO_EV = 6.242e+18
 MASS_E = 9.11e-31  # in atomic units
@@ -50,6 +47,7 @@ def loggingSetup():
                         format='%(asctime)s - %(message)s',
                         datefmt='%d/%m/%Y %I:%M:%S %p',
                         force=True)
+    logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 def Superposition(w_mn, evalAtTime):
