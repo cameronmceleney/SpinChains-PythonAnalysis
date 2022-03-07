@@ -71,7 +71,7 @@ def plot_data():
     rc_params_update()
 
     # timeStamp = input("Enter the unique identifier that all filenames will share: ")
-    timeStamp = 1839  # Use this line to set a literal in order to minimise user inputs (good for testing)
+    timeStamp = 2337  # Use this line to set a literal in order to minimise user inputs (good for testing)
     FILE_IDENT = 'LLGTest'  # This is the 'filename' variable in the C++ code
 
     lg.info(f"{PROGRAM_NAME} Begin importing data")
@@ -81,7 +81,8 @@ def plot_data():
 
     # Each column of data is the magnetisation amplitudes at moments of time for a single spin
     mx_time = spin_data_mx[:, 0]  # First column of data file is always timestamps
-    mx_spin1 = spin_data_mx[:, 1]
+    targetSpin = int(input("Plot which spin: "))
+    mx_spin1 = spin_data_mx[:, targetSpin]
 
     # Invoke plotting functions
     # temporal_plot(mx_time, mx_spin1)
@@ -132,7 +133,7 @@ def fft_plot(amplitude_data):
 
     axes.set(title="FFT to Examine Peak Frequencies",
              xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-             xlim=(1, 0.6e1), ylim=(1e-6, 1e-3),
+             xlim=(1, 6), ylim=(1e-6, 1e-3),
              yscale='log')
 
     axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
