@@ -70,8 +70,8 @@ def plot_data():
     """
     rc_params_update()
 
-    # timeStamp = input("Enter the unique identifier that all filenames will share: ")
-    timeStamp = 2337  # Use this line to set a literal in order to minimise user inputs (good for testing)
+    timeStamp = input("Enter the unique identifier that all filenames will share: ")
+    # timeStamp = 1320  # Use this line to set a literal in order to minimise user inputs (good for testing)
     FILE_IDENT = 'LLGTest'  # This is the 'filename' variable in the C++ code
 
     lg.info(f"{PROGRAM_NAME} Begin importing data")
@@ -81,19 +81,26 @@ def plot_data():
 
     # Each column of data is the magnetisation amplitudes at moments of time for a single spin
     mx_time = spin_data_mx[:, 0]  # First column of data file is always timestamps
-    targetSpin = int(input("Plot which spin: "))
-    mx_spin1 = spin_data_mx[:, targetSpin]
+    shouldContinuePlotting = True
 
-    # Invoke plotting functions
-    # temporal_plot(mx_time, mx_spin1)
-    fft_plot(mx_spin1)
+    temporal_plot(mx_time, spin_data_mx[:, 1])
+    while shouldContinuePlotting:
+        targetSpin = int(input("Plot which spin (-ve to exit): "))
+
+        if targetSpin >= 1:
+            mx_spin1 = spin_data_mx[:, targetSpin]
+            # Invoke plotting functions
+            # temporal_plot(mx_time, mx_spin1)
+            fft_plot(mx_spin1)
+        else:
+            shouldContinuePlotting = False
 
 
 def temporal_plot(time_data, y_axis_data):
     """
     Plots the given data showing the magnitude against time. Will output the 'signal'.
     """
-    plt.plot(time_data, y_axis_data)  # Plot the single in the time domain
+    plt.plot(time_data, (y_axis_data/8.6e-6))  # Plot the single in the time domain
     plt.show()
 
 
@@ -105,9 +112,9 @@ def fft_plot(amplitude_data):
     See https://mathematica.stackexchange.com/questions/105439/discrete-fourier-transform-help-on-how-to-convert-x-axis-in-to-the-frequency-wh
     for a Mathematica example.
     """
-    stepsize = 1e-15
-    total_iterations = 7e7
-    # total_datapoints = 1e6  # Can be used as the 'number of samples'
+    stepsize = 4.82e-15 / 5
+    total_iterations = 8.3022e6 * 5
+    # total_datapoints = 1e7  # Can be used as the 'number of samples'
     hz_to_ghz = 1e-9
 
     # Set values using simulation parameters
@@ -117,7 +124,7 @@ def fft_plot(amplitude_data):
     dt = timeInterval / nSamples
 
     # Compute the FFT
-    fourierTransform = np.fft.fft(amplitude_data) / nSamples  # Normalize amplitude
+    fourierTransform = np.fft.fft(amplitude_data) / nSamples # Normalize amplitude
     fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency
     frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * hz_to_ghz
 
@@ -125,15 +132,13 @@ def fft_plot(amplitude_data):
     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
 
     plt.plot(frequencies, abs(fourierTransform),
-             marker='o', lw=0, color='black')
+             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
 
-    axes.vlines(x=2.92, ymin=1e-6, ymax=1e-3,
-                colors='red', alpha=0.5,
-                label='2.92')
+    # axes.vlines(x=2.92, ymin=1e-6, ymax=1e-3, colors='red', alpha=0.5, label='2.92')
 
     axes.set(title="FFT to Examine Peak Frequencies",
              xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-             xlim=(1, 6), ylim=(1e-6, 1e-3),
+             xlim=(0, 2), ylim=(1e-10, 1e-7),
              yscale='log')
 
     axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
@@ -170,3 +175,9 @@ if __name__ == '__main__':
     logging_setup()
 
     main()
+
+    """
+    Notes
+    
+    For the paper, linearFMR = (2 * np.pi * 28.3e9 / (2 * np.pi)) * np.sqrt(172e-6 * (172e-6 + 4 * np.pi * 0.086)) / 1e9
+    """
