@@ -22,7 +22,7 @@ from sys import platform, exit
     Filename    : globalvariables
     IDE         : PyCharm
 """
-current_date_mac = "03 Mar 22"
+current_date_mac = "09 Mar 22"
 current_date_windows = "03 Mar 22"
 
 

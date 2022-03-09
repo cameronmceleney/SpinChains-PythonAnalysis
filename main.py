@@ -81,7 +81,8 @@ def plot_data():
 
     # Each column of data is the magnetisation amplitudes at moments of time for a single spin
     mx_time = spin_data_mx[:, 0]  # First column of data file is always timestamps
-    shouldContinuePlotting = True
+    shouldContinuePlotting = False
+    fft_plot(spin_data_mx[:, 1])
 
     temporal_plot(mx_time, spin_data_mx[:, 1])
     while shouldContinuePlotting:
@@ -100,7 +101,11 @@ def temporal_plot(time_data, y_axis_data):
     """
     Plots the given data showing the magnitude against time. Will output the 'signal'.
     """
-    plt.plot(time_data, (y_axis_data/8.6e-6))  # Plot the single in the time domain
+    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+    plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
+    axes.set(title="Output Signal in Time Domain",
+             xlabel="Time [ns]", ylabel="Amplitude [arb]",
+             xlim=(20, 40))
     plt.show()
 
 
@@ -112,10 +117,12 @@ def fft_plot(amplitude_data):
     See https://mathematica.stackexchange.com/questions/105439/discrete-fourier-transform-help-on-how-to-convert-x-axis-in-to-the-frequency-wh
     for a Mathematica example.
     """
-    stepsize = 4.82e-15 / 5
-    total_iterations = 8.3022e6 * 5
+    stepsize = 2.353e-12
+    total_iterations = 16700
+    gamma = 29.2
+    H_static = 0.1
     # total_datapoints = 1e7  # Can be used as the 'number of samples'
-    hz_to_ghz = 1e-9
+    hz_to_ghz = 1e-9  # Multiply by this to convert Hz to GHz
 
     # Set values using simulation parameters
     timeInterval = stepsize * total_iterations
@@ -134,11 +141,10 @@ def fft_plot(amplitude_data):
     plt.plot(frequencies, abs(fourierTransform),
              marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
 
-    # axes.vlines(x=2.92, ymin=1e-6, ymax=1e-3, colors='red', alpha=0.5, label='2.92')
-
+    # axes.vlines(x=29.2*0.2, colors='red', alpha=0.5, label='2.92')
+    axes.axvline(x=gamma * H_static, label=f"{gamma * H_static}")
     axes.set(title="FFT to Examine Peak Frequencies",
              xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-             xlim=(0, 2), ylim=(1e-10, 1e-7),
              yscale='log')
 
     axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
