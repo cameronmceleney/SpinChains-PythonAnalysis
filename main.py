@@ -81,20 +81,21 @@ def plot_data():
 
     # Each column of data is the magnetisation amplitudes at moments of time for a single spin
     mx_time = spin_data_mx[:, 0]  # First column of data file is always timestamps
-    shouldContinuePlotting = False
-    fft_plot(spin_data_mx[:, 1])
+    shouldContinuePlotting = True
 
     temporal_plot(mx_time, spin_data_mx[:, 1])
-    while shouldContinuePlotting:
-        targetSpin = int(input("Plot which spin (-ve to exit): "))
-
-        if targetSpin >= 1:
-            mx_spin1 = spin_data_mx[:, targetSpin]
-            # Invoke plotting functions
-            # temporal_plot(mx_time, mx_spin1)
-            fft_plot(mx_spin1)
-        else:
-            shouldContinuePlotting = False
+    fft_plot(spin_data_mx[:, 1])
+    # while shouldContinuePlotting:
+    #    targetSpin = 1  # int(input("Plot which spin (-ve to exit): "))
+#
+ #       if targetSpin >= 1:
+  #          mx_spin1 = spin_data_mx[:, targetSpin]
+   #         # Invoke plotting functions
+    #        # temporal_plot(mx_time, mx_spin1)
+     #       fft_plot(mx_spin1)
+      #      shouldContinuePlotting = False
+       # else:
+        #    shouldContinuePlotting = False
 
 
 def temporal_plot(time_data, y_axis_data):
@@ -105,7 +106,16 @@ def temporal_plot(time_data, y_axis_data):
     plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
     axes.set(title="Output Signal in Time Domain",
              xlabel="Time [ns]", ylabel="Amplitude [arb]",
-             xlim=(20, 40))
+             xlim=(0, 5), ylim=(-1, 1))
+
+    plt.show()
+
+    fig2, axes2 = plt.subplots(1, 1, figsize=(8, 8))
+    plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
+    axes2.set(title="Output Signal in Time Domain",
+              xlabel="Time [ns]", ylabel="Amplitude [arb]",
+              xlim=(0, 10))
+
     plt.show()
 
 
@@ -117,10 +127,11 @@ def fft_plot(amplitude_data):
     See https://mathematica.stackexchange.com/questions/105439/discrete-fourier-transform-help-on-how-to-convert-x-axis-in-to-the-frequency-wh
     for a Mathematica example.
     """
-    stepsize = 2.353e-12
-    total_iterations = 16700
-    gamma = 29.2
+    stepsize = 2.857e-13
+    total_iterations = 40 * 1e3
+    gamma = 29.2  # 28.3
     H_static = 0.1
+    freq_drive = 3.5  # In GHz
     # total_datapoints = 1e7  # Can be used as the 'number of samples'
     hz_to_ghz = 1e-9  # Multiply by this to convert Hz to GHz
 
@@ -131,7 +142,7 @@ def fft_plot(amplitude_data):
     dt = timeInterval / nSamples
 
     # Compute the FFT
-    fourierTransform = np.fft.fft(amplitude_data) / nSamples # Normalize amplitude
+    fourierTransform = np.fft.fft(amplitude_data)  # Normalize amplitude
     fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency
     frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * hz_to_ghz
 
@@ -142,18 +153,46 @@ def fft_plot(amplitude_data):
              marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
 
     # axes.vlines(x=29.2*0.2, colors='red', alpha=0.5, label='2.92')
-    axes.axvline(x=gamma * H_static, label=f"{gamma * H_static}")
-    axes.set(title="FFT to Examine Peak Frequencies",
+    axes.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
+    axes.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
+
+    axes.set(title=f"FFT",
              xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
+             xlim=(0, 5),
              yscale='log')
 
     axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
                 frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                title='Resonant\nFreq. [GHz]', fontsize=12)
+                title='Freq. List [GHz]', fontsize=12)
 
     axes.grid(color='white')
 
     fig.tight_layout()
+    plt.show()
+
+    # Plot the FFT and configure graph
+    fig2, axes2 = plt.subplots(1, 1, figsize=(8, 8))
+
+    plt.plot(frequencies, abs(fourierTransform),
+             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
+
+    # axes.vlines(x=29.2*0.2, colors='red', alpha=0.5, label='2.92')
+    axes2.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
+    axes2.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
+    axes2.axvline(x=(freq_drive * 3), label=f"Triple. {freq_drive * 3}", color='purple')
+
+    axes2.set(title=f"FFT",
+              xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
+              xlim=(0, 40),
+              yscale='log')
+
+    axes2.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                 frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                 title='Freq. List [GHz]', fontsize=12)
+
+    axes2.grid(color='white')
+
+    fig2.tight_layout()
     plt.show()
 
 
