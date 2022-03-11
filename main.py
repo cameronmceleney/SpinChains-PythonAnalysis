@@ -99,21 +99,32 @@ def temporal_plot(time_data, y_axis_data):
     """
     Plots the given data showing the magnitude against time. Will output the 'signal'.
     """
-    dicts = {0: {"title": "Time Domain Data1", "ylabel": "Test"},
-             1: {"title": "Time Domain Data2", "xlabel": "Cake", "xlim": (0, 5)},
-             2: {"title": "FFT", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 5), "yscale": 'log'},
-             3: {"title": "FFT", "xlabel": "Frequency [GHz]", "xlim": (0, 40), "yscale": 'log'}}
+    dicts = {0: {"xlabel": "Time1", "ylabel": "Test", "xlim": (0, 5)},
+             1: {"xlabel": "Time2"},
+             2: {"xlabel": "Frequency1 [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 5), "yscale": 'log'},
+             3: {"xlabel": "Frequency2 [GHz]", "xlim": (0, 40), "yscale": 'log'}}
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 12), sharey='row')
 
-    for i, ax in enumerate(axes.flatten()):
-        if i <= 1:
-            custom_temporal_plot(time_data / 1e-9, y_axis_data, ax=ax, plt_kwargs=dicts[i])
+    fig = plt.figure(constrained_layout=True, figsize=(12, 12))
+    fig.suptitle("Data from Spin Site #1")
+
+    # create 2x1 subfigs
+    subfigs = fig.subfigures(nrows=2, ncols=1)
+    for row, subfig in enumerate(subfigs):
+        subfig.suptitle(f'Subfigure title {row}')
+
+        if row == 0:
+            # create 1x2 subplots per subfig
+            axs = subfig.subplots(nrows=1, ncols=2)
+            for col, ax in enumerate(axs):
+                custom_temporal_plot(time_data / 1e-9, y_axis_data, ax=ax, plt_kwargs=dicts[col])
+
         else:
-            custom_fft_plot(y_axis_data, ax=ax, plt_kwargs=dicts[i])
+            axs = subfig.subplots(nrows=1, ncols=2)
+            for col, ax in enumerate(axs):
+                col += 2
+                custom_fft_plot(y_axis_data, ax=ax, plt_kwargs=dicts[col])
 
-    plt.suptitle("Data from Spin Site #1")
-    plt.tight_layout()
     plt.show()
 
 
