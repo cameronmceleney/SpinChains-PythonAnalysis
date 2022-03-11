@@ -27,8 +27,13 @@ import errno as errno
 """
 
 
-def generate_OS_dir_tree(set_custom_name=False):
-    """Detect the user's operating system in order to set file_paths"""
+def generate_dir_tree(check_dir_exist=False, set_custom_name=False):
+    """Detect the user's operating system in order to set file_paths
+
+    Text
+
+    :param bool set_custom_name: Enable ability to create a custom name for the parent directory
+    :return: None."""
 
     if set_custom_name:
         parent_name = custom_name()
@@ -36,7 +41,6 @@ def generate_OS_dir_tree(set_custom_name=False):
         parent_name = todays_date()
 
     if platform == "linux" or platform == "linux2":
-        # linux
         print("Detected Linux. This OS is not yet supported. Exiting")
 
         exit()
@@ -45,18 +49,20 @@ def generate_OS_dir_tree(set_custom_name=False):
         # OS X
         mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"  # Location of my C++ data on Mac
 
-        create_directory(mac_dir_root, parent_name)
+        if check_dir_exist:
+            create_directory(mac_dir_root, parent_name)
 
         input_data_directory = f"{mac_dir_root}{parent_name}/RK2 Shockwaves Tests Data/"
         output_data_directory = f"{mac_dir_root}{parent_name}/RK2 Shockwaves Tests Outputs/"
 
         return input_data_directory, output_data_directory
 
-    elif platform == "win32":
+    elif platform == "win32" or platform == "win64":
         # Windows
         windows_dir_root = "D:\\Data\\"  # Location of my C++ data on Windows
 
-        create_directory(windows_dir_root, parent_name)
+        if check_dir_exist:
+            create_directory(windows_dir_root, parent_name)
 
         input_data_directory = f"{windows_dir_root}{parent_name}\\RK2 Shockwaves Tests Data\\"
         output_data_directory = f"{windows_dir_root}{parent_name}\\RK2 Shockwaves Tests Outputs\\"
@@ -65,8 +71,13 @@ def generate_OS_dir_tree(set_custom_name=False):
 
 
 def custom_name():
-    """Need to add description"""
+    """
+    Take input from the user
+
+    :return: A user-defined string"""
+
     users_custom_name = str(input("Enter the name of the parent directory: "))
+
     return users_custom_name
 
 
