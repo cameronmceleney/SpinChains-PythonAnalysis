@@ -70,12 +70,12 @@ def plot_data():
     """
     rc_params_update()
 
-    timeStamp = input("Enter the unique identifier that all filenames will share: ")
-    # timeStamp = 1320  # Use this line to set a literal in order to minimise user inputs (good for testing)
+    # timeStamp = input("Enter the unique identifier that all filenames will share: ")
+    timeStamp = 1522  # Use this line to set a literal in order to minimise user inputs (good for testing)
     FILE_IDENT = 'LLGTest'  # This is the 'filename' variable in the C++ code
 
     lg.info(f"{PROGRAM_NAME} Begin importing data")
-    spin_data_mx = np.loadtxt(open(f"{gv.set_file_paths()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"),
+    spin_data_mx = np.loadtxt(open(f"{gv.generate_dir_tree()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"),
                               delimiter=",", skiprows=1)
     lg.info(f"{PROGRAM_NAME} Finish importing data")
 
@@ -84,15 +84,13 @@ def plot_data():
     shouldContinuePlotting = True
 
     temporal_plot(mx_time, spin_data_mx[:, 1])
+    exit(0)
 
     while shouldContinuePlotting:
         targetSpin = int(input("Plot which spin (-ve to exit): "))
 
         if targetSpin >= 1:
-            mx_spin1 = spin_data_mx[:, targetSpin]
-            # Invoke plotting functions
-            # temporal_plot(mx_time, mx_spin1)
-            fft_plot(mx_spin1)
+            temporal_plot(mx_time, spin_data_mx[:, 1])
         else:
             shouldContinuePlotting = False
 
@@ -101,22 +99,24 @@ def temporal_plot(time_data, y_axis_data):
     """
     Plots the given data showing the magnitude against time. Will output the 'signal'.
     """
-    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
-    plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
-    axes.set(title="Output Signal in Time Domain",
-             xlabel="Time [ns]", ylabel="Amplitude [arb]",
-             xlim=(0, 5))
-    # , ylim=(-1, 1)
+    dicts = {0: {"title": "Time Domain Data1", "ylabel": "Test"}}
+    dicts[1] = {"title": "Time Domain Data2", "xlabel": "Cake", "xlim": (0, 5)}
 
+    fig, axes = plt.subplots(2, figsize=(8, 8))
+
+    for i, ax in enumerate(axes):
+        custom_temporal_plot(time_data / 1e-9, y_axis_data, ax=ax, plt_kwargs=dicts[i])
+
+    plt.tight_layout()
     plt.show()
 
-    fig2, axes2 = plt.subplots(1, 1, figsize=(8, 8))
-    plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
-    axes2.set(title="Output Signal in Time Domain",
-              xlabel="Time [ns]", ylabel="Amplitude [arb]",
-              xlim=(0, 40))
 
-    plt.show()
+def custom_temporal_plot(x, y, ax=None, plt_kwargs={}):
+    if ax is None:
+        ax = plt.gca()
+    ax.plot(x, y)
+    ax.set(**plt_kwargs)
+    return ax
 
 
 def fft_plot(amplitude_data):
@@ -147,52 +147,46 @@ def fft_plot(amplitude_data):
     frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * hz_to_ghz
 
     # Plot the FFT and configure graph
-    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
 
-    plt.plot(frequencies, abs(fourierTransform),
+    ax1.plot(frequencies, abs(fourierTransform),
              marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
 
     # axes.vlines(x=29.2*0.2, colors='red', alpha=0.5, label='2.92')
-    axes.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
-    axes.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
+    ax1.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
+    ax1.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
 
-    axes.set(title=f"FFT",
-             xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-             xlim=(0, 5),
-             yscale='log')
+    ax1.set(title=f"FFT",
+            xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
+            xlim=(0, 5),
+            yscale='log')
 
-    axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                title='Freq. List [GHz]', fontsize=12)
+    ax1.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+               frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+               title='Freq. List [GHz]', fontsize=12)
 
-    axes.grid(color='white')
+    ax1.grid(color='white')
+
+    ax2.plot(frequencies, abs(fourierTransform),
+             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
+
+    # axes.vlines(x=29.2*0.2, colors='red', alpha=0.5, label='2.92')
+    ax2.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
+    ax2.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
+    ax2.axvline(x=(freq_drive * 3), label=f"Triple. {freq_drive * 3}", color='purple')
+
+    ax2.set(title=f"FFT",
+            xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
+            xlim=(0, 40),
+            yscale='log')
+
+    ax2.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+               frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+               title='Freq. List [GHz]', fontsize=12)
+
+    ax2.grid(color='white')
 
     fig.tight_layout()
-    plt.show()
-
-    # Plot the FFT and configure graph
-    fig2, axes2 = plt.subplots(1, 1, figsize=(8, 8))
-
-    plt.plot(frequencies, abs(fourierTransform),
-             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
-
-    # axes.vlines(x=29.2*0.2, colors='red', alpha=0.5, label='2.92')
-    axes2.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
-    axes2.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
-    axes2.axvline(x=(freq_drive * 3), label=f"Triple. {freq_drive * 3}", color='purple')
-
-    axes2.set(title=f"FFT",
-              xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-              xlim=(0, 40),
-              yscale='log')
-
-    axes2.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                 frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                 title='Freq. List [GHz]', fontsize=12)
-
-    axes2.grid(color='white')
-
-    fig2.tight_layout()
     plt.show()
 
 
@@ -209,8 +203,7 @@ def logging_setup():
 def main():
     lg.info("Program start")
 
-    # gv.set_file_paths()
-    gv.create_directory("D:\\")
+    plot_data()
 
     lg.info("Program end")
 
@@ -219,6 +212,8 @@ def main():
 
 if __name__ == '__main__':
     logging_setup()
+
+    gv.generate_dir_tree()
 
     main()
 
