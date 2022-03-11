@@ -84,18 +84,17 @@ def plot_data():
     shouldContinuePlotting = True
 
     temporal_plot(mx_time, spin_data_mx[:, 1])
-    fft_plot(spin_data_mx[:, 1])
-    # while shouldContinuePlotting:
-    #    targetSpin = 1  # int(input("Plot which spin (-ve to exit): "))
-#
- #       if targetSpin >= 1:
-  #          mx_spin1 = spin_data_mx[:, targetSpin]
-   #         # Invoke plotting functions
-    #        # temporal_plot(mx_time, mx_spin1)
-     #       fft_plot(mx_spin1)
-      #      shouldContinuePlotting = False
-       # else:
-        #    shouldContinuePlotting = False
+
+    while shouldContinuePlotting:
+        targetSpin = int(input("Plot which spin (-ve to exit): "))
+
+        if targetSpin >= 1:
+            mx_spin1 = spin_data_mx[:, targetSpin]
+            # Invoke plotting functions
+            # temporal_plot(mx_time, mx_spin1)
+            fft_plot(mx_spin1)
+        else:
+            shouldContinuePlotting = False
 
 
 def temporal_plot(time_data, y_axis_data):
@@ -106,7 +105,8 @@ def temporal_plot(time_data, y_axis_data):
     plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
     axes.set(title="Output Signal in Time Domain",
              xlabel="Time [ns]", ylabel="Amplitude [arb]",
-             xlim=(0, 5), ylim=(-1, 1))
+             xlim=(0, 5))
+    # , ylim=(-1, 1)
 
     plt.show()
 
@@ -114,7 +114,7 @@ def temporal_plot(time_data, y_axis_data):
     plt.plot(time_data * 1e9, y_axis_data)  # Plot the single in the time domain
     axes2.set(title="Output Signal in Time Domain",
               xlabel="Time [ns]", ylabel="Amplitude [arb]",
-              xlim=(0, 10))
+              xlim=(0, 40))
 
     plt.show()
 
@@ -128,10 +128,10 @@ def fft_plot(amplitude_data):
     for a Mathematica example.
     """
     stepsize = 2.857e-13
-    total_iterations = 40 * 1e3
+    total_iterations = 141 * 1e3
     gamma = 29.2  # 28.3
     H_static = 0.1
-    freq_drive = 3.5  # In GHz
+    freq_drive = 30.0  # In GHz
     # total_datapoints = 1e7  # Can be used as the 'number of samples'
     hz_to_ghz = 1e-9  # Multiply by this to convert Hz to GHz
 
