@@ -14,7 +14,7 @@ import seaborn as sns
 import globalvariables as gv
 
 """
-    Description of what globalvariables does
+    The program 
 """
 PROGRAM_NAME = "ShockwavesFFT.py"
 """
@@ -209,7 +209,8 @@ def logging_setup():
 def main():
     lg.info("Program start")
 
-    plot_data()
+    # gv.set_file_paths()
+    gv.create_directory("D:\\")
 
     lg.info("Program end")
 
