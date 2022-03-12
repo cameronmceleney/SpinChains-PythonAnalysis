@@ -14,7 +14,7 @@ import errno as errno
 # Here
 
 """
-    Description of what globalvariables does
+    Description of what system_preparation.py does
 """
 
 """
