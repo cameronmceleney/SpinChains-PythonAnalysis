@@ -51,7 +51,8 @@ def data_analysis(time_stamp=None, file_identifier='LLGTest'):
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} Beginning to import data")
     # Each column of data is the magnetisation amplitudes at a moments of time for a single spin site
-    mx_all_data = np.loadtxt(open(f"{sp.generate_dir_tree()[0]}rk2_mx_{file_identifier}{str(time_stamp)}.csv", "rb"),
+    mx_all_data = np.loadtxt(open(f"{sp.directory_tree_testing()[0]}rk2_mx_{file_identifier}{str(time_stamp)}.csv",
+                                  "rb"),
                              delimiter=",", skiprows=1)
     lg.info(f"{PROGRAM_NAME} Finished importing data")
 
@@ -121,12 +122,13 @@ def generate_site_figure(time_data, y_axis_data, spin_site):
 
     :return: A figure containing four sub-plots.
     """
-    plot_set_params = {0: {"title": "Focused View", "xlabel": "Time [ns]",
-                           "ylabel": "Amplitude [normalised]", "xlim": (0, 5)},
-                       1: {"title": "Full Simulation", "xlabel": "Time [ns]", "xlim": (0, 40)},
-                       2: {"title": "First Resonant Freq. Region", "xlabel": "Frequency [GHz]",
-                           "ylabel": "Amplitude [arb.]", "xlim": (0, 5), "yscale": 'log'},
-                       3: {"title": "All Artefacts", "xlabel": "Frequency [GHz]", "xlim": (0, 30), "yscale": 'log'}}
+    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [normalised]",
+                           "xlim": (0, 40)},
+                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, 5)},
+                       2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
+                           "xlim": (0, 30), "yscale": 'log'},
+                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 5),
+                           "yscale": 'log'}}
 
     fig = plt.figure(figsize=(12, 12), constrained_layout=True, )
     fig.suptitle(f"Data from Spin Site #{spin_site}")
@@ -141,7 +143,7 @@ def generate_site_figure(time_data, y_axis_data, spin_site):
             axes = sub_fig.subplots(nrows=1, ncols=2)
 
             for col, ax in enumerate(axes, start=row*2):
-                custom_temporal_plot(time_data, y_axis_data, ax=ax, plt_set_kwargs=plot_set_params[col])
+                custom_temporal_plot(time_data, y_axis_data, ax=ax, plt_set_kwargs=plot_set_params[col], subplotnum=col)
 
         else:
             sub_fig.suptitle(f"FFT Data")
@@ -149,23 +151,26 @@ def generate_site_figure(time_data, y_axis_data, spin_site):
             axes = sub_fig.subplots(nrows=1, ncols=2)
 
             for col, ax in enumerate(axes, start=row*2):
-                custom_fft_plot(y_axis_data, ax=ax, plt_set_kwargs=plot_set_params[col])
+                custom_fft_plot(y_axis_data, ax=ax, plt_set_kwargs=plot_set_params[col], subplotnum=col)
 
     plt.show()
 
 
-def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, ax=None):
+def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, subplotnum, ax=None):
     """Custom plotter for each temporal signal."""
     if ax is None:
         ax = plt.gca()
 
     ax.plot(time_data, amplitude_data)
     ax.set(**plt_set_kwargs)
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+    if subplotnum == 0:
+        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
 
     return ax
 
 
-def custom_fft_plot(y, plt_set_kwargs, ax=None):
+def custom_fft_plot(y, plt_set_kwargs, subplotnum, ax=None):
     """Custom plotter for each FFT."""
     frequencies, FFTransform, natural_frequency, driving_freq = fft_data(y)
 
@@ -176,11 +181,14 @@ def custom_fft_plot(y, plt_set_kwargs, ax=None):
             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
-    ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
-    ax.axvline(x=driving_freq, label=f"Driving. {driving_freq}", color='green')
+    if subplotnum == 2:
+        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
+    else:
+        ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
+        ax.axvline(x=driving_freq, label=f"Driving. {driving_freq}", color='green')
 
-    ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975), frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title='Freq. List [GHz]', fontsize=12)
+        ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                  title='Freq. List [GHz]', fontsize=12)
 
     ax.grid(color='white')
 
