@@ -28,6 +28,7 @@ PROGRAM_NAME = "ShockwavesFFT.py"
 
 
 def rc_params_update():
+    """Container for program's custom rc params, as well as Seaborn (library) selections"""
     sns.set(context='notebook', style='dark', font='Kohinoor Devanagari', palette='muted', color_codes=True)
     ##############################################################################
     # Sets global conditions including font sizes, ticks and sheet style
@@ -63,50 +64,67 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
-def plot_data():
+def data_analysis(time_stamp=None, file_identifier='LLGTest'):
     """
-    Imports a dataset in csv format, before plotting the signal and the corresponding FFT of the signal. Ensure
-    that the first column of the dataset is the timestamps that each measurement was taken at.
+    Import a dataset in csv format, and plot the signal and the corresponding FFT.
+
+    -----
+    Notes
+    -----
+
+    Ensure that the first column of the dataset are the timestamps that each measurement was taken at. If this is not
+    the case, then replace the variable 'mx_time' with an array of values:
+
+    * mx_time = np.linspace(start_time, end_time, number_of_iterations, endpoint=True)
+
+    :param int time_stamp: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
+    :param str file_identifier: This is the 'filename' variable in the C++ code.
+
+    :return: Nothing.
     """
     rc_params_update()
 
-    # timeStamp = input("Enter the unique identifier that all filenames will share: ")
-    timeStamp = 1522  # Use this line to set a literal in order to minimise user inputs (good for testing)
-    FILE_IDENT = 'LLGTest'  # This is the 'filename' variable in the C++ code
+    if time_stamp is None:
+        # time_stamp must be declared if none was provided as a function argument
+        time_stamp = str(input("Enter the unique identifier that all filenames will share: "))
 
-    lg.info(f"{PROGRAM_NAME} Begin importing data")
-    spin_data_mx = np.loadtxt(open(f"{gv.generate_dir_tree()[0]}rk2_mx_{FILE_IDENT}{str(timeStamp)}.csv", "rb"),
-                              delimiter=",", skiprows=1)
-    lg.info(f"{PROGRAM_NAME} Finish importing data")
+    # Tracking how long the data import took is important for monitoring large files.
+    lg.info(f"{PROGRAM_NAME} Beginning to import data")
+    # Each column of data is the magnetisation amplitudes at a moments of time for a single spin site
+    mx_all_data = np.loadtxt(open(f"{gv.generate_dir_tree()[0]}rk2_mx_{file_identifier}{str(time_stamp)}.csv", "rb"),
+                             delimiter=",", skiprows=1)
+    lg.info(f"{PROGRAM_NAME} Finished importing data")
 
-    # Each column of data is the magnetisation amplitudes at moments of time for a single spin
-    mx_time = spin_data_mx[:, 0]  # First column of data file is always timestamps
+    # First column of data file is always the real-time at that iteration.
+    mx_time = mx_all_data[:, 0]
+
     shouldContinuePlotting = True
 
-    temporal_plot(mx_time, spin_data_mx[:, 1])
-    exit(0)
-
     while shouldContinuePlotting:
-        targetSpin = int(input("Plot which spin (-ve to exit): "))
+        # User will plot data one spin site at a time, as each plot can take an extended amount of time to create
 
-        if targetSpin >= 1:
-            temporal_plot(mx_time, spin_data_mx[:, 1])
+        # target_spin = int(input("Plot which spin (-ve to exit): "))
+        target_spin = 1
+
+        if target_spin >= 1:
+
+            generate_site_figure(mx_time, mx_all_data[:, target_spin], target_spin)
+            shouldContinuePlotting = False
         else:
             shouldContinuePlotting = False
 
 
-def temporal_plot(time_data, y_axis_data):
+def generate_site_figure(time_data, y_axis_data, spin_site):
     """
     Plots the given data showing the magnitude against time. Will output the 'signal'.
     """
-    dicts = {0: {"xlabel": "Time1", "ylabel": "Test", "xlim": (0, 5)},
-             1: {"xlabel": "Time2"},
-             2: {"xlabel": "Frequency1 [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 5), "yscale": 'log'},
-             3: {"xlabel": "Frequency2 [GHz]", "xlim": (0, 40), "yscale": 'log'}}
+    dicts = {0: {"title": "Focused View", "xlabel": "Time [ns]", "ylabel": "Amplitude [normalised]", "xlim": (0, 5)},
+             1: {"title": "Full Simulation","xlabel": "Time [ns]", "xlim": (0, 40)},
+             2: {"title": "First Resonant Freq. Region", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 5), "yscale": 'log'},
+             3: {"title": "All Artefacts", "xlabel": "Frequency [GHz]", "xlim": (0, 30), "yscale": 'log'}}
 
-
-    fig = plt.figure(constrained_layout=True, figsize=(12, 12))
-    fig.suptitle("Data from Spin Site #1")
+    fig = plt.figure(figsize=(12, 12), constrained_layout=True, )
+    fig.suptitle(f"Data from Spin Site #{spin_site}")
 
     # create 2x1 subfigs
     subfigs = fig.subfigures(nrows=2, ncols=1)
@@ -135,18 +153,20 @@ def custom_temporal_plot(x, y, ax=None, plt_kwargs={}):
     ax.set(**plt_kwargs)
     return ax
 
-def custom_fft_plot(y, ax=None, plt_kwargs={}):
 
-    stepsize = 2.857e-13
-    total_iterations = 141 * 1e3
-    gamma = 29.2  # 28.3
-    H_static = 0.1
-    freq_drive = 30.0  # In GHz
-    # total_datapoints = 1e7  # Can be used as the 'number of samples'
-    hz_to_ghz = 1e-9  # Multiply by this to convert Hz to GHz
+def custom_fft_plot(y, ax=None, plt_kwargs={}):
+    sim_params = {"stepsize": 2.857e-13,
+                  "total_iterations": 141 * 1e3,
+                  "gamma": 29.2,
+                  "H_static": 0.1,
+                  "freq_drive": 3.5,
+                  "total_datapoints": 1e7,
+                  "hz_to_ghz": 1e-9}
+
+    natural_freq = sim_params['gamma'] * sim_params['H_static']
 
     # Set values using simulation parameters
-    timeInterval = stepsize * total_iterations
+    timeInterval = sim_params['stepsize'] * sim_params['total_iterations']
     nSamples = len(y)
     # Could also find this by multiplying the stepsize by the number of iterations between data recordings
     dt = timeInterval / nSamples
@@ -154,14 +174,15 @@ def custom_fft_plot(y, ax=None, plt_kwargs={}):
     # Compute the FFT
     fourierTransform = np.fft.fft(y)  # Normalize amplitude
     fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency
-    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * hz_to_ghz
+    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * sim_params["hz_to_ghz"]
 
     if ax is None:
         ax = plt.gca()
-    ax.plot(frequencies, abs(fourierTransform), marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
+    ax.plot(frequencies, abs(fourierTransform), marker='o', lw=1, color='red', markerfacecolor='black',
+            markeredgecolor='black')
     ax.set(**plt_kwargs)
-    ax.axvline(x=gamma * H_static, label=f"Natural. {gamma * H_static:2.2f}")
-    ax.axvline(x=freq_drive, label=f"Driving. {freq_drive}", color='green')
+    ax.axvline(x=natural_freq, label=f"Natural. {natural_freq:2.2f}")
+    ax.axvline(x=sim_params['freq_drive'], label=f"Driving. {sim_params['freq_drive']}", color='green')
     ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
               frameon=True, fancybox=True, facecolor='white', edgecolor='white',
               title='Freq. List [GHz]', fontsize=12)
@@ -242,7 +263,7 @@ def fft_plot(amplitude_data):
 
 
 def logging_setup():
-    # Initialisation of basic logging information. 
+    """Initialisation of basic logging information."""
     lg.basicConfig(filename='logfile.log',
                    filemode='w',
                    level=lg.DEBUG,
@@ -252,9 +273,10 @@ def logging_setup():
 
 
 def main():
+    """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info("Program start")
 
-    plot_data()
+    data_analysis(1522)
 
     lg.info("Program end")
 
