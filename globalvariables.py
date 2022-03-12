@@ -28,17 +28,26 @@ import errno as errno
 
 
 def generate_dir_tree(check_dir_exist=False, set_custom_name=False):
-    """Detect the user's operating system in order to set file_paths
+    """Detect the user's operating system to allow for automatic data accessing
 
-    Text
+    -----
+    Notes
+    -----
 
+    In addition to accessing data, this class can create a new directory for the current date (by default). It also
+    allows the user to create custom names for the parent directory. This function should be run at the start of
+    each workday.
+
+    :param bool check_dir_exist: Ensure the directory for today's data exists. Lengthens runtime
     :param bool set_custom_name: Enable ability to create a custom name for the parent directory
-    :return: None."""
+
+    :return: [0] is the input data directory; this is the read-from location. [1] is the output data directory. All plots and GIFs should be saved here"""
 
     if set_custom_name:
         parent_name = custom_name()
     else:
-        parent_name = todays_date()
+        # parent_name = todays_date()
+        parent_name = "11 Mar 22"
 
     if platform == "linux" or platform == "linux2":
         print("Detected Linux. This OS is not yet supported. Exiting")
