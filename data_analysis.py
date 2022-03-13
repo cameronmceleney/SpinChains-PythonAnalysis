@@ -52,12 +52,12 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
 
     data_filename = f"{sp.directory_tree_testing()[0]}{file_prefix}{file_identifier}{str(time_stamp)}.csv"
 
-    ssc.plot_graph(data_filename)
-    exit()
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} Beginning to import data")
-    mx_all_data = np.loadtxt(open(data_filename, "rb"), delimiter=",", skiprows=1)
+    mx_all_data = np.loadtxt(open(data_filename, "rb"), delimiter=",", skiprows=9)
     lg.info(f"{PROGRAM_NAME} Finished importing data")
+    ssc.plot_graph(data_filename, mx_all_data, [0, 1])
+    exit()
 
     # First column of data file is always the real-time at that iteration. Convert to [s] from [ns]
     mx_time = mx_all_data[:, 0] / 1e-9
