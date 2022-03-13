@@ -69,7 +69,7 @@ def import_data_headers(filename):
     key_params['stepsize'] = float(data_values[13])
 
     legend_labels = create_plot_labels(simulated_spin_sites,
-                                       key_params['drivingRegionLHS'], key_params['drivingRegionRHS'])
+                                       key_params['drivingRegionLHS'], key_params['drivingRegionRHS'])[0]
 
     return key_params, legend_labels
 
@@ -111,10 +111,18 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 
 def plot_graph(filename):
+    """
+    Plots a graph
+
+    :param str filename: Imported data to be plotted. Should only contain the values (no headers for example).
+
+    :return:
+    """
     key_data, subplot_labels = import_data_headers(filename)
 
     ylim_max_subplot_a1 = key_data['biasFieldDriving']
     ylim_max_subplot_others = key_data['biasFieldDriving'] * (1 / key_data['biasFieldDrivingScale']) * 1e-2
+
     mx_inputfile_np = np.loadtxt(f"{sp.directory_tree_testing()[0]}rk2Shockwave_Test1542.csv", delimiter=",",
                                  skiprows=9)
 
@@ -130,15 +138,11 @@ def plot_graph(filename):
                      'stopIterVal', 'Time (s)',
                      'M Value', 'Signal (a.u.)']
 
-    fig = plt.figure()
-    # Creates a square figure of 12x12 inches.
-    fig.set_figheight(12)
-    fig.set_figwidth(12)
+    fig = plt.figure(figsize=(12, 12))
 
-    # Creates three plot panes
-    a1 = plt.subplot2grid((4, 4), (0, 0), colspan=4, rowspan=2)  # Top pane for comparison of multiple datasets
-    a2 = plt.subplot2grid((4, 4), (2, 0), colspan=2, rowspan=2)  # Bottom left pane to show single dataset
-    a3 = plt.subplot2grid((4, 4), (2, 2), colspan=2, rowspan=2)  # Bottom right pane to show single dataset
+    plot_pane_1 = plt.subplot2grid((4, 4), (0, 0), colspan=4, rowspan=2)  # Top pane for comparison of multiple datasets
+    plot_pane_2 = plt.subplot2grid((4, 4), (2, 0), colspan=2, rowspan=2)  # Bottom left pane to show any single dataset
+    plot_pane_3 = plt.subplot2grid((4, 4), (2, 2), colspan=2, rowspan=2)  # Bottom right pane to track final spin site
 
     # Figure title (here) to allow for individual panes to have their own titles
     plt.suptitle(PlotAllLabels[0], size=24)
@@ -156,13 +160,13 @@ def plot_graph(filename):
         axes = None
 
         if k == 0:
-            axes = a1
+            axes = plot_pane_1
         elif k == 1:
-            axes = a1
+            axes = plot_pane_1
         elif k == 2:
-            axes = a2
+            axes = plot_pane_2
         elif k == 3:
-            axes = a3
+            axes = plot_pane_3
 
         # Sets subplot title
         axes.set_title(f'{SubPlotTitles[k]}')
