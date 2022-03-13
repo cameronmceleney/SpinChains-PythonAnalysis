@@ -26,7 +26,7 @@ def logging_setup():
     """Initialisation of basic logging information."""
     lg.basicConfig(filename='logfile.log',
                    filemode='w',
-                   level=lg.DEBUG,
+                   level=lg.INFO,
                    format='%(asctime)s - %(message)s',
                    datefmt='%d/%m/%Y %I:%M:%S %p',
                    force=True)
@@ -36,7 +36,7 @@ def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info("Program start")
 
-    das.data_analysis(1522)
+    das.data_analysis(1533)
 
     lg.info("Program end")
 
