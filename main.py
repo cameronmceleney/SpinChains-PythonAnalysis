@@ -36,7 +36,7 @@ def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info("Program start")
 
-    das.data_analysis(1533)
+    das.data_analysis(file_prefix="rk2Shockwave_", file_identifier="Test", time_stamp=1542)
 
     lg.info("Program end")
 
