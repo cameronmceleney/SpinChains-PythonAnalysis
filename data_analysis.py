@@ -9,6 +9,7 @@ import seaborn as sns
 
 # My packages / Any header files
 import system_preparation as sp
+import Shockwave_Site_Comparison as ssc
 
 """
     Description of what data_analysis does
@@ -24,7 +25,7 @@ PROGRAM_NAME = "ShockwavesFFT.py"
 """
 
 
-def data_analysis(time_stamp=None, file_identifier='LLGTest'):
+def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=None):
     """
     Import a dataset in csv format, plotting the signal and the corresponding FFTs, for a user-defined number of sites.
 
@@ -37,8 +38,9 @@ def data_analysis(time_stamp=None, file_identifier='LLGTest'):
 
     * mx_time = np.linspace(start_time, end_time, number_of_iterations, endpoint=True)
 
-    :param int time_stamp: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
+    :param str file_prefix: This is the 'file_identity' variable in the C++ code.
     :param str file_identifier: This is the 'filename' variable in the C++ code.
+    :param int time_stamp: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
 
     :return: Nothing.
     """
@@ -48,19 +50,19 @@ def data_analysis(time_stamp=None, file_identifier='LLGTest'):
         # time_stamp must be declared if none was provided as a function argument
         time_stamp = str(input("Enter the unique identifier that all filenames will share: "))
 
+    data_filename = f"{sp.directory_tree_testing()[0]}{file_prefix}{file_identifier}{str(time_stamp)}.csv"
+
+    ssc.plot_graph(data_filename)
+    exit()
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} Beginning to import data")
-    # Each column of data is the magnetisation amplitudes at a moments of time for a single spin site
-    mx_all_data = np.loadtxt(open(f"{sp.directory_tree_testing()[0]}rk2_mx_{file_identifier}{str(time_stamp)}.csv",
-                                  "rb"),
-                             delimiter=",", skiprows=1)
+    mx_all_data = np.loadtxt(open(data_filename, "rb"), delimiter=",", skiprows=1)
     lg.info(f"{PROGRAM_NAME} Finished importing data")
 
-    # First column of data file is always the real-time at that iteration.
-    mx_time = mx_all_data[:, 0] / 1e-9  # Convert to [s] from [ns]
+    # First column of data file is always the real-time at that iteration. Convert to [s] from [ns]
+    mx_time = mx_all_data[:, 0] / 1e-9
 
     shouldContinuePlotting = True
-
     while shouldContinuePlotting:
         # User will plot data one spin site at a time, as each plot can take an extended amount of time to create
 
