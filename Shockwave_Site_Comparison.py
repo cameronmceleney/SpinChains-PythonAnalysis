@@ -69,8 +69,7 @@ def import_data_headers(filename):
     key_params['stepsize'] = float(data_values[13])
 
     legend_labels = create_plot_labels(simulated_spin_sites,
-                                       key_params['drivingRegionLHS'], key_params['drivingRegionRHS'])[0]
-
+                                       key_params['drivingRegionLHS'], key_params['drivingRegionRHS'])
     return key_params, legend_labels
 
 
@@ -110,33 +109,21 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
     return legend_labels
 
 
-def plot_graph(filename):
+def plot_graph(filename, amplitude_data, sites_to_compare):
     """
     Plots a graph
 
-    :param str filename: Imported data to be plotted. Should only contain the values (no headers for example).
-
-    :return:
+    :param str filename: Imported data to be plotted. Should only contain the values (no headers, for example).
+    :param float64 amplitude_data: The magnitudes of the spin's magnetisation at each moment in time for each spin site.
+    :param list[int] sites_to_compare: cake
     """
     key_data, subplot_labels = import_data_headers(filename)
+    s_to_ns = 1 / 1e-9 # Convert from seconds to nanoseconds
 
-    ylim_max_subplot_a1 = key_data['biasFieldDriving']
-    ylim_max_subplot_others = key_data['biasFieldDriving'] * (1 / key_data['biasFieldDrivingScale']) * 1e-2
-
-    mx_inputfile_np = np.loadtxt(f"{sp.directory_tree_testing()[0]}rk2Shockwave_Test1542.csv", delimiter=",",
-                                 skiprows=9)
-
-    # The first two arrays will be compared on pane1, and the final two will each have their own pane
-    SitesToPlotContainer = [mx_inputfile_np[:, 0], mx_inputfile_np[:, 1], mx_inputfile_np[:, 2], mx_inputfile_np[:, 3]]
-    SubPlotTitles = ['Input Site(s)',
-                     'Input Site(s)',
-                     'Output Site',
-                     'Output Site']
-
-    # contains all the labels needed for the plots. 1st row: titles. 2nd row: x-axis labels. 3rd row: y-axis labels
-    PlotAllLabels = ['Mx Values from Shockwave Code\nRK2[Midpoint]',
-                     'stopIterVal', 'Time (s)',
-                     'M Value', 'Signal (a.u.)']
+    subplot_titles = ['Input Site(s)',
+                      'Input Site(s)',
+                      'Output Site',
+                      'Output Site']
 
     fig = plt.figure(figsize=(12, 12))
 
@@ -145,46 +132,57 @@ def plot_graph(filename):
     plot_pane_3 = plt.subplot2grid((4, 4), (2, 2), colspan=2, rowspan=2)  # Bottom right pane to track final spin site
 
     # Figure title (here) to allow for individual panes to have their own titles
-    plt.suptitle(PlotAllLabels[0], size=24)
-
+    plt.suptitle('Mx Values from Shockwave Code\nRK2[Midpoint]', size=24)
     # X-axis will always show either time, or thickness of sample. As all datasets come from the
     # same simulation, this means that all plots will have the same x-axis. Thus this array can
     # be outwith the loop
-    time_values = np.linspace(0, key_data['maxSimTime'], key_data['numberOfDataPoints'] + 1)
+    time_values = np.linspace(0, key_data['maxSimTime'], key_data['numberOfDataPoints'] + 1) * s_to_ns
 
-    for k in range(0, len(SitesToPlotContainer)):
+    ylim_a1 = key_data['biasFieldDriving']
+    ylim_others = (key_data['biasFieldDriving'] / key_data['biasFieldDrivingScale']) * 1e-2
+
+    spin_sites_to_plot = []
+    for i in range(0, len(amplitude_data[0])):
+        # The variable spin_sites_to_plot is useful when building the software, as sometimes not all sites are wanted
+        spin_sites_to_plot.append(amplitude_data[:, i])
+    for site, magnitudes in enumerate(spin_sites_to_plot):
 
         # Each iteration of the FOR loop handles a different subplot. Design choice to allow
         # for easy scaling. To add a new pane, simply create a new subplot2grid, add dataset to
         # 'SitesToPlotContainer' and then finally add a new statement to this IF block
         axes = None
-
-        if k == 0:
-            axes = plot_pane_1
-        elif k == 1:
-            axes = plot_pane_1
-        elif k == 2:
-            axes = plot_pane_2
-        elif k == 3:
-            axes = plot_pane_3
+        if sites_to_compare:
+            if site in sites_to_compare:
+                axes = plot_pane_1
+            elif site == (len(spin_sites_to_plot) - 1):
+                axes = plot_pane_3
+            else:
+                axes = plot_pane_2
+        else:
+            if site == 0:
+                axes = plot_pane_2
+            elif site == (len(spin_sites_to_plot) - 1):
+                axes = plot_pane_3
+            else:
+                axes = plot_pane_1
 
         # Sets subplot title
-        axes.set_title(f'{SubPlotTitles[k]}')
+        axes.set(title=f'{subplot_titles[site]}')
 
-        axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.25),
-                       minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.125 / 1))
+        axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * s_to_ns * 0.25),
+                       minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * s_to_ns * 0.125))
 
-        axes.plot(time_values, SitesToPlotContainer[k], ls='-', lw=3, label=subplot_labels[k])
-        axes.set(xlabel=PlotAllLabels[2], ylabel=PlotAllLabels[4], xlim=[0, key_data['maxSimTime']])
+        axes.plot(time_values, magnitudes, ls='-', lw=3, label=subplot_labels[site])
+        axes.set(xlabel='Time [ns]', ylabel='Signal [arb.]', xlim=[0, key_data['maxSimTime'] * 1e9])
         axes.legend(loc=1, frameon=True)
 
         # This IF statement allows the comparison pane (a1) to have different axis limits to the other panes
-        if k <= 1:
-            axes.set(ylim=[-1 * ylim_max_subplot_a1, ylim_max_subplot_a1])
+        if site <= 1:
+            axes.set(ylim=[-1 * ylim_a1, ylim_a1])
             axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                            minor_locator=ticker.AutoMinorLocator())
-        elif k >= 2:
-            axes.set(ylim=[-1 * ylim_max_subplot_others, ylim_max_subplot_others])
+        elif site >= 2:
+            axes.set(ylim=[-1 * ylim_others, ylim_others])
             axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                            minor_locator=ticker.AutoMinorLocator())
 
