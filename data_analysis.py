@@ -6,11 +6,10 @@ import logging as lg
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import sys as sys
 
 # Additional libraries
 import csv as csv
-from pathlib import Path
+from os import path
 
 # My packages / Any header files
 import system_preparation as sp
@@ -52,23 +51,24 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     rc_params_update()
 
     full_file_name = f"{file_prefix}{file_identifier}{file_descriptor}"
-    data_absolute_path = f"{sp.directory_tree_testing()[0]}{full_file_name}.csv"
+    # data_absolute_path = f"{sp.directory_tree_testing()[0]}{full_file_name}.csv"
 
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
-    # m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
+    # m_all_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path)
     lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0], only_essentials=False)
+    mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0],
+                                                    only_essentials=False)
 
     plt_rk.main2(mx_data, my_data, eigen_vals_data)
     exit()
     lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
-    plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
+    # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
     exit()
 
     # First column of data file is always the real-time at that iteration. Convert to [s] from [ns]
-    mx_time = m_all_data[:, 0] / 1e-9
+    # mx_time = m_all_data[:, 0] / 1e-9
 
     shouldContinuePlotting = True
     while shouldContinuePlotting:
@@ -79,7 +79,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
 
         if target_spin >= 1:
 
-            plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
+            # plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
             shouldContinuePlotting = False
         else:
             shouldContinuePlotting = False
@@ -122,117 +122,101 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
-def import_data(file_name, file_path, only_essentials=True):
+def import_data(file_name, input_filepath, only_essentials=True):
     """
     Imports, separates, and returns the simulation data from the simulation headers.
 
     The header information in each csv file contains every parameter required to re-run the simulation. Importing, and
     using this same data, significantly reduces the number of syntax errors between programs by automating processes.
 
-    :param str file_path: The absolute filepath to the csv file in question. This path should only contain / or \\. An
-                          example is C:\\user_name\\path_to_file\\file_name.csv'.
-    :return: Two arguments. [0] is a 2D array of all simulation data values. [1] is a tuple (see import_data_headers for
-             details).
+    :param str file_name: Name of file to be imported. Note! This should not include a prefix like 'eigenvalues'
+    :param str input_filepath: The absolute filepath to the dir containing input files.
+    :param bool only_essentials: Streamlined option that is used for plotting panes.
+    :return: Need to add description.
     """
+
     if only_essentials:
         lg.info(f"{PROGRAM_NAME} - Importing data points...")
-        all_data_without_header = np.loadtxt(open(file_path, "rb"), delimiter=",", skiprows=9)
+        all_data_without_header = np.loadtxt(open(input_filepath, "rb"), delimiter=",", skiprows=9)
         lg.info(f"{PROGRAM_NAME} - Data points imported!")
-
-        header_data = import_data_headers(file_path)
-
+        header_data = import_data_headers(input_filepath)
         return all_data_without_header, header_data
 
     else:
-        mxvals, myvals, eigenvals = None, None, None
+        mx_data, my_data, eigenvalues_data = None, None, None
 
-        no_mxvals = False
-        no_myvals = False
-        no_eigenvals = False
+        does_mx_data_exist = False
+        does_my_data_exist = False
+        does_eigenvalues_data_exist = False
 
-        cpp_eigvals_name = "eigenvalues_" + file_name + ".csv"
-        cpp_eigvects_name = "eigenvectors_" + file_name + ".csv"
+        eigenvalues_raw_filename = f"eigenvalues_{file_name}.csv"
+        eigenvectors_raw_filename = f"eigenvectors_{file_name}.csv"
 
-        cpp_eigvals_path = Path(file_path + cpp_eigvals_name)
-        cpp_eigvects_path = Path(file_path + cpp_eigvects_name)
+        eigenvalues_filename = f"eigenvalues_formatted_{file_name}.csv"
+        eigenvectors_mx_filtered_filename = f"mx_formatted_{file_name}.csv"
+        eigenvectors_my_filtered_filename = f"my_formatted_{file_name}.csv"
 
-        py_eigvals_name = "np_eigenvalues_" + file_name + ".csv"
-        py_mxeigenvects_name = "np_mxeigenvects_" + file_name + ".csv"
-        py_myeigenvects_name = "np_myeigenvects_" + file_name + ".csv"
-
-        py_eigvals_path = Path(file_path + py_eigvals_name)
-        py_mxeigenvects_path = Path(file_path + py_mxeigenvects_name)
-        py_myeigenvects_path = Path(file_path + py_myeigenvects_name)
-
-        print(f"Checking chosen directory [{file_path}] for files...")
-        if py_mxeigenvects_path.is_file():
-            mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
-            print(f"mxvals: found ")
-
+        print(f"Checking chosen directories for files...")
+        if path.exists(input_filepath+eigenvectors_mx_filtered_filename):
+            mx_data = np.loadtxt(input_filepath+eigenvectors_mx_filtered_filename, delimiter=',')
+            does_mx_data_exist = True
+            print(f"mx data: found")
         else:
-            print("No valid file containing the mxvals was found.")
-            no_mxvals = True
+            print("No existing (valid) file containing the \'mx data\' was found.")
 
-        if py_myeigenvects_path.is_file():
-            myvals = np.loadtxt(open(py_myeigenvects_path), delimiter=',')
-            print("myvals: found")
-
+        if path.exists(input_filepath+eigenvectors_my_filtered_filename):
+            my_data = np.loadtxt(open(input_filepath+eigenvectors_my_filtered_filename), delimiter=',')
+            does_my_data_exist = True
+            print("m data: found")
         else:
-            print("No valid file containing the myvals was found.")
-            no_myvals = True
+            print("No existing (valid) file containing the \'my data\' was found.")
 
-        if py_eigvals_path.is_file():
-            eigenvals = np.loadtxt(open(py_eigvals_path), delimiter=',')
-            print("eigenvals: found")
-
+        if path.exists(input_filepath+eigenvalues_filename):
+            eigenvalues_data = np.loadtxt(open(input_filepath+eigenvalues_filename), delimiter=',')
+            does_eigenvalues_data_exist = True
+            print("eigenvalues data: found")
         else:
-            print("No valid file containing the eigenvals was found.")
-            no_eigenvals = True
+            print("No existing (valid) file containing the \'eigenvalues data\' was found.")
 
-        if no_mxvals | no_myvals | no_eigenvals:
+        if (not does_mx_data_exist) or (not does_my_data_exist) or (not does_eigenvalues_data_exist):
 
-            genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
+            genFiles = input('Missing files detected. Run import code to generate files? Y/N: ').upper()
 
             while True:
-
                 if genFiles == 'Y':
 
-                    # os.chdir(wdirPath)
-                    importeigvals = np.loadtxt(open(cpp_eigvals_path), delimiter=",")
-                    importedeigvects = np.loadtxt(open(cpp_eigvects_path), delimiter=",")
+                    eigenvalues_raw = np.loadtxt(input_filepath + eigenvalues_raw_filename, delimiter=",")
+                    eigenvectors_raw = np.loadtxt(input_filepath + eigenvectors_raw_filename, delimiter=",")
 
-                    sliceddata_eigvals = np.flipud(importeigvals[::2])
-                    sliceddata_eigvects = np.fliplr(importedeigvects[::2, :])
+                    eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
+                    eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
 
-                    mxeigenvects = sliceddata_eigvects[:, 0::2]
-                    myeigenvects = sliceddata_eigvects[:, 1::2]
+                    mx_data = eigenvectors_filtered[:, 0::2]
+                    my_data = eigenvectors_filtered[:, 1::2]
 
-                    np.savetxt(py_eigvals_name, sliceddata_eigvals, delimiter=',')
-                    np.savetxt(py_mxeigenvects_name, mxeigenvects, delimiter=',')
-                    np.savetxt(py_myeigenvects_name, myeigenvects, delimiter=',')
+                    np.savetxt((input_filepath+eigenvalues_filename), eigenvalues_filtered, delimiter=',')
+                    np.savetxt((input_filepath+eigenvectors_mx_filtered_filename), mx_data, delimiter=',')
+                    np.savetxt((input_filepath+eigenvectors_my_filtered_filename), my_data, delimiter=',')
 
-                    eigenvals = sliceddata_eigvals
-                    mxvals = mxeigenvects
-                    myvals = myeigenvects
-
-                    print(f"\nFiles successfully generated and save in {file_path}!\n")
+                    print(f"\nFiles successfully generated and save in {input_filepath}!\n")
                     break
 
                 elif genFiles == 'N':
                     print("Not generating files and exiting.")
-                    sys.exit(0)
+                    exit(0)
 
                 else:
                     while genFiles not in 'YN':
                         print('Invalid selection, try again.')
-                        genFiles = input(
-                            'Missing files detected. Run full import code to generate files? Y/N: ').upper()
+                        genFiles = input("Missing files detected. Run import code to generate files? Y/N: ").upper()
 
-        elif no_mxvals == False & no_myvals == False & no_eigenvals == False:
+        elif does_mx_data_exist and does_mx_data_exist and does_eigenvalues_data_exist:
             print("All files successfully found!\n")
+
         else:
             print("Unknown error with importing files.")
-        return mxvals, myvals, eigenvals
+
+        return mx_data, my_data, eigenvalues_data
 
 
 def import_data_headers(filename):
@@ -284,99 +268,3 @@ def import_data_headers(filename):
     lg.info(f"{PROGRAM_NAME} - File headers imported!")
 
     return key_params, simulated_spin_sites
-
-
-def import_data_ranplotter(eigens_ext, directoryPath, wdirPath):
-    if directoryPath[-1] != "/":
-        directoryPath += "/"
-    if wdirPath[-1] != "/":
-        wdirPath += "/"
-
-    mxvals, myvals, eigenvals = None, None, None
-
-    no_mxvals = False
-    no_myvals = False
-    no_eigenvals = False
-
-    cpp_eigvals_name = "eigenvalues_" + eigens_ext + ".csv"
-    cpp_eigvects_name = "eigenvectors_" + eigens_ext + ".csv"
-
-    cpp_eigvals_path = Path(directoryPath + cpp_eigvals_name)
-    cpp_eigvects_path = Path(directoryPath + cpp_eigvects_name)
-
-    py_eigvals_name = "np_eigenvalues_" + eigens_ext + ".csv"
-    py_mxeigenvects_name = "np_mxeigenvects_" + eigens_ext + ".csv"
-    py_myeigenvects_name = "np_myeigenvects_" + eigens_ext + ".csv"
-
-    py_eigvals_path = Path(directoryPath + py_eigvals_name)
-    py_mxeigenvects_path = Path(directoryPath + py_mxeigenvects_name)
-    py_myeigenvects_path = Path(directoryPath + py_myeigenvects_name)
-
-    print(f"Checking chosen directory [{directoryPath}] for files...")
-    if py_mxeigenvects_path.is_file():
-        mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
-        print(f"mxvals: found ")
-
-    else:
-        print("No valid file containing the mxvals was found.")
-        no_mxvals = True
-
-    if py_myeigenvects_path.is_file():
-        myvals = np.loadtxt(open(py_myeigenvects_path), delimiter=',')
-        print("myvals: found")
-
-    else:
-        print("No valid file containing the myvals was found.")
-        no_myvals = True
-
-    if py_eigvals_path.is_file():
-        eigenvals = np.loadtxt(open(py_eigvals_path), delimiter=',')
-        print("eigenvals: found")
-
-    else:
-        print("No valid file containing the eigenvals was found.")
-        no_eigenvals = True
-
-    if no_mxvals | no_myvals | no_eigenvals:
-
-        genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
-
-        while True:
-
-            if genFiles == 'Y':
-
-                # os.chdir(wdirPath)
-                importeigvals = np.loadtxt(open(cpp_eigvals_path), delimiter=",")
-                importedeigvects = np.loadtxt(open(cpp_eigvects_path), delimiter=",")
-
-                sliceddata_eigvals = np.flipud(importeigvals[::2])
-                sliceddata_eigvects = np.fliplr(importedeigvects[::2, :])
-
-                mxeigenvects = sliceddata_eigvects[:, 0::2]
-                myeigenvects = sliceddata_eigvects[:, 1::2]
-
-                np.savetxt(py_eigvals_name, sliceddata_eigvals, delimiter=',')
-                np.savetxt(py_mxeigenvects_name, mxeigenvects, delimiter=',')
-                np.savetxt(py_myeigenvects_name, myeigenvects, delimiter=',')
-
-                eigenvals = sliceddata_eigvals
-                mxvals = mxeigenvects
-                myvals = myeigenvects
-
-                print(f"\nFiles successfully generated and save in {wdirPath}!\n")
-                break
-
-            elif genFiles == 'N':
-                print("Not generating files and exiting.")
-                sys.exit(0)
-
-            else:
-                while genFiles not in 'YN':
-                    print('Invalid selection, try again.')
-                    genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
-
-    elif no_mxvals == False & no_myvals == False & no_eigenvals == False:
-        print("All files successfully found!\n")
-    else:
-        print("Unknown error with importing files.")
-    return mxvals, myvals, eigenvals
