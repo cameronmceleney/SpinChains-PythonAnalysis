@@ -109,7 +109,7 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
     return legend_labels
 
 
-def plot_graph(filename, amplitude_data, sites_to_compare):
+def plot_graph(filename, amplitude_data, sites_to_compare=None):
     """
     Plots a graph
 
@@ -118,77 +118,65 @@ def plot_graph(filename, amplitude_data, sites_to_compare):
     :param list[int] sites_to_compare: cake
     """
     key_data, subplot_labels = import_data_headers(filename)
-    s_to_ns = 1 / 1e-9 # Convert from seconds to nanoseconds
-
-    subplot_titles = ['Input Site(s)',
-                      'Input Site(s)',
-                      'Output Site',
-                      'Output Site']
+    key_data['maxSimTime'] *= 1e9
+    time_values = np.linspace(0, key_data['maxSimTime'], key_data['numberOfDataPoints'] + 1)
 
     fig = plt.figure(figsize=(12, 12))
+    plt.suptitle('Mx Values from Shockwave Code\nRK2[Midpoint]', size=24)
 
+    # Three subplots which are each a different pane
     plot_pane_1 = plt.subplot2grid((4, 4), (0, 0), colspan=4, rowspan=2)  # Top pane for comparison of multiple datasets
     plot_pane_2 = plt.subplot2grid((4, 4), (2, 0), colspan=2, rowspan=2)  # Bottom left pane to show any single dataset
     plot_pane_3 = plt.subplot2grid((4, 4), (2, 2), colspan=2, rowspan=2)  # Bottom right pane to track final spin site
 
-    # Figure title (here) to allow for individual panes to have their own titles
-    plt.suptitle('Mx Values from Shockwave Code\nRK2[Midpoint]', size=24)
-    # X-axis will always show either time, or thickness of sample. As all datasets come from the
-    # same simulation, this means that all plots will have the same x-axis. Thus this array can
-    # be outwith the loop
-    time_values = np.linspace(0, key_data['maxSimTime'], key_data['numberOfDataPoints'] + 1) * s_to_ns
-
-    ylim_a1 = key_data['biasFieldDriving']
-    ylim_others = (key_data['biasFieldDriving'] / key_data['biasFieldDrivingScale']) * 1e-2
+    for ax in [plot_pane_1, plot_pane_2, plot_pane_3]:
+        # Convert all x-axis tick labels to scientific notation on all panes
+        ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
 
     spin_sites_to_plot = []
     for i in range(0, len(amplitude_data[0])):
         # The variable spin_sites_to_plot is useful when building the software, as sometimes not all sites are wanted
         spin_sites_to_plot.append(amplitude_data[:, i])
+
     for site, magnitudes in enumerate(spin_sites_to_plot):
 
-        # Each iteration of the FOR loop handles a different subplot. Design choice to allow
-        # for easy scaling. To add a new pane, simply create a new subplot2grid, add dataset to
-        # 'SitesToPlotContainer' and then finally add a new statement to this IF block
-        axes = None
         if sites_to_compare:
+            # Assigns each spin site to a pane based upon either user's input (IF), or presets (ELSE)
             if site in sites_to_compare:
                 axes = plot_pane_1
+                axes.set(title=f"Comparison of User-Selected Sites")  # Sets subplot title
             elif site == (len(spin_sites_to_plot) - 1):
                 axes = plot_pane_3
+                axes.set(title=f'Final Simulated Site')  # Sets subplot title
             else:
                 axes = plot_pane_2
+                axes.set(title=f'All Other Sites')  # Sets subplot title
         else:
             if site == 0:
                 axes = plot_pane_2
+                axes.set(title=f'First Simulated Site')  # Sets subplot title
             elif site == (len(spin_sites_to_plot) - 1):
                 axes = plot_pane_3
+                axes.set(title=f'Final Simulated Site')  # Sets subplot title
             else:
                 axes = plot_pane_1
+                axes.set(title=f'All Other Sites')  # Sets subplot title
 
-        # Sets subplot title
-        axes.set(title=f'{subplot_titles[site]}')
-
-        axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * s_to_ns * 0.25),
-                       minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * s_to_ns * 0.125))
+        axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.25),
+                       minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.125))
 
         axes.plot(time_values, magnitudes, ls='-', lw=3, label=subplot_labels[site])
-        axes.set(xlabel='Time [ns]', ylabel='Signal [arb.]', xlim=[0, key_data['maxSimTime'] * 1e9])
+        axes.set(xlabel='Time [ns]', ylabel='Signal [arb.]', xlim=[0, key_data['maxSimTime']])
         axes.legend(loc=1, frameon=True)
 
         # This IF statement allows the comparison pane (a1) to have different axis limits to the other panes
-        if site <= 1:
-            axes.set(ylim=[-1 * ylim_a1, ylim_a1])
+        if axes == plot_pane_1:
             axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                            minor_locator=ticker.AutoMinorLocator())
-        elif site >= 2:
-            axes.set(ylim=[-1 * ylim_others, ylim_others])
+        else:
             axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                            minor_locator=ticker.AutoMinorLocator())
 
-    # Tightening layout greatly reduces plot size before saving
     fig.tight_layout()
-
     fig.savefig(f"{sp.directory_tree_testing()[1]}rk2Shockwave_Test1542.png")
-
     plt.show()
