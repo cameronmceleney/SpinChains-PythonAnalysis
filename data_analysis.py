@@ -56,14 +56,12 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
     # m_all_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path)
-    lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
-
     mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0],
                                                     only_essentials=False)
+    lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    plt_rk.main2(mx_data, my_data, eigen_vals_data)
-    exit()
     lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
+    plt_rk.main2(mx_data, my_data, eigen_vals_data)
     # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
     exit()
 
@@ -143,80 +141,64 @@ def import_data(file_name, input_filepath, only_essentials=True):
         return all_data_without_header, header_data
 
     else:
-        mx_data, my_data, eigenvalues_data = None, None, None
+        output_data_names = ["mx_data", "my_data", "eigenvalues_data"]
+        output_data = [None, None, None]  # [0]: mx_data. [1]: my_data. [2]: eigenvalues_data.
 
-        does_mx_data_exist = False
-        does_my_data_exist = False
-        does_eigenvalues_data_exist = False
+        # [0]: does_mx_data_exist. [1]: does_my_data_exist. [2]: does_eigenvalues_data_exist
+        does_data_exist = [False, False, False]
 
-        eigenvalues_raw_filename = f"eigenvalues_{file_name}.csv"
-        eigenvectors_raw_filename = f"eigenvectors_{file_name}.csv"
+        # [0]: eigenvectors_mx_filtered_filename. [1]: eigenvectors_my_filtered_filename. [2]: eigenvalues_filename.
+        filtered_filenames = [f"mx_formatted_{file_name}.csv", f"my_formatted_{file_name}.csv",
+                              f"eigenvalues_formatted_{file_name}.csv"]
 
-        eigenvalues_filename = f"eigenvalues_formatted_{file_name}.csv"
-        eigenvectors_mx_filtered_filename = f"mx_formatted_{file_name}.csv"
-        eigenvectors_my_filtered_filename = f"my_formatted_{file_name}.csv"
+        print(f"\nChecking chosen directories for files...")
 
-        print(f"Checking chosen directories for files...")
-        if path.exists(input_filepath+eigenvectors_mx_filtered_filename):
-            mx_data = np.loadtxt(input_filepath+eigenvectors_mx_filtered_filename, delimiter=',')
-            does_mx_data_exist = True
-            print(f"mx data: found")
+        for i, name in enumerate(filtered_filenames):
+
+            if path.exists(input_filepath+name):
+                output_data[i] = np.loadtxt(input_filepath+name, delimiter=',')
+                does_data_exist[i] = True
+                print(f"{output_data_names[i]}: found")
+            else:
+                print(f"{output_data_names[i]}: not found")
+
+        for _, does_exist in enumerate(does_data_exist):
+
+            if not does_exist:
+                genFiles = input('Missing files detected. Run import code to generate files? Y/N: ').upper()
+
+                while True:
+                    if genFiles == 'Y':
+
+                        eigenvalues_raw = np.loadtxt(f"{input_filepath}eigenvalues_{file_name}.csv", delimiter=",")
+                        eigenvectors_raw = np.loadtxt(f"{input_filepath}eigenvectors_{file_name}.csv", delimiter=",")
+
+                        eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
+                        eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
+
+                        mx_data = eigenvectors_filtered[:, 0::2]
+                        my_data = eigenvectors_filtered[:, 1::2]
+
+                        np.savetxt(f"{input_filepath}{filtered_filenames[0]}", mx_data, delimiter=',')
+                        np.savetxt(f"{input_filepath}{filtered_filenames[1]}", my_data, delimiter=',')
+                        np.savetxt(f"{input_filepath}{filtered_filenames[2]}", eigenvalues_filtered, delimiter=',')
+
+                        print(f"\nFiles successfully generated and save in {input_filepath}!\n")
+                        break
+
+                    elif genFiles == 'N':
+                        print("\nWill not generate files. Exiting...\n")
+                        exit(0)
+
+                    else:
+                        while genFiles not in 'YN':
+                            genFiles = input("Invalid selection, try again. Run import code to generate missing "
+                                             "files? Y/N: ").upper()
+
         else:
-            print("No existing (valid) file containing the \'mx data\' was found.")
-
-        if path.exists(input_filepath+eigenvectors_my_filtered_filename):
-            my_data = np.loadtxt(open(input_filepath+eigenvectors_my_filtered_filename), delimiter=',')
-            does_my_data_exist = True
-            print("m data: found")
-        else:
-            print("No existing (valid) file containing the \'my data\' was found.")
-
-        if path.exists(input_filepath+eigenvalues_filename):
-            eigenvalues_data = np.loadtxt(open(input_filepath+eigenvalues_filename), delimiter=',')
-            does_eigenvalues_data_exist = True
-            print("eigenvalues data: found")
-        else:
-            print("No existing (valid) file containing the \'eigenvalues data\' was found.")
-
-        if (not does_mx_data_exist) or (not does_my_data_exist) or (not does_eigenvalues_data_exist):
-
-            genFiles = input('Missing files detected. Run import code to generate files? Y/N: ').upper()
-
-            while True:
-                if genFiles == 'Y':
-
-                    eigenvalues_raw = np.loadtxt(input_filepath + eigenvalues_raw_filename, delimiter=",")
-                    eigenvectors_raw = np.loadtxt(input_filepath + eigenvectors_raw_filename, delimiter=",")
-
-                    eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
-                    eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
-
-                    mx_data = eigenvectors_filtered[:, 0::2]
-                    my_data = eigenvectors_filtered[:, 1::2]
-
-                    np.savetxt((input_filepath+eigenvalues_filename), eigenvalues_filtered, delimiter=',')
-                    np.savetxt((input_filepath+eigenvectors_mx_filtered_filename), mx_data, delimiter=',')
-                    np.savetxt((input_filepath+eigenvectors_my_filtered_filename), my_data, delimiter=',')
-
-                    print(f"\nFiles successfully generated and save in {input_filepath}!\n")
-                    break
-
-                elif genFiles == 'N':
-                    print("Not generating files and exiting.")
-                    exit(0)
-
-                else:
-                    while genFiles not in 'YN':
-                        print('Invalid selection, try again.')
-                        genFiles = input("Missing files detected. Run import code to generate files? Y/N: ").upper()
-
-        elif does_mx_data_exist and does_mx_data_exist and does_eigenvalues_data_exist:
             print("All files successfully found!\n")
 
-        else:
-            print("Unknown error with importing files.")
-
-        return mx_data, my_data, eigenvalues_data
+        return output_data[0], output_data[1], output_data[2]
 
 
 def import_data_headers(filename):
