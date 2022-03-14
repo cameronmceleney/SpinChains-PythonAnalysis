@@ -10,7 +10,6 @@ import sys as sys
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
-from pathlib import Path
 
 
 # My packages / Any header files
@@ -265,14 +264,9 @@ def fft_data(amplitude_data):
 
 
 # --- Continually plots eigenmodes until exit is entered---
-def main2():
-    eigens_ext = input("Please enter the file extension: ")
-    print("\n")
-    filelocation = "/Users/cameronmceleney/OneDrive - University of Glasgow/University/PhD/1st Year/C++/Chainspins/Data Outputs/"
-    targetlocation = filelocation
-    imported_arrays = import_data(eigens_ext, filelocation, targetlocation)
+def main2(mxvals, myvals, eigenvals):
 
-    maxMode = len(imported_arrays[0])
+    maxMode = len(mxvals)
     prev_choice_list = []
 
     print('---------------------------------------------------------------------------------------')
@@ -289,8 +283,8 @@ def main2():
     warn = False
     while True:
         for inputMode in userInputlist:
-            userMode = int(inputMode)
             try:
+                userMode = int(inputMode)
                 if not 1 <= userMode <= maxMode:
                     print(f"That mode does not exist. Please select a mode between 1 & {maxMode}.")
                     break
@@ -316,7 +310,7 @@ def main2():
 
                 elif inputMode.upper() == 'FOURIER':
                     user_step = int(input("Enter the step size for the plot: "))
-                    plot_fourier(user_step, imported_arrays[0], imported_arrays[1], imported_arrays[2])
+                    plot_fourier(user_step, mxvals, myvals, eigenvals)
 
                 BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
 
@@ -329,7 +323,7 @@ def main2():
                     sys.exit(0)
 
             if not warn:
-                plot_modes(userMode, imported_arrays[0], imported_arrays[1], imported_arrays[2])
+                plot_modes(userMode, mxvals, myvals, eigenvals)
                 warn = False
             else:
                 warn = False
@@ -373,102 +367,6 @@ def plot_modes(mode, mxvals, myvals, eigenvals):
 
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
     plt.show()
-
-
-def import_data(eigens_ext, directoryPath, wdirPath):
-    if directoryPath[-1] != "/":
-        directoryPath += "/"
-    if wdirPath[-1] != "/":
-        wdirPath += "/"
-
-    mxvals, myvals, eigenvals = None, None, None
-
-    no_mxvals = False
-    no_myvals = False
-    no_eigenvals = False
-
-    cpp_eigvals_name = "eigenvalues_" + eigens_ext + ".csv"
-    cpp_eigvects_name = "eigenvectors_" + eigens_ext + ".csv"
-
-    cpp_eigvals_path = Path(directoryPath + cpp_eigvals_name)
-    cpp_eigvects_path = Path(directoryPath + cpp_eigvects_name)
-
-    py_eigvals_name = "np_eigenvalues_" + eigens_ext + ".csv"
-    py_mxeigenvects_name = "np_mxeigenvects_" + eigens_ext + ".csv"
-    py_myeigenvects_name = "np_myeigenvects_" + eigens_ext + ".csv"
-
-    py_eigvals_path = Path(directoryPath + py_eigvals_name)
-    py_mxeigenvects_path = Path(directoryPath + py_mxeigenvects_name)
-    py_myeigenvects_path = Path(directoryPath + py_myeigenvects_name)
-
-    print(f"Checking chosen directory [{directoryPath}] for files...")
-    if py_mxeigenvects_path.is_file():
-        mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
-        print(f"mxvals: found ")
-
-    else:
-        print("No valid file containing the mxvals was found.")
-        no_mxvals = True
-
-    if py_myeigenvects_path.is_file():
-        myvals = np.loadtxt(open(py_myeigenvects_path), delimiter=',')
-        print("myvals: found")
-
-    else:
-        print("No valid file containing the myvals was found.")
-        no_myvals = True
-
-    if py_eigvals_path.is_file():
-        eigenvals = np.loadtxt(open(py_eigvals_path), delimiter=',')
-        print("eigenvals: found")
-
-    else:
-        print("No valid file containing the eigenvals was found.")
-        no_eigenvals = True
-
-    if no_mxvals | no_myvals | no_eigenvals:
-
-        genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
-
-        while True:
-
-            if genFiles == 'Y':
-
-                # os.chdir(wdirPath)
-                importeigvals = np.loadtxt(open(cpp_eigvals_path), delimiter=",")
-                importedeigvects = np.loadtxt(open(cpp_eigvects_path), delimiter=",")
-
-                sliceddata_eigvals = np.flipud(importeigvals[::2])
-                sliceddata_eigvects = np.fliplr(importedeigvects[::2, :])
-
-                mxeigenvects = sliceddata_eigvects[:, 0::2]
-                myeigenvects = sliceddata_eigvects[:, 1::2]
-
-                np.savetxt(py_eigvals_name, sliceddata_eigvals, delimiter=',')
-                np.savetxt(py_mxeigenvects_name, mxeigenvects, delimiter=',')
-                np.savetxt(py_myeigenvects_name, myeigenvects, delimiter=',')
-
-                eigenvals = sliceddata_eigvals
-                mxvals = mxeigenvects
-                myvals = myeigenvects
-
-                print(f"\nFiles successfully generated and save in {wdirPath}!\n")
-                break
-
-            elif genFiles == 'N':
-                print("Not generating files and exiting.")
-                sys.exit(0)
-
-            else:
-                while genFiles not in 'YN':
-                    print('Invalid selection, try again.')
-                    genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
-
-    elif no_mxvals == False & no_myvals == False & no_eigenvals == False:
-        print("All files successfully found!\n")
-    else:
-        print("Unknown error with importing files.")
-    return mxvals, myvals, eigenvals
 
 
 def plot_fourier(step, mxvals, myvals, eigenval):

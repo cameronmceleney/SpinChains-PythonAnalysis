@@ -6,9 +6,11 @@ import logging as lg
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import sys as sys
 
 # Additional libraries
 import csv as csv
+from pathlib import Path
 
 # My packages / Any header files
 import system_preparation as sp
@@ -57,10 +59,12 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
 
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
-    m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
+    # m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
     lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    plt_rk.main2()
+    mx_data, my_data, eigen_vals_data = import_data(data_absolute_path, only_essentials=False, eigens_ext="500spins-nonlin", directoryPath=sp.directory_tree_testing()[0])
+
+    plt_rk.main2(mx_data, my_data, eigen_vals_data)
     exit()
     lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
     plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
@@ -121,7 +125,7 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
-def import_data(file_path):
+def import_data(file_path, only_essentials=True, eigens_ext=None, directoryPath=None):
     """
     Imports, separates, and returns the simulation data from the simulation headers.
 
@@ -133,13 +137,107 @@ def import_data(file_path):
     :return: Two arguments. [0] is a 2D array of all simulation data values. [1] is a tuple (see import_data_headers for
              details).
     """
-    lg.info(f"{PROGRAM_NAME} - Importing data points...")
-    all_data_without_header = np.loadtxt(open(file_path, "rb"), delimiter=",", skiprows=9)
-    lg.info(f"{PROGRAM_NAME} - Data points imported!")
+    if only_essentials:
+        lg.info(f"{PROGRAM_NAME} - Importing data points...")
+        all_data_without_header = np.loadtxt(open(file_path, "rb"), delimiter=",", skiprows=9)
+        lg.info(f"{PROGRAM_NAME} - Data points imported!")
 
-    header_data = import_data_headers(file_path)
+        header_data = import_data_headers(file_path)
 
-    return all_data_without_header, header_data
+        return all_data_without_header, header_data
+    else:
+        if directoryPath[-1] != "/":
+            directoryPath += "/"
+
+        mxvals, myvals, eigenvals = None, None, None
+
+        no_mxvals = False
+        no_myvals = False
+        no_eigenvals = False
+
+        cpp_eigvals_name = "eigenvalues_" + eigens_ext + ".csv"
+        cpp_eigvects_name = "eigenvectors_" + eigens_ext + ".csv"
+
+        cpp_eigvals_path = Path(directoryPath + cpp_eigvals_name)
+        cpp_eigvects_path = Path(directoryPath + cpp_eigvects_name)
+
+        py_eigvals_name = "np_eigenvalues_" + eigens_ext + ".csv"
+        py_mxeigenvects_name = "np_mxeigenvects_" + eigens_ext + ".csv"
+        py_myeigenvects_name = "np_myeigenvects_" + eigens_ext + ".csv"
+
+        py_eigvals_path = Path(directoryPath + py_eigvals_name)
+        py_mxeigenvects_path = Path(directoryPath + py_mxeigenvects_name)
+        py_myeigenvects_path = Path(directoryPath + py_myeigenvects_name)
+
+        print(f"Checking chosen directory [{directoryPath}] for files...")
+        if py_mxeigenvects_path.is_file():
+            mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
+            print(f"mxvals: found ")
+
+        else:
+            print("No valid file containing the mxvals was found.")
+            no_mxvals = True
+
+        if py_myeigenvects_path.is_file():
+            myvals = np.loadtxt(open(py_myeigenvects_path), delimiter=',')
+            print("myvals: found")
+
+        else:
+            print("No valid file containing the myvals was found.")
+            no_myvals = True
+
+        if py_eigvals_path.is_file():
+            eigenvals = np.loadtxt(open(py_eigvals_path), delimiter=',')
+            print("eigenvals: found")
+
+        else:
+            print("No valid file containing the eigenvals was found.")
+            no_eigenvals = True
+
+        if no_mxvals | no_myvals | no_eigenvals:
+
+            genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
+
+            while True:
+
+                if genFiles == 'Y':
+
+                    # os.chdir(wdirPath)
+                    importeigvals = np.loadtxt(open(cpp_eigvals_path), delimiter=",")
+                    importedeigvects = np.loadtxt(open(cpp_eigvects_path), delimiter=",")
+
+                    sliceddata_eigvals = np.flipud(importeigvals[::2])
+                    sliceddata_eigvects = np.fliplr(importedeigvects[::2, :])
+
+                    mxeigenvects = sliceddata_eigvects[:, 0::2]
+                    myeigenvects = sliceddata_eigvects[:, 1::2]
+
+                    np.savetxt(py_eigvals_name, sliceddata_eigvals, delimiter=',')
+                    np.savetxt(py_mxeigenvects_name, mxeigenvects, delimiter=',')
+                    np.savetxt(py_myeigenvects_name, myeigenvects, delimiter=',')
+
+                    eigenvals = sliceddata_eigvals
+                    mxvals = mxeigenvects
+                    myvals = myeigenvects
+
+                    print(f"\nFiles successfully generated and save in {directoryPath}!\n")
+                    break
+
+                elif genFiles == 'N':
+                    print("Not generating files and exiting.")
+                    sys.exit(0)
+
+                else:
+                    while genFiles not in 'YN':
+                        print('Invalid selection, try again.')
+                        genFiles = input(
+                            'Missing files detected. Run full import code to generate files? Y/N: ').upper()
+
+        elif no_mxvals == False & no_myvals == False & no_eigenvals == False:
+            print("All files successfully found!\n")
+        else:
+            print("Unknown error with importing files.")
+        return mxvals, myvals, eigenvals
 
 
 def import_data_headers(filename):
@@ -191,3 +289,99 @@ def import_data_headers(filename):
     lg.info(f"{PROGRAM_NAME} - File headers imported!")
 
     return key_params, simulated_spin_sites
+
+
+def import_data_ranplotter(eigens_ext, directoryPath, wdirPath):
+    if directoryPath[-1] != "/":
+        directoryPath += "/"
+    if wdirPath[-1] != "/":
+        wdirPath += "/"
+
+    mxvals, myvals, eigenvals = None, None, None
+
+    no_mxvals = False
+    no_myvals = False
+    no_eigenvals = False
+
+    cpp_eigvals_name = "eigenvalues_" + eigens_ext + ".csv"
+    cpp_eigvects_name = "eigenvectors_" + eigens_ext + ".csv"
+
+    cpp_eigvals_path = Path(directoryPath + cpp_eigvals_name)
+    cpp_eigvects_path = Path(directoryPath + cpp_eigvects_name)
+
+    py_eigvals_name = "np_eigenvalues_" + eigens_ext + ".csv"
+    py_mxeigenvects_name = "np_mxeigenvects_" + eigens_ext + ".csv"
+    py_myeigenvects_name = "np_myeigenvects_" + eigens_ext + ".csv"
+
+    py_eigvals_path = Path(directoryPath + py_eigvals_name)
+    py_mxeigenvects_path = Path(directoryPath + py_mxeigenvects_name)
+    py_myeigenvects_path = Path(directoryPath + py_myeigenvects_name)
+
+    print(f"Checking chosen directory [{directoryPath}] for files...")
+    if py_mxeigenvects_path.is_file():
+        mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
+        print(f"mxvals: found ")
+
+    else:
+        print("No valid file containing the mxvals was found.")
+        no_mxvals = True
+
+    if py_myeigenvects_path.is_file():
+        myvals = np.loadtxt(open(py_myeigenvects_path), delimiter=',')
+        print("myvals: found")
+
+    else:
+        print("No valid file containing the myvals was found.")
+        no_myvals = True
+
+    if py_eigvals_path.is_file():
+        eigenvals = np.loadtxt(open(py_eigvals_path), delimiter=',')
+        print("eigenvals: found")
+
+    else:
+        print("No valid file containing the eigenvals was found.")
+        no_eigenvals = True
+
+    if no_mxvals | no_myvals | no_eigenvals:
+
+        genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
+
+        while True:
+
+            if genFiles == 'Y':
+
+                # os.chdir(wdirPath)
+                importeigvals = np.loadtxt(open(cpp_eigvals_path), delimiter=",")
+                importedeigvects = np.loadtxt(open(cpp_eigvects_path), delimiter=",")
+
+                sliceddata_eigvals = np.flipud(importeigvals[::2])
+                sliceddata_eigvects = np.fliplr(importedeigvects[::2, :])
+
+                mxeigenvects = sliceddata_eigvects[:, 0::2]
+                myeigenvects = sliceddata_eigvects[:, 1::2]
+
+                np.savetxt(py_eigvals_name, sliceddata_eigvals, delimiter=',')
+                np.savetxt(py_mxeigenvects_name, mxeigenvects, delimiter=',')
+                np.savetxt(py_myeigenvects_name, myeigenvects, delimiter=',')
+
+                eigenvals = sliceddata_eigvals
+                mxvals = mxeigenvects
+                myvals = myeigenvects
+
+                print(f"\nFiles successfully generated and save in {wdirPath}!\n")
+                break
+
+            elif genFiles == 'N':
+                print("Not generating files and exiting.")
+                sys.exit(0)
+
+            else:
+                while genFiles not in 'YN':
+                    print('Invalid selection, try again.')
+                    genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
+
+    elif no_mxvals == False & no_myvals == False & no_eigenvals == False:
+        print("All files successfully found!\n")
+    else:
+        print("Unknown error with importing files.")
+    return mxvals, myvals, eigenvals
