@@ -9,9 +9,11 @@ import system_preparation as sp
 import data_analysis as das
 
 """
-    The program 
+    This file acts as the main function for the software. To ensure encapsulation is adhered to, all data_analysis is 
+    performed is invoked from a separate file, to enable simulation programs to be written and invoked from this main 
+    file. 
 """
-PROGRAM_NAME = "ShockwavesFFT.py"
+PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
 """
     Core Details
     
@@ -34,11 +36,11 @@ def logging_setup():
 
 def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
-    lg.info("Program start")
+    lg.info(f"{PROGRAM_NAME} - Program start...")
 
     das.data_analysis(file_prefix="rk2Shockwave_", file_identifier="Test", time_stamp=1542)
 
-    lg.info("Program end")
+    lg.info(f"{PROGRAM_NAME} - Program end!")
 
     exit()
 

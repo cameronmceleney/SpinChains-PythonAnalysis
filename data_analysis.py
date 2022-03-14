@@ -17,7 +17,7 @@ import plots_for_rk_methods as plt_rk
 """
     Description of what data_analysis does
 """
-PROGRAM_NAME = "ShockwavesFFT.py"
+PROGRAM_NAME = "data_analysis.py"
 """
     Core Details
     
@@ -56,11 +56,12 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
     data_absolute_path = f"{sp.directory_tree_testing()[0]}{file_prefix}{file_identifier}{str(time_stamp)}.csv"
 
     # Tracking how long the data import took is important for monitoring large files.
-    lg.info(f"{PROGRAM_NAME} Beginning to import data")
+    lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
     m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
-    lg.info(f"{PROGRAM_NAME} Finished importing data")
+    lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    plt_rk.shockwaves_three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
+    lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
+    plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
     exit()
 
     # First column of data file is always the real-time at that iteration. Convert to [s] from [ns]
@@ -130,7 +131,10 @@ def import_data(file_path):
     :return: Two arguments. [0] is a 2D array of all simulation data values. [1] is a tuple (see import_data_headers for
              details).
     """
+    lg.info(f"{PROGRAM_NAME} - Importing data points...")
     all_data_without_header = np.loadtxt(open(file_path, "rb"), delimiter=",", skiprows=9)
+    lg.info(f"{PROGRAM_NAME} - Data points imported!")
+
     header_data = import_data_headers(file_path)
 
     return all_data_without_header, header_data
@@ -151,6 +155,8 @@ def import_data_headers(filename):
     :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
     containing strings; the names of each spin site.
     """
+    lg.info(f"{PROGRAM_NAME} - Importing file headers...")
+
     with open(filename) as file_header_data:
         csv_reader = csv.reader(file_header_data)
         next(csv_reader)  # 1st line. title_line
@@ -179,5 +185,7 @@ def import_data_headers(filename):
     key_params['numberOfDataPoints'] = int(data_values[11])
     key_params['numSpins'] = int(data_values[12])
     key_params['stepsize'] = float(data_values[13])
+
+    lg.info(f"{PROGRAM_NAME} - File headers imported!")
 
     return key_params, simulated_spin_sites
