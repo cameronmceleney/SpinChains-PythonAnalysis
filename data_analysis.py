@@ -7,9 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+# Additional libraries
+import csv as csv
+
 # My packages / Any header files
 import system_preparation as sp
-import Shockwave_Site_Comparison as ssc
+import plots_for_rk_methods as plt_rk
 
 """
     Description of what data_analysis does
@@ -50,17 +53,18 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
         # time_stamp must be declared if none was provided as a function argument
         time_stamp = str(input("Enter the unique identifier that all filenames will share: "))
 
-    data_filename = f"{sp.directory_tree_testing()[0]}{file_prefix}{file_identifier}{str(time_stamp)}.csv"
+    data_absolute_path = f"{sp.directory_tree_testing()[0]}{file_prefix}{file_identifier}{str(time_stamp)}.csv"
 
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} Beginning to import data")
-    mx_all_data = np.loadtxt(open(data_filename, "rb"), delimiter=",", skiprows=9)
+    m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
     lg.info(f"{PROGRAM_NAME} Finished importing data")
-    ssc.plot_graph(data_filename, mx_all_data, [0, 1])
+
+    plt_rk.shockwaves_three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
     exit()
 
     # First column of data file is always the real-time at that iteration. Convert to [s] from [ns]
-    mx_time = mx_all_data[:, 0] / 1e-9
+    mx_time = m_all_data[:, 0] / 1e-9
 
     shouldContinuePlotting = True
     while shouldContinuePlotting:
@@ -71,7 +75,7 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
 
         if target_spin >= 1:
 
-            generate_site_figure(mx_time, mx_all_data[:, target_spin], target_spin)
+            plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
             shouldContinuePlotting = False
         else:
             shouldContinuePlotting = False
@@ -114,118 +118,66 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
-def generate_site_figure(time_data, y_axis_data, spin_site):
+def import_data(file_path):
     """
-    Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs.
+    Imports, separates, and returns the simulation data from the simulation headers.
 
-    :param float time_data: The time data as an array which must be of the same length as y_axis_data.
-    :param __len__ y_axis_data: The magnitudes of the spin's magnetisation at each moment in time.
-    :param int spin_site: The spin site being plotted.
+    The header information in each csv file contains every parameter required to re-run the simulation. Importing, and
+    using this same data, significantly reduces the number of syntax errors between programs by automating processes.
 
-    :return: A figure containing four sub-plots.
+    :param str file_path: The absolute filepath to the csv file in question. This path should only contain / or \\. An
+                          example is C:\\user_name\\path_to_file\\file_name.csv'.
+    :return: Two arguments. [0] is a 2D array of all simulation data values. [1] is a tuple (see import_data_headers for
+             details).
     """
-    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [normalised]",
-                           "xlim": (0, 40)},
-                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, 5)},
-                       2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (0, 30), "yscale": 'log'},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 5),
-                           "yscale": 'log'}}
+    all_data_without_header = np.loadtxt(open(file_path, "rb"), delimiter=",", skiprows=9)
+    header_data = import_data_headers(file_path)
 
-    fig = plt.figure(figsize=(12, 12), constrained_layout=True, )
-    fig.suptitle(f"Data from Spin Site #{spin_site}")
-
-    # create 2 rows of sub-figures
-    all_sub_figs = fig.subfigures(nrows=2, ncols=1)
-
-    for row, sub_fig in enumerate(all_sub_figs):
-        if row == 0:
-            sub_fig.suptitle(f"Temporal Data")
-
-            axes = sub_fig.subplots(nrows=1, ncols=2)
-
-            for col, ax in enumerate(axes, start=row*2):
-                custom_temporal_plot(time_data, y_axis_data, ax=ax, plt_set_kwargs=plot_set_params[col], subplotnum=col)
-
-        else:
-            sub_fig.suptitle(f"FFT Data")
-
-            axes = sub_fig.subplots(nrows=1, ncols=2)
-
-            for col, ax in enumerate(axes, start=row*2):
-                custom_fft_plot(y_axis_data, ax=ax, plt_set_kwargs=plot_set_params[col], subplotnum=col)
-
-    plt.show()
+    return all_data_without_header, header_data
 
 
-def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, subplotnum, ax=None):
-    """Custom plotter for each temporal signal."""
-    if ax is None:
-        ax = plt.gca()
-
-    ax.plot(time_data, amplitude_data)
-    ax.set(**plt_set_kwargs)
-    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-    if subplotnum == 0:
-        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
-
-    return ax
-
-
-def custom_fft_plot(y, plt_set_kwargs, subplotnum, ax=None):
-    """Custom plotter for each FFT."""
-    frequencies, FFTransform, natural_frequency, driving_freq = fft_data(y)
-
-    if ax is None:
-        ax = plt.gca()
-
-    ax.plot(frequencies, abs(FFTransform),
-            marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
-    ax.set(**plt_set_kwargs)
-
-    if subplotnum == 2:
-        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
-    else:
-        ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
-        ax.axvline(x=driving_freq, label=f"Driving. {driving_freq}", color='green')
-
-        ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                  title='Freq. List [GHz]', fontsize=12)
-
-    ax.grid(color='white')
-
-    return ax
-
-
-def fft_data(amplitude_data):
+def import_data_headers(filename):
     """
-    Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
+    Import the header lines of each csv file to obtain the C++ simulation parameters.
 
-    :param amplitude_data: Magnitudes of magnetic moments for a spin site
+    Each simulation in C++ returns all the key parameters, required to replicate the simulation, as headers in csv
+    files. This function imports that data, and creates dictionaries to store it.
 
-    :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
-    (1st eigenvalue) [2], and driving frequency [3] for the system.
+    The Python dictionary keys are the same variable names as their C++ counterparts (for consistency). Casting is
+    required as data comes from csvreader as strings.
+
+    :param str filename: The filename of the data to be imported. Obtained from data_analysis.data_analysis()
+
+    :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
+    containing strings; the names of each spin site.
     """
-    # Data should be added here from the simulation. Reader function will be included in the future.
-    sim_params = {"stepsize": 2.857e-13,
-                  "total_iterations": 141 * 1e3,
-                  "gamma": 29.2,
-                  "H_static": 0.1,
-                  "freq_drive": 3.5,
-                  "total_datapoints": 1e7,
-                  "hz_to_ghz": 1e-9}
+    with open(filename) as file_header_data:
+        csv_reader = csv.reader(file_header_data)
+        next(csv_reader)  # 1st line. title_line
+        next(csv_reader)  # 2nd line. Blank.
+        next(csv_reader)  # 3rd line. Column title for each key simulation parameter. data_names
+        data_values = next(csv_reader)  # 4th line. Values associated with column titles from 3rd line.
+        next(csv_reader)  # 5th line. Blank.
+        next(csv_reader)  # 6th line. Simulation notes. sim_notes
+        next(csv_reader)  # 7th line. Describes how to understand column titles from 3rd line. data_names_explained
+        next(csv_reader)  # 8th line. Blank.
+        simulated_spin_sites = next(csv_reader)  # 9th line. Number for each spin site that was simulated
 
-    # This is the first natural frequency of the system, corresponding to the first eigenvalue.
-    natural_freq = sim_params['gamma'] * sim_params['H_static']
+    # Assignment to dict is done individually to improve readability.
+    key_params = dict()
+    key_params['biasField'] = float(data_values[0])
+    key_params['biasFieldDriving'] = float(data_values[1])
+    key_params['biasFieldDrivingScale'] = float(data_values[2])
+    key_params['drivingFreq'] = float(data_values[3])
+    key_params['drivingRegionLHS'] = int(data_values[4])
+    key_params['drivingRegionRHS'] = int(data_values[5])
+    key_params['drivingRegionWidth'] = int(data_values[6])
+    key_params['maxSimTime'] = float(data_values[7])
+    key_params['exchangeMaxVal'] = float(data_values[8])
+    key_params['stopIterVal'] = float(data_values[9])
+    key_params['exchangeMinVal'] = float(data_values[10])
+    key_params['numberOfDataPoints'] = int(data_values[11])
+    key_params['numSpins'] = int(data_values[12])
+    key_params['stepsize'] = float(data_values[13])
 
-    # Calculate FFT parameters
-    timeInterval = sim_params['stepsize'] * sim_params['total_iterations']
-    nSamples = len(amplitude_data)
-    dt = timeInterval / nSamples  # Or multiply the stepsize by the number of iterations between data recordings
-
-    # Compute the FFT
-    fourierTransform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
-    fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency, and negative values
-    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * sim_params["hz_to_ghz"]
-
-    return frequencies, fourierTransform, natural_freq, sim_params['freq_drive']
+    return key_params, simulated_spin_sites
