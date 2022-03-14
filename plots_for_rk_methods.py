@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Standard libraries
+from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -24,7 +25,7 @@ import system_preparation as sp
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
-def shockwaves_three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=None):
+def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=None):
     """
     Plots a graph
 
@@ -198,9 +199,9 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
     return ax
 
 
-def custom_fft_plot(y, plt_set_kwargs, which_subplot, ax=None):
+def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, ax=None):
     """Custom plotter for each FFT."""
-    frequencies, FFTransform, natural_frequency, driving_freq = fft_data(y)
+    frequencies, FFTransform, natural_frequency, driving_freq = fft_data(amplitude_data)
 
     if ax is None:
         ax = plt.gca()
@@ -255,3 +256,48 @@ def fft_data(amplitude_data):
     frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * sim_params["hz_to_ghz"]
 
     return frequencies, fourierTransform, natural_freq, sim_params['freq_drive']
+
+
+# ------------------------------ Animation ----------
+def animate_plot(key_data, amplitude_data, path_to_save_gif, file_name):
+    """
+    This function has not been tested, so use at your own risk!
+
+    :param dict key_data: All key simulation parameters imported from csv file.
+    :param Any amplitude_data: Magnetic moment values for site that is being animated.
+    :param str path_to_save_gif: Absolute path to save location. Must end is a \\ or /, and not include the filename.
+    :param str file_name: Filename of the output gif.
+
+    :return: Saves a gif to the target location.
+    """
+    number_of_images = 100
+    step = key_data['stopIterVal'] / number_of_images
+    number_of_spins = key_data['numSpins']
+
+    fig = plt.figure()
+    ax = plt.axes(xlim=(0, number_of_spins))
+    ax.xaxis.set(major_locator=ticker.MultipleLocator(number_of_spins * 0.25),
+                 minor_locator=ticker.MultipleLocator(number_of_spins * 0.25 / 4))
+    ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
+                 minor_locator=ticker.AutoMinorLocator())
+    plt.suptitle(f"Animation of data from {file_name}")
+
+    line, = ax.plot([], [], linestyle='-', lw=1)
+    label = ax.text(0.65, 0.90, '', transform=ax.transAxes)
+    ax.set(xlabel="Spin Site", ylabel="Amplitude [arb.]")
+
+    def initialise_animation():
+        line.set_data([], [])
+        return line,
+
+    def animate_animation(i):
+        spinx = np.arange(0, number_of_spins + 1)
+        line.set_xdata(spinx)
+        line.set_ydata(amplitude_data[i, :])
+        label.set_text(f'iteration = {i * step:2.3e}')
+        return line
+
+    anim = FuncAnimation(fig, animate_animation, init_func=initialise_animation,
+                         frames=key_data['stopIterVal'], interval=200, repeat=True, repeat_delay=400)
+
+    anim.save(f"{path_to_save_gif}{file_name}.gif")
