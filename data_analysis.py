@@ -60,6 +60,8 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
     m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
     lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
+    plt_rk.main2()
+    exit()
     lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
     plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
     exit()
