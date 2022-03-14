@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Standard libraries
-from matplotlib.animation import FuncAnimation
+# Standard modules (common)
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
+import seaborn as sns
+import sys as sys
+
+# Third party modules (uncommon)
+from matplotlib.animation import FuncAnimation
+import matplotlib.ticker as ticker
+from pathlib import Path
+
 
 # My packages / Any header files
 import system_preparation as sp
@@ -258,7 +264,312 @@ def fft_data(amplitude_data):
     return frequencies, fourierTransform, natural_freq, sim_params['freq_drive']
 
 
-# ------------------------------ Animation ----------
+# --- Continually plots eigenmodes until exit is entered---
+def main2():
+    eigens_ext = input("Please enter the file extension: ")
+    print("\n")
+    filelocation = "/Users/cameronmceleney/OneDrive - University of Glasgow/University/PhD/1st Year/C++/Chainspins/Data Outputs/"
+    targetlocation = filelocation
+    imported_arrays = import_data(eigens_ext, filelocation, targetlocation)
+
+    maxMode = len(imported_arrays[0])
+    prev_choice_list = []
+
+    print('---------------------------------------------------------------------------------------')
+    print('''
+          This will plot the eigenmodes of the selected data. Input the requested 
+          modes as single values, or as a space-separated list []. Enter any 
+          non-int to exit, or type EXIT. If you wish to plot the generalized 
+          Fourier coefficients, type FOURIER.
+
+          NB: None of the keywords are case sensitive
+          ''')
+    print('---------------------------------------------------------------------------------------')
+    userInputlist = input("Enter mode(s) to plot: ").split()
+    warn = False
+    while True:
+        for inputMode in userInputlist:
+            userMode = int(inputMode)
+            try:
+                if not 1 <= userMode <= maxMode:
+                    print(f"That mode does not exist. Please select a mode between 1 & {maxMode}.")
+                    break
+                # for prev_choice in prev_choice_list:
+                #     if prev_choice in userInputlist:
+                #         warn=True
+                #     if warn:
+                #         print(f"You just plotted mode {prev_choice}. Please make another choice.")
+                #         break
+                #     else:
+                #         continue
+                if set(prev_choice_list) & set(userInputlist):
+                    warn = True
+                    print(f"You have already printed a mode in {prev_choice_list}. Please make another choice.")
+                    break
+                else:
+                    warn = False
+
+            except ValueError:
+
+                if inputMode.upper() == 'EXIT':
+                    sys.exit(0)
+
+                elif inputMode.upper() == 'FOURIER':
+                    user_step = int(input("Enter the step size for the plot: "))
+                    plot_fourier(user_step, imported_arrays[0], imported_arrays[1], imported_arrays[2])
+
+                BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+
+                if BreakQuery == 'Y':
+                    # userInputlist = input("Enter mode(s) to plot: ")
+                    break
+
+                elif BreakQuery == 'N':
+                    print("Exiting program.")
+                    sys.exit(0)
+
+            if not warn:
+                plot_modes(userMode, imported_arrays[0], imported_arrays[1], imported_arrays[2])
+                warn = False
+            else:
+                warn = False
+                continue
+        prev_choice_list = userInputlist
+
+        userInputlist = (input("Enter mode(s) to plot: ")).split()
+
+
+def plot_modes(mode, mxvals, myvals, eigenvals):
+
+    mode += - 1
+
+    selected_mode_mx = mxvals[:, mode] * -1
+    selected_mode_my = myvals[:, mode] * -1
+
+    eigval = eigenvals[mode]
+
+    selected_mode_mx = np.append(np.append([0], selected_mode_mx), [0])
+    selected_mode_my = np.append(np.append([0], selected_mode_my), [0])
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+
+    sns.lineplot(x=range(0, len(selected_mode_mx)), y=selected_mode_mx, marker='', ls=':', lw=3, label='Mx', zorder=2)
+    sns.lineplot(x=range(0, len(selected_mode_my)), y=selected_mode_my, color='r', ls='-', lw=3, label='My', zorder=1)
+
+    axes.set(title=f"Eigenmode[{mode + 1}]",
+             xlabel="Site Number", ylabel="Amplitude (arb)",
+             xlim=(0, len(selected_mode_mx)), ylim=(-0.035, 0.035),
+             xticks=np.arange(0, len(selected_mode_mx), np.floor((len(selected_mode_mx) - 2) / 4)))
+
+    legend = axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                         frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                         title='Propagation\n   Direction', fontsize=10)
+
+    axes.text(len(selected_mode_mx) * 0.84, (1 / 3) * axes.get_ylim()[1],
+              f"Frequency\n{eigval / (2 * np.pi):4.2f} [GHz]", style='italic', fontsize=12,
+              bbox={'facecolor': 'white', 'alpha': 1.0, 'pad': 5, 'edgecolor': 'white'})
+
+    axes.axvspan(0, 1, color='black', alpha=0.2)
+    axes.axvspan(len(selected_mode_mx) - 2, len(selected_mode_mx) - 1, color='black', alpha=0.2)
+
+    axes.grid(color='black', ls='--', alpha=0.1, lw=1)
+    plt.show()
+
+
+def import_data(eigens_ext, directoryPath, wdirPath):
+    if directoryPath[-1] != "/":
+        directoryPath += "/"
+    if wdirPath[-1] != "/":
+        wdirPath += "/"
+
+    mxvals, myvals, eigenvals = None, None, None
+
+    no_mxvals = False
+    no_myvals = False
+    no_eigenvals = False
+
+    cpp_eigvals_name = "eigenvalues_" + eigens_ext + ".csv"
+    cpp_eigvects_name = "eigenvectors_" + eigens_ext + ".csv"
+
+    cpp_eigvals_path = Path(directoryPath + cpp_eigvals_name)
+    cpp_eigvects_path = Path(directoryPath + cpp_eigvects_name)
+
+    py_eigvals_name = "np_eigenvalues_" + eigens_ext + ".csv"
+    py_mxeigenvects_name = "np_mxeigenvects_" + eigens_ext + ".csv"
+    py_myeigenvects_name = "np_myeigenvects_" + eigens_ext + ".csv"
+
+    py_eigvals_path = Path(directoryPath + py_eigvals_name)
+    py_mxeigenvects_path = Path(directoryPath + py_mxeigenvects_name)
+    py_myeigenvects_path = Path(directoryPath + py_myeigenvects_name)
+
+    print(f"Checking chosen directory [{directoryPath}] for files...")
+    if py_mxeigenvects_path.is_file():
+        mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
+        print(f"mxvals: found ")
+
+    else:
+        print("No valid file containing the mxvals was found.")
+        no_mxvals = True
+
+    if py_myeigenvects_path.is_file():
+        myvals = np.loadtxt(open(py_myeigenvects_path), delimiter=',')
+        print("myvals: found")
+
+    else:
+        print("No valid file containing the myvals was found.")
+        no_myvals = True
+
+    if py_eigvals_path.is_file():
+        eigenvals = np.loadtxt(open(py_eigvals_path), delimiter=',')
+        print("eigenvals: found")
+
+    else:
+        print("No valid file containing the eigenvals was found.")
+        no_eigenvals = True
+
+    if no_mxvals | no_myvals | no_eigenvals:
+
+        genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
+
+        while True:
+
+            if genFiles == 'Y':
+
+                # os.chdir(wdirPath)
+                importeigvals = np.loadtxt(open(cpp_eigvals_path), delimiter=",")
+                importedeigvects = np.loadtxt(open(cpp_eigvects_path), delimiter=",")
+
+                sliceddata_eigvals = np.flipud(importeigvals[::2])
+                sliceddata_eigvects = np.fliplr(importedeigvects[::2, :])
+
+                mxeigenvects = sliceddata_eigvects[:, 0::2]
+                myeigenvects = sliceddata_eigvects[:, 1::2]
+
+                np.savetxt(py_eigvals_name, sliceddata_eigvals, delimiter=',')
+                np.savetxt(py_mxeigenvects_name, mxeigenvects, delimiter=',')
+                np.savetxt(py_myeigenvects_name, myeigenvects, delimiter=',')
+
+                eigenvals = sliceddata_eigvals
+                mxvals = mxeigenvects
+                myvals = myeigenvects
+
+                print(f"\nFiles successfully generated and save in {wdirPath}!\n")
+                break
+
+            elif genFiles == 'N':
+                print("Not generating files and exiting.")
+                sys.exit(0)
+
+            else:
+                while genFiles not in 'YN':
+                    print('Invalid selection, try again.')
+                    genFiles = input('Missing files detected. Run full import code to generate files? Y/N: ').upper()
+
+    elif no_mxvals == False & no_myvals == False & no_eigenvals == False:
+        print("All files successfully found!\n")
+    else:
+        print("Unknown error with importing files.")
+    return mxvals, myvals, eigenvals
+
+
+def plot_fourier(step, mxvals, myvals, eigenval):
+    ##############################################################################
+    # Sets global conditions including font sizes, ticks and sheet style
+    # Sets various font size. fsize: general text. lsize: legend. tsizeL title. ticksize: numbers next to ticks
+    fsize = 18
+    lsize = 12
+    tsize = 24
+    ticksize = 14
+
+    # sets the tick direction. Options: 'in', 'out', 'inout'
+    t_dir = 'in'
+    # sets the the tick size(s) and tick width(w) for the major and minor axes of all plots
+    t_maj_s = 10
+    t_min_s = 5
+    t_maj_w = 1.2
+    t_min_w = 1
+
+    # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
+    plt.rcParams.update({'axes.titlesize': tsize, 'axes.labelsize': fsize, 'font.size': fsize, 'legend.fontsize': lsize,
+                         'xtick.labelsize': ticksize, 'ytick.labelsize': ticksize, 'legend.title_fontsize': lsize + 2,
+                         'axes.edgecolor': 'black', 'axes.linewidth': 1,
+                         "xtick.bottom": False, "ytick.left": False, 'xtick.top': False, 'ytick.right': False,
+                         'xtick.color': 'white', 'ytick.color': 'white', 'ytick.labelcolor': 'black',
+                         'xtick.labelcolor': 'black',
+                         'text.color': 'black',
+                         'xtick.major.size': t_maj_s, 'xtick.major.width': t_maj_w,
+                         'xtick.minor.size': t_min_s, 'xtick.minor.width': t_min_w,
+                         'ytick.major.size': t_maj_s, 'ytick.major.width': t_maj_w,
+                         'ytick.minor.size': t_min_s, 'ytick.minor.width': t_min_w,
+                         'xtick.direction': t_dir, 'ytick.direction': t_dir,
+                         'axes.spines.top': False, 'axes.spines.bottom': False, 'axes.spines.left': False,
+                         'axes.spines.right': False,
+                         'figure.dpi': 300})
+
+    ##############################################################################
+
+    nspins = len(mxvals[:, 0])
+
+    eigenval = np.append([0], eigenval)
+    eigenvals = [val / (2 * np.pi) for val in eigenval]
+    g_ones = [1] * int(nspins * 0.05)
+    g_zeros = [0] * int(nspins * 0.95)
+
+    # gx is the driving field profile.
+    gx_LHS = g_ones + g_zeros
+    gx_RHS = g_zeros + g_ones
+
+    functLHS = []
+    functRHS = []
+    selected_mode_mx = None
+    for n in range(0, nspins):
+        # selects an eigenvector
+        selected_mode_mx = mxvals[:, n]
+        # finds the norm of the selected eigenvector
+        norm = np.linalg.norm(selected_mode_mx)
+        # calculates the normalised eigenvector
+        normalised_selected_mode_mx = selected_mode_mx
+
+        functLHS.append(np.dot(gx_LHS, normalised_selected_mode_mx))
+        functRHS.append(np.dot(gx_RHS, normalised_selected_mode_mx))
+    # import matplotlib.ticker as ticker
+    for i in range(0, len(functLHS)):
+        functLHS[i] *= 1 / np.dot(selected_mode_mx, selected_mode_mx)
+        functRHS[i] *= 1 / np.dot(selected_mode_mx, selected_mode_mx)
+    # [0 $\leq$j$\leq$80]
+    fig, axes1 = plt.subplots(1, 1, figsize=(12, 6))
+    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$) for 'f'{nspins} spins')
+    plt.subplots_adjust(top=0.82)
+
+    # lower = 150
+    # upper = 230
+    lower = int(input("Enter lower: "))
+    upper = int(input("Enter upper: "))
+    # r' [j $\in \mathbb{N}$: j$\leq$80]'
+    sns.lineplot(x=range(0, nspins), y=np.abs(functLHS), lw=3, marker='o', label='Left', zorder=2)
+    sns.lineplot(x=range(0, nspins), y=np.abs(functRHS), lw=3, color='r', marker='o', label='Right', zorder=1)
+
+    axes2 = axes1.twiny()
+    #
+    axes1.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
+              xlim=[lower, upper], ylim=[1 / 40, 10 ** 0],
+              yscale='log',
+              xticks=list(range(lower, upper + 1, step)),
+              xticklabels=[float(i) for i in np.round(eigenvals[lower:upper + 1:step], 1)])
+
+    axes2.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
+              xlim=axes1.get_xlim(),
+              xticks=list(range(int(axes1.get_xlim()[0]), int(axes1.get_xlim()[1]) + 1, step)))
+
+    axes1.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                 frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                 title='Propagation\n   Direction', fontsize=10)
+    axes1.grid(axis='y', which='minor', lw=0)
+    axes1.grid(axis='y', which='major', lw=2, ls='-')
+    axes1.grid(axis='x', which='both', lw=2, ls='-')
+    plt.show()
+
+
+# ----------------------------------------------------- Animation -----------------------------------------------------
 def animate_plot(key_data, amplitude_data, path_to_save_gif, file_name):
     """
     This function has not been tested, so use at your own risk!
