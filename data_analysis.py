@@ -30,7 +30,7 @@ PROGRAM_NAME = "data_analysis.py"
 """
 
 
-def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=None):
+def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTest"):
     """
     Import a dataset in csv format, plotting the signal and the corresponding FFTs, for a user-defined number of sites.
 
@@ -45,24 +45,21 @@ def data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", time_stamp=N
 
     :param str file_prefix: This is the 'file_identity' variable in the C++ code.
     :param str file_identifier: This is the 'filename' variable in the C++ code.
-    :param int time_stamp: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
+    :param str file_descriptor: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
 
     :return: Nothing.
     """
     rc_params_update()
 
-    if time_stamp is None:
-        # time_stamp must be declared if none was provided as a function argument
-        time_stamp = str(input("Enter the unique identifier that all filenames will share: "))
-
-    data_absolute_path = f"{sp.directory_tree_testing()[0]}{file_prefix}{file_identifier}{str(time_stamp)}.csv"
+    full_file_name = f"{file_prefix}{file_identifier}{file_descriptor}"
+    data_absolute_path = f"{sp.directory_tree_testing()[0]}{full_file_name}.csv"
 
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
     # m_all_data, [header_data_params, header_data_sites] = import_data(data_absolute_path)
     lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    mx_data, my_data, eigen_vals_data = import_data(data_absolute_path, only_essentials=False, eigens_ext="500spins-nonlin", directoryPath=sp.directory_tree_testing()[0])
+    mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0], only_essentials=False)
 
     plt_rk.main2(mx_data, my_data, eigen_vals_data)
     exit()
@@ -125,7 +122,7 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
-def import_data(file_path, only_essentials=True, eigens_ext=None, directoryPath=None):
+def import_data(file_name, file_path, only_essentials=True):
     """
     Imports, separates, and returns the simulation data from the simulation headers.
 
@@ -145,31 +142,29 @@ def import_data(file_path, only_essentials=True, eigens_ext=None, directoryPath=
         header_data = import_data_headers(file_path)
 
         return all_data_without_header, header_data
-    else:
-        if directoryPath[-1] != "/":
-            directoryPath += "/"
 
+    else:
         mxvals, myvals, eigenvals = None, None, None
 
         no_mxvals = False
         no_myvals = False
         no_eigenvals = False
 
-        cpp_eigvals_name = "eigenvalues_" + eigens_ext + ".csv"
-        cpp_eigvects_name = "eigenvectors_" + eigens_ext + ".csv"
+        cpp_eigvals_name = "eigenvalues_" + file_name + ".csv"
+        cpp_eigvects_name = "eigenvectors_" + file_name + ".csv"
 
-        cpp_eigvals_path = Path(directoryPath + cpp_eigvals_name)
-        cpp_eigvects_path = Path(directoryPath + cpp_eigvects_name)
+        cpp_eigvals_path = Path(file_path + cpp_eigvals_name)
+        cpp_eigvects_path = Path(file_path + cpp_eigvects_name)
 
-        py_eigvals_name = "np_eigenvalues_" + eigens_ext + ".csv"
-        py_mxeigenvects_name = "np_mxeigenvects_" + eigens_ext + ".csv"
-        py_myeigenvects_name = "np_myeigenvects_" + eigens_ext + ".csv"
+        py_eigvals_name = "np_eigenvalues_" + file_name + ".csv"
+        py_mxeigenvects_name = "np_mxeigenvects_" + file_name + ".csv"
+        py_myeigenvects_name = "np_myeigenvects_" + file_name + ".csv"
 
-        py_eigvals_path = Path(directoryPath + py_eigvals_name)
-        py_mxeigenvects_path = Path(directoryPath + py_mxeigenvects_name)
-        py_myeigenvects_path = Path(directoryPath + py_myeigenvects_name)
+        py_eigvals_path = Path(file_path + py_eigvals_name)
+        py_mxeigenvects_path = Path(file_path + py_mxeigenvects_name)
+        py_myeigenvects_path = Path(file_path + py_myeigenvects_name)
 
-        print(f"Checking chosen directory [{directoryPath}] for files...")
+        print(f"Checking chosen directory [{file_path}] for files...")
         if py_mxeigenvects_path.is_file():
             mxvals = np.loadtxt(open(py_mxeigenvects_path), delimiter=',')
             print(f"mxvals: found ")
@@ -220,7 +215,7 @@ def import_data(file_path, only_essentials=True, eigens_ext=None, directoryPath=
                     mxvals = mxeigenvects
                     myvals = myeigenvects
 
-                    print(f"\nFiles successfully generated and save in {directoryPath}!\n")
+                    print(f"\nFiles successfully generated and save in {file_path}!\n")
                     break
 
                 elif genFiles == 'N':
