@@ -61,7 +61,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
     lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
-    plt_rk.continual_eigenmodes(mx_data, my_data, eigen_vals_data)
+    plt_rk.continual_eigenmodes(mx_data, my_data, eigen_vals_data, full_file_name)
     # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
     exit()
 
