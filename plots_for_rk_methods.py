@@ -385,15 +385,17 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     else:
         step, lower, upper = int(input("Enter step, lower & upper: "))
         width_ones = int(input("Enter width of driving region: "))
-        # width_ones /= number_of_spins
         width_zeros = 1 - width_ones
 
+    # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
     eigenvalues_angular = np.append([0], eigenvalues_angular)
     eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues_angular]
+
+    # Find widths of each component of the driving regions.
     g_ones = [1] * int(number_of_spins * width_ones)
     g_zeros = [0] * int(number_of_spins * width_zeros)
 
-    # gp is the driving field profile along the axis where the drive is applied. My simulations all have the
+    # g is the driving field profile along the axis where the drive is applied. My simulations all have the
     # drive along the x-axis, hence the name 'gx'.
     gx_LHS = g_ones + g_zeros
     gx_RHS = g_zeros + g_ones
@@ -424,17 +426,17 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
     ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient [normalised]',
-                xlim=[lower, upper], ylim=[0.0, 0.1],
-                xticks=list(range(lower, upper + 1, step)),
-                xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
+           xlim=[lower, upper], ylim=[0.0, 0.1],
+           xticks=list(range(lower, upper + 1, step)),
+           xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
 
     ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
                 xlim=ax.get_xlim(),
-                xticks=list(range(int(ax.get_xlim()[0]), int(ax_freq.get_xlim()[1]) + 1, step)))
+                xticks=list(range(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]) + 1, step)))
 
     ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                   frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                   title='Propagation\n   Direction', fontsize=10)
+              frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+              title='Propagation\n   Direction', fontsize=10)
 
     ax.grid(lw=2, ls='-')
 
