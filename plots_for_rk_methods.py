@@ -287,7 +287,7 @@ def fft_data(amplitude_data):
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
-def continual_eigenmodes(mx_data, my_data, eigenvalues_data):
+def continual_eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
     """
     Plot the spin wave modes (eigenmodes) of a given system until a keyword is entered.
 
@@ -337,107 +337,107 @@ def continual_eigenmodes(mx_data, my_data, eigenvalues_data):
                     print(f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
                     break
 
-                else:
-                    has_valid_modes = True
-
             except ValueError:
                 # If the current tested mode is within the range, then it is either a keyword, or invalid.
                 if test_mode.upper() == 'EXIT':
                     sys.exit(0)
 
                 elif test_mode.upper() == 'FOURIER':
-                    plot_fourier(mx_data, my_data, eigenvalues_data)
+                    generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name)
+                    has_valid_modes = False
 
-                else:
-                    BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
-                    while True:
+                BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+                while True:
 
-                        if BreakQuery == 'Y':
-                            break
+                    if BreakQuery == 'Y':
+                        break
 
-                        elif BreakQuery == 'N':
-                            print("Exiting program...")
-                            exit(0)
+                    elif BreakQuery == 'N':
+                        print("Exiting program...")
+                        exit(0)
 
-                        else:
-                            while BreakQuery not in 'YN':
-                                BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+                    else:
+                        while BreakQuery not in 'YN':
+                            BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
 
             if has_valid_modes:
                 plot_modes(int(test_mode), mx_data, my_data, eigenvalues_data)
-                has_valid_modes = True
 
             else:
-                has_valid_modes = True
+                has_valid_modes = True  # Reset condition
                 continue
 
         previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
         modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
 
 
-def plot_fourier(mxvals, myvals, eigenval):
+def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, file_name, use_defaults=True):
 
-    nspins = len(mxvals[:, 0])
+    number_of_spins = len(amplitude_mx_data[:, 0])
 
-    step = int(input("Enter the step size for the plot: "))
+    # use_defaults is a testing flag to speed up the process of running sims.
+    if use_defaults:
+        step = 10
+        lower = 120
+        upper = 180
+        width_ones = 0.05
+        width_zeros = 0.95
+    else:
+        step, lower, upper = int(input("Enter step, lower & upper: "))
+        width_ones = int(input("Enter width of driving region: "))
+        # width_ones /= number_of_spins
+        width_zeros = 1 - width_ones
 
-    eigenval = np.append([0], eigenval)
-    eigenvals = [val / (2 * np.pi) for val in eigenval]
-    g_ones = [1] * int(nspins * 0.05)
-    g_zeros = [0] * int(nspins * 0.95)
+    eigenvalues_angular = np.append([0], eigenvalues_angular)
+    eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues_angular]
+    g_ones = [1] * int(number_of_spins * width_ones)
+    g_zeros = [0] * int(number_of_spins * width_zeros)
 
-    # gx is the driving field profile.
+    # gp is the driving field profile along the axis where the drive is applied. My simulations all have the
+    # drive along the x-axis, hence the name 'gx'.
     gx_LHS = g_ones + g_zeros
     gx_RHS = g_zeros + g_ones
 
-    functLHS = []
-    functRHS = []
-    selected_mode_mx = None
-    for n in range(0, nspins):
-        # selects an eigenvector
-        selected_mode_mx = mxvals[:, n]
-        # finds the norm of the selected eigenvector
-        norm = np.linalg.norm(selected_mode_mx)
-        # calculates the normalised eigenvector
-        normalised_selected_mode_mx = selected_mode_mx
+    fourier_coefficents_lhs = []
+    fourier_coefficents_rhs = []
 
-        functLHS.append(np.dot(gx_LHS, normalised_selected_mode_mx))
-        functRHS.append(np.dot(gx_RHS, normalised_selected_mode_mx))
-    # import matplotlib.ticker as ticker
-    for i in range(0, len(functLHS)):
-        functLHS[i] *= 1 / np.dot(selected_mode_mx, selected_mode_mx)
-        functRHS[i] *= 1 / np.dot(selected_mode_mx, selected_mode_mx)
-    # [0 $\leq$j$\leq$80]
-    fig, axes1 = plt.subplots(1, 1, figsize=(12, 6))
-    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$) for 'f'{nspins} spins')
+    for i in range(0, number_of_spins):
+        # Select an eigenvector, and take the dot-product to return the coefficient of that particular mode.
+        fourier_coefficents_lhs.append(np.dot(gx_LHS, amplitude_mx_data[:, i]))
+        fourier_coefficents_rhs.append(np.dot(gx_RHS, amplitude_mx_data[:, i]))
+
+    # Normalise the arrays of coefficients.
+    fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
+    fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
+
+    # Plotting functions. Left here as nothing else will use this functionality.
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
+
+    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f' for {file_name}')
     plt.subplots_adjust(top=0.82)
 
-    # lower = 150
-    # upper = 230
-    lower = int(input("Enter lower: "))
-    upper = int(input("Enter upper: "))
-    # r' [j $\in \mathbb{N}$: j$\leq$80]'
-    sns.lineplot(x=range(0, nspins), y=np.abs(functLHS), lw=3, marker='o', label='Left', zorder=2)
-    sns.lineplot(x=range(0, nspins), y=np.abs(functRHS), lw=3, color='r', marker='o', label='Right', zorder=1)
+    x_axis_limits = range(0, number_of_spins)
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', label='Left', zorder=2)
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
+                 marker='o', label='Right', zorder=1)
 
-    axes2 = axes1.twiny()
-    #
-    axes1.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
-              xlim=[lower, upper], ylim=[1 / 40, 10 ** 0],
-              yscale='log',
-              xticks=list(range(lower, upper + 1, step)),
-              xticklabels=[float(i) for i in np.round(eigenvals[lower:upper + 1:step], 1)])
+    # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
+    ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient [normalised]',
+                xlim=[lower, upper], ylim=[0.0, 0.1],
+                xticks=list(range(lower, upper + 1, step)),
+                xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
 
-    axes2.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
-              xlim=axes1.get_xlim(),
-              xticks=list(range(int(axes1.get_xlim()[0]), int(axes1.get_xlim()[1]) + 1, step)))
+    ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
+                xlim=ax.get_xlim(),
+                xticks=list(range(int(ax.get_xlim()[0]), int(ax_freq.get_xlim()[1]) + 1, step)))
 
-    axes1.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                 frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                 title='Propagation\n   Direction', fontsize=10)
-    axes1.grid(axis='y', which='minor', lw=0)
-    axes1.grid(axis='y', which='major', lw=2, ls='-')
-    axes1.grid(axis='x', which='both', lw=2, ls='-')
+    ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                   frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                   title='Propagation\n   Direction', fontsize=10)
+
+    ax.grid(lw=2, ls='-')
+
     plt.show()
 
 
