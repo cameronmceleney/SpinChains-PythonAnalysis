@@ -122,83 +122,95 @@ def rc_params_update():
 
 def import_data(file_name, input_filepath, only_essentials=True):
     """
-    Imports, separates, and returns the simulation data from the simulation headers.
+    Imports, separates, formats, and returns the simulation data from the eigenvalue and eigenvector output csv files.
 
-    The header information in each csv file contains every parameter required to re-run the simulation. Importing, and
-    using this same data, significantly reduces the number of syntax errors between programs by automating processes.
+    The data needed can be obtained from the C++ code:
+
+    * For only_essentials=True, use the outputs from 'SpinChainEigenSolver'.
+    * For only_essentials=False, use the outputs from 'Numerical_Methods'.
 
     :param str file_name: Name of file to be imported. Note! This should not include a prefix like 'eigenvalues'
     :param str input_filepath: The absolute filepath to the dir containing input files.
     :param bool only_essentials: Streamlined option that is used for plotting panes.
-    :return: Need to add description.
+
+    :return: Three arrays which can be used to generate all plots in plots_for_rk_methods.py.
     """
 
     if only_essentials:
+        # Outputs the data needed to plot single-image panes
         lg.info(f"{PROGRAM_NAME} - Importing data points...")
+        # Loads all input data
         all_data_without_header = np.loadtxt(open(input_filepath, "rb"), delimiter=",", skiprows=9)
         lg.info(f"{PROGRAM_NAME} - Data points imported!")
         header_data = import_data_headers(input_filepath)
         return all_data_without_header, header_data
 
     else:
-        output_data_names = ["mx_data", "my_data", "eigenvalues_data"]
-        output_data = [None, None, None]  # [0]: mx_data. [1]: my_data. [2]: eigenvalues_data.
-
-        # [0]: does_mx_data_exist. [1]: does_my_data_exist. [2]: does_eigenvalues_data_exist
-        does_data_exist = [False, False, False]
-
-        # [0]: eigenvectors_mx_filtered_filename. [1]: eigenvectors_my_filtered_filename. [2]: eigenvalues_filename.
+        # Containers to store key information about the returned arrays. Iterating through containers was felt to be
+        # easier to read than having many lines of variable declarations and initialisations.
+        output_data_array_names = ["mx_data", "my_data", "eigenvalues_data"]  # Names of output data arrays found below.
+        output_data_arrays = [None, None, None]  # Each array is initialised as none to ensure garbage isn't contained.
+        does_data_exist = [False, False, False]  # Tests if each filtered array is in the target directory.
         filtered_filenames = [f"mx_formatted_{file_name}.csv", f"my_formatted_{file_name}.csv",
-                              f"eigenvalues_formatted_{file_name}.csv"]
+                              f"eigenvalues_formatted_{file_name}.csv"]  # filtered means being in the needed format
 
         print(f"\nChecking chosen directories for files...")
 
-        for i, name in enumerate(filtered_filenames):
+        for i, (array_name, file_name) in enumerate(zip(output_data_array_names, filtered_filenames)):
 
-            if path.exists(input_filepath+name):
-                output_data[i] = np.loadtxt(input_filepath+name, delimiter=',')
+            if path.exists(input_filepath+file_name):
+                # Check if each filtered data file (mx, my, eigenvalue) is in the target directory.
+                output_data_arrays[i] = np.loadtxt(input_filepath+file_name, delimiter=',')
                 does_data_exist[i] = True
-                print(f"{output_data_names[i]}: found")
+                print(f"{array_name}: found")
+
             else:
-                print(f"{output_data_names[i]}: not found")
+                print(f"{array_name}: not found")
 
         for _, does_exist in enumerate(does_data_exist):
+            # Tests existence of each filtered array until either False is returned, or all are present (all True).
 
             if not does_exist:
-                genFiles = input('Missing files detected. Run import code to generate files? Y/N: ').upper()
+                # Generate all filtered files that are needed. Before doing so, allow user to opt-out.
+                generate_files_response = input('Run import code to generate missing files? Y/N: ').upper()
 
                 while True:
-                    if genFiles == 'Y':
+                    # Loops for as long as user input is accepted. Otherwise, forced them to comply.
+                    if generate_files_response == 'Y':
 
+                        # 'Raw' refers to the data produces from the C++ code.
                         eigenvalues_raw = np.loadtxt(f"{input_filepath}eigenvalues_{file_name}.csv", delimiter=",")
                         eigenvectors_raw = np.loadtxt(f"{input_filepath}eigenvectors_{file_name}.csv", delimiter=",")
 
+                        # Filtered refers to the data imported into, and amended by, this Python code.
                         eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
                         eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
 
                         mx_data = eigenvectors_filtered[:, 0::2]
                         my_data = eigenvectors_filtered[:, 1::2]
 
+                        # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
                         np.savetxt(f"{input_filepath}{filtered_filenames[0]}", mx_data, delimiter=',')
                         np.savetxt(f"{input_filepath}{filtered_filenames[1]}", my_data, delimiter=',')
                         np.savetxt(f"{input_filepath}{filtered_filenames[2]}", eigenvalues_filtered, delimiter=',')
 
                         print(f"\nFiles successfully generated and save in {input_filepath}!\n")
-                        break
+                        break   # Exits while True: loop.
 
-                    elif genFiles == 'N':
+                    elif generate_files_response == 'N':
                         print("\nWill not generate files. Exiting...\n")
                         exit(0)
 
                     else:
-                        while genFiles not in 'YN':
-                            genFiles = input("Invalid selection, try again. Run import code to generate missing "
-                                             "files? Y/N: ").upper()
+                        while generate_files_response not in 'YN':
+                            generate_files_response = input("Invalid selection, try again. Run import code to "
+                                                            "generate missing files? Y/N: ").upper()
 
         else:
+            #
             print("All files successfully found!\n")
 
-        return output_data[0], output_data[1], output_data[2]
+        return output_data_arrays[0], output_data_arrays[1], output_data_arrays[2]
 
 
 def import_data_headers(filename):
