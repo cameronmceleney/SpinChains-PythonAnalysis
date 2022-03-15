@@ -191,7 +191,19 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site):
 
 
 def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, ax=None):
-    """Custom plotter for each temporal signal."""
+    """
+    Custom plotter for each temporal signal within 'fft_and_signal_four'.
+
+    Description.
+
+    :param float time_data: The time data as an array which must be of the same length as y_axis_data.
+    :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
+    :param dict plt_set_kwargs: **kwargs for the ax.set() function.
+    :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
+    :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
+
+    :return: The subplot information required to be plotted in the main figure environment.
+    """
     if ax is None:
         ax = plt.gca()
 
@@ -205,13 +217,24 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
 
 
 def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, ax=None):
-    """Custom plotter for each FFT."""
-    frequencies, FFTransform, natural_frequency, driving_freq = fft_data(amplitude_data)
+    """
+    Custom plotter for each FFT within 'fft_and_signal_four'.
+
+    Description.
+
+    :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
+    :param dict plt_set_kwargs: **kwargs for the ax.set() function.
+    :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
+    :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
+
+    :return: The subplot information required to be plotted in the main figure environment."""
+    frequencies, fourierTransform, natural_frequency, driving_freq = fft_data(amplitude_data)
 
     if ax is None:
         ax = plt.gca()
 
-    ax.plot(frequencies, abs(FFTransform),
+    # Must be abs(FFTransform) to make sense!
+    ax.plot(frequencies, abs(fourierTransform),
             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
@@ -263,149 +286,100 @@ def fft_data(amplitude_data):
     return frequencies, fourierTransform, natural_freq, sim_params['freq_drive']
 
 
-# --- Continually plots eigenmodes until exit is entered---
-def main2(mxvals, myvals, eigenvals):
+# --------------------------------------------- Continually plot eigenmodes --------------------------------------------
+def continual_eigenmodes(mx_data, my_data, eigenvalues_data):
+    """
+    Plot the spin wave modes (eigenmodes) of a given system until a keyword is entered.
 
-    maxMode = len(mxvals)
-    prev_choice_list = []
+    Allows the user to plot as may eigenmodes as they would like; one per figure. This function is primarily used to
+    replicate Fig. 1 from macedo2021breaking. The user of keywords within this function also allow the user to plot
+    the 'generalised fourier coefficients' of a system. This is mainly used to replicate Figs 4.a & 4.d of the same
+    paper.
 
+    :params Any mx_data: The magnetic moments (x-component) at each iteration for all spin sites.
+    :params Any my_data: The magnetic moments (y-component) at each iteration for all spin sites.
+    :params Any eigenvalues_data: List of eigenvalues for the system.
+
+    :return: Each iteration within this function shows a plot.
+
+    """
     print('---------------------------------------------------------------------------------------')
     print('''
           This will plot the eigenmodes of the selected data. Input the requested 
-          modes as single values, or as a space-separated list []. Enter any 
+          modes as single values, or as a space-separated list. Enter any 
           non-int to exit, or type EXIT. If you wish to plot the generalized 
           Fourier coefficients, type FOURIER.
 
-          NB: None of the keywords are case sensitive
+          Note: None of the keywords are case-sensitive.
           ''')
     print('---------------------------------------------------------------------------------------')
-    userInputlist = input("Enter mode(s) to plot: ").split()
-    warn = False
+
+    upper_limit_mode = len(mx_data)  # The largest mode which can be plotted for the given data.
+    previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
+
+    # Take in first user input. Assume input is valid, until an error is raised.
+    modes_to_plot = input("Enter mode(s) to plot: ").split()
+    has_valid_modes = True
+
     while True:
-        for inputMode in userInputlist:
+        # Plots eigenmodes as long as the user enters a valid input.
+        for test_mode in modes_to_plot:
+
             try:
-                userMode = int(inputMode)
-                if not 1 <= userMode <= maxMode:
-                    print(f"That mode does not exist. Please select a mode between 1 & {maxMode}.")
+                if not 1 <= int(test_mode) <= upper_limit_mode:
+                    # Check mode is in the range held by the dataset
+                    print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
                     break
-                # for prev_choice in prev_choice_list:
-                #     if prev_choice in userInputlist:
-                #         warn=True
-                #     if warn:
-                #         print(f"You just plotted mode {prev_choice}. Please make another choice.")
-                #         break
-                #     else:
-                #         continue
-                if set(prev_choice_list) & set(userInputlist):
-                    warn = True
-                    print(f"You have already printed a mode in {prev_choice_list}. Please make another choice.")
+
+                if set(previously_plotted_modes) & set(modes_to_plot):
+                    # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
+                    has_valid_modes = False
+                    print(f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
                     break
+
                 else:
-                    warn = False
+                    has_valid_modes = True
 
             except ValueError:
-
-                if inputMode.upper() == 'EXIT':
+                # If the current tested mode is within the range, then it is either a keyword, or invalid.
+                if test_mode.upper() == 'EXIT':
                     sys.exit(0)
 
-                elif inputMode.upper() == 'FOURIER':
-                    user_step = int(input("Enter the step size for the plot: "))
-                    plot_fourier(user_step, mxvals, myvals, eigenvals)
+                elif test_mode.upper() == 'FOURIER':
+                    plot_fourier(mx_data, my_data, eigenvalues_data)
 
-                BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+                else:
+                    BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+                    while True:
 
-                if BreakQuery == 'Y':
-                    # userInputlist = input("Enter mode(s) to plot: ")
-                    break
+                        if BreakQuery == 'Y':
+                            break
 
-                elif BreakQuery == 'N':
-                    print("Exiting program.")
-                    sys.exit(0)
+                        elif BreakQuery == 'N':
+                            print("Exiting program...")
+                            exit(0)
 
-            if not warn:
-                plot_modes(userMode, mxvals, myvals, eigenvals)
-                warn = False
+                        else:
+                            while BreakQuery not in 'YN':
+                                BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+
+            if has_valid_modes:
+                plot_modes(int(test_mode), mx_data, my_data, eigenvalues_data)
+                has_valid_modes = True
+
             else:
-                warn = False
+                has_valid_modes = True
                 continue
-        prev_choice_list = userInputlist
 
-        userInputlist = (input("Enter mode(s) to plot: ")).split()
-
-
-def plot_modes(mode, mxvals, myvals, eigenvals):
-
-    mode += - 1
-
-    selected_mode_mx = mxvals[:, mode] * -1
-    selected_mode_my = myvals[:, mode] * -1
-
-    eigval = eigenvals[mode]
-
-    selected_mode_mx = np.append(np.append([0], selected_mode_mx), [0])
-    selected_mode_my = np.append(np.append([0], selected_mode_my), [0])
-    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
-
-    sns.lineplot(x=range(0, len(selected_mode_mx)), y=selected_mode_mx, marker='', ls=':', lw=3, label='Mx', zorder=2)
-    sns.lineplot(x=range(0, len(selected_mode_my)), y=selected_mode_my, color='r', ls='-', lw=3, label='My', zorder=1)
-
-    axes.set(title=f"Eigenmode[{mode + 1}]",
-             xlabel="Site Number", ylabel="Amplitude (arb)",
-             xlim=(0, len(selected_mode_mx)), ylim=(-0.035, 0.035),
-             xticks=np.arange(0, len(selected_mode_mx), np.floor((len(selected_mode_mx) - 2) / 4)))
-
-    legend = axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                         frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                         title='Propagation\n   Direction', fontsize=10)
-
-    axes.text(len(selected_mode_mx) * 0.84, (1 / 3) * axes.get_ylim()[1],
-              f"Frequency\n{eigval / (2 * np.pi):4.2f} [GHz]", style='italic', fontsize=12,
-              bbox={'facecolor': 'white', 'alpha': 1.0, 'pad': 5, 'edgecolor': 'white'})
-
-    axes.axvspan(0, 1, color='black', alpha=0.2)
-    axes.axvspan(len(selected_mode_mx) - 2, len(selected_mode_mx) - 1, color='black', alpha=0.2)
-
-    axes.grid(color='black', ls='--', alpha=0.1, lw=1)
-    plt.show()
+        previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
+        modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
 
 
-def plot_fourier(step, mxvals, myvals, eigenval):
-    ##############################################################################
-    # Sets global conditions including font sizes, ticks and sheet style
-    # Sets various font size. fsize: general text. lsize: legend. tsizeL title. ticksize: numbers next to ticks
-    fsize = 18
-    lsize = 12
-    tsize = 24
-    ticksize = 14
-
-    # sets the tick direction. Options: 'in', 'out', 'inout'
-    t_dir = 'in'
-    # sets the the tick size(s) and tick width(w) for the major and minor axes of all plots
-    t_maj_s = 10
-    t_min_s = 5
-    t_maj_w = 1.2
-    t_min_w = 1
-
-    # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'axes.titlesize': tsize, 'axes.labelsize': fsize, 'font.size': fsize, 'legend.fontsize': lsize,
-                         'xtick.labelsize': ticksize, 'ytick.labelsize': ticksize, 'legend.title_fontsize': lsize + 2,
-                         'axes.edgecolor': 'black', 'axes.linewidth': 1,
-                         "xtick.bottom": False, "ytick.left": False, 'xtick.top': False, 'ytick.right': False,
-                         'xtick.color': 'white', 'ytick.color': 'white', 'ytick.labelcolor': 'black',
-                         'xtick.labelcolor': 'black',
-                         'text.color': 'black',
-                         'xtick.major.size': t_maj_s, 'xtick.major.width': t_maj_w,
-                         'xtick.minor.size': t_min_s, 'xtick.minor.width': t_min_w,
-                         'ytick.major.size': t_maj_s, 'ytick.major.width': t_maj_w,
-                         'ytick.minor.size': t_min_s, 'ytick.minor.width': t_min_w,
-                         'xtick.direction': t_dir, 'ytick.direction': t_dir,
-                         'axes.spines.top': False, 'axes.spines.bottom': False, 'axes.spines.left': False,
-                         'axes.spines.right': False,
-                         'figure.dpi': 300})
-
-    ##############################################################################
+def plot_fourier(mxvals, myvals, eigenval):
 
     nspins = len(mxvals[:, 0])
+
+    step = int(input("Enter the step size for the plot: "))
 
     eigenval = np.append([0], eigenval)
     eigenvals = [val / (2 * np.pi) for val in eigenval]
@@ -464,6 +438,42 @@ def plot_fourier(step, mxvals, myvals, eigenval):
     axes1.grid(axis='y', which='minor', lw=0)
     axes1.grid(axis='y', which='major', lw=2, ls='-')
     axes1.grid(axis='x', which='both', lw=2, ls='-')
+    plt.show()
+
+
+def plot_modes(mode, mxvals, myvals, eigenvals):
+
+    mode += - 1
+
+    selected_mode_mx = mxvals[:, mode] * -1
+    selected_mode_my = myvals[:, mode] * -1
+
+    eigval = eigenvals[mode]
+
+    selected_mode_mx = np.append(np.append([0], selected_mode_mx), [0])
+    selected_mode_my = np.append(np.append([0], selected_mode_my), [0])
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+
+    sns.lineplot(x=range(0, len(selected_mode_mx)), y=selected_mode_mx, marker='', ls=':', lw=3, label='Mx', zorder=2)
+    sns.lineplot(x=range(0, len(selected_mode_my)), y=selected_mode_my, color='r', ls='-', lw=3, label='My', zorder=1)
+
+    axes.set(title=f"Eigenmode[{mode + 1}]",
+             xlabel="Site Number", ylabel="Amplitude (arb)",
+             xlim=(0, len(selected_mode_mx)), ylim=(-0.035, 0.035),
+             xticks=np.arange(0, len(selected_mode_mx), np.floor((len(selected_mode_mx) - 2) / 4)))
+
+    legend = axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                         frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                         title='Propagation\n   Direction', fontsize=10)
+
+    axes.text(len(selected_mode_mx) * 0.84, (1 / 3) * axes.get_ylim()[1],
+              f"Frequency\n{eigval / (2 * np.pi):4.2f} [GHz]", style='italic', fontsize=12,
+              bbox={'facecolor': 'white', 'alpha': 1.0, 'pad': 5, 'edgecolor': 'white'})
+
+    axes.axvspan(0, 1, color='black', alpha=0.2)
+    axes.axvspan(len(selected_mode_mx) - 2, len(selected_mode_mx) - 1, color='black', alpha=0.2)
+
+    axes.grid(color='black', ls='--', alpha=0.1, lw=1)
     plt.show()
 
 
