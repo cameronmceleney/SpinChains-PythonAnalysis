@@ -287,7 +287,7 @@ def fft_data(amplitude_data):
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
-def continual_eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
+def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
     """
     Plot the spin wave modes (eigenmodes) of a given system until a keyword is entered.
 
@@ -363,7 +363,7 @@ def continual_eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
                             BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
 
             if has_valid_modes:
-                plot_modes(int(test_mode), mx_data, my_data, eigenvalues_data)
+                plot_single_eigenmode(int(test_mode), mx_data, my_data, eigenvalues_data)
 
             else:
                 has_valid_modes = True  # Reset condition
@@ -463,7 +463,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     plt.show()
 
 
-def plot_modes(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
+def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
 
     eigenmode += - 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
 
