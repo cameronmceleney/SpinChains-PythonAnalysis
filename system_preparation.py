@@ -43,8 +43,8 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
     if has_custom_name:
         parent_name = custom_name()
     else:
-        # parent_name = date_of_today()
-        parent_name = "11 Mar 22"
+        parent_name = date_of_today()
+        # parent_name = "11 Mar 22"
 
     if platform == "linux" or platform == "linux2":
         print("Detected Linux. This OS is not yet supported. Exiting")

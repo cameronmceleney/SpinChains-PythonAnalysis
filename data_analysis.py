@@ -71,8 +71,13 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
         lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
         lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
-        plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
 
+        # Use this if you wish to see what ranplotter would normally output
+        # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
+        mx_time = m_all_data[:, 0] / 1e-9
+
+        plt_rk.fft_and_signal_four(time_data=mx_time, amplitude_data=m_all_data[:, 1], spin_site=1)
+        exit(0)
         shouldContinuePlotting = True
         while shouldContinuePlotting:
             # User will plot data one spin site at a time, as each plot can take an extended amount of time to create
@@ -82,7 +87,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
 
             if target_spin >= 1:
 
-                # plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
+                plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
                 shouldContinuePlotting = False
             else:
                 shouldContinuePlotting = False

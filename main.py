@@ -39,7 +39,7 @@ def main():
     lg.info(f"{PROGRAM_NAME} - Program start...")
 
     # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
-    das.data_analysis(file_prefix="rk2Shockwave_", file_identifier="Test", file_descriptor="1542", breaking_paper=False)
+    das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor="2235", breaking_paper=False)
     lg.info(f"{PROGRAM_NAME} - Program end!")
 
     exit()
@@ -48,7 +48,7 @@ def main():
 if __name__ == '__main__':
     logging_setup()
 
-    sp.directory_tree_testing()
+    sp.directory_tree_testing(has_directory_been_created=False, has_custom_name=False)
 
     main()
 
