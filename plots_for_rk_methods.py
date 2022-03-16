@@ -402,6 +402,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
         upper = 180
         width_ones = 0.05
         width_zeros = 0.95
+
     else:
         step, lower, upper = int(input("Enter step, lower & upper: "))
         width_ones = int(input("Enter width of driving region: "))
@@ -464,7 +465,18 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
 
 def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
+    """
+    Plot a single eigenmode with the x- and y-axis magnetic moment components against spin site.
 
+    :param int eigenmode: The eigenmode that is to be plotted.
+    :param mx_data: 2D array of amplitudes of the mx components.
+    :param my_data: 2D array of amplitudes of the my components.
+    :param list eigenvalues_data: 1D array of all eigenvalues in system.
+    :param bool has_endpoints: Allows for fixed nodes to be included on plot. Useful for visualisation purposes.
+
+    :return: Outputs a single figure.
+
+    """
     eigenmode += - 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
 
     # Select single mode to plot from imported data.
