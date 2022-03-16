@@ -140,12 +140,13 @@ def import_data(file_name, input_filepath, only_essentials=True):
         # Outputs the data needed to plot single-image panes
         lg.info(f"{PROGRAM_NAME} - Importing data points...")
         # Loads all input data
+        header_data = import_data_headers(input_filepath)
         all_data_without_header = np.loadtxt(open(input_filepath, "rb"), delimiter=",", skiprows=9)
         lg.info(f"{PROGRAM_NAME} - Data points imported!")
-        header_data = import_data_headers(input_filepath)
         return all_data_without_header, header_data
 
     else:
+
         # Containers to store key information about the returned arrays. Iterating through containers was felt to be
         # easier to read than having many lines of variable declarations and initialisations.
         output_data_array_names = ["mx_data", "my_data", "eigenvalues_data"]  # Names of output data arrays found below.

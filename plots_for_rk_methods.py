@@ -345,11 +345,13 @@ def continual_eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
                 elif test_mode.upper() == 'FOURIER':
                     generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name)
                     has_valid_modes = False
+                    break
 
                 BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
                 while True:
 
                     if BreakQuery == 'Y':
+                        has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
                         break
 
                     elif BreakQuery == 'N':
@@ -372,7 +374,25 @@ def continual_eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
 
 
 def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, file_name, use_defaults=True):
+    """
+    Plot coefficients across a range of eigenfrequencies to find frequencies of strong coupling.
 
+    The 'generalised fourier coefficients' indicate the affinity of spins to couple to a particular driving field
+    profile. If a non-linear exchange was used, then the rightward and leftward profiles will look different. This
+    information can be used to deduce when a system allows for:
+
+        * rightward only propagation.
+        * leftward only propagation.
+        * propagation in both directions.
+        * propagation in neither direction.
+
+    :param amplitude_mx_data: The magnetic moments (x-component) at each iteration for all spin sites.
+    :param eigenvalues_angular:  Eigenvalues, derived from Kittel's equations, of the system.
+    :param str file_name: Name of file that data is coming from. Used to name saved plot.
+    :param bool use_defaults: Use preset parameters to reduce user input, and speed-up running of simulations.
+
+    :return: Single figure plot.
+    """
     number_of_spins = len(amplitude_mx_data[:, 0])
 
     # use_defaults is a testing flag to speed up the process of running sims.
@@ -390,6 +410,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
     eigenvalues_angular = np.append([0], eigenvalues_angular)
     eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues_angular]
+    x_axis_limits = range(0, number_of_spins)
 
     # Find widths of each component of the driving regions.
     g_ones = [1] * int(number_of_spins * width_ones)
@@ -414,12 +435,10 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     # Plotting functions. Left here as nothing else will use this functionality.
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-    ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
-
     fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f' for {file_name}')
     plt.subplots_adjust(top=0.82)
 
-    x_axis_limits = range(0, number_of_spins)
+    # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
     sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', label='Left', zorder=2)
     sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
                  marker='o', label='Right', zorder=1)
@@ -430,6 +449,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
            xticks=list(range(lower, upper + 1, step)),
            xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
 
+    ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
     ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
                 xlim=ax.get_xlim(),
                 xticks=list(range(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]) + 1, step)))
@@ -443,39 +463,45 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     plt.show()
 
 
-def plot_modes(mode, mxvals, myvals, eigenvals):
+def plot_modes(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
 
-    mode += - 1
+    eigenmode += - 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
 
-    selected_mode_mx = mxvals[:, mode] * -1
-    selected_mode_my = myvals[:, mode] * -1
+    # Select single mode to plot from imported data.
+    mx_mode = mx_data[:, eigenmode] * -1
+    my_mode = my_data[:, eigenmode] * -1
 
-    eigval = eigenvals[mode]
+    # Simulation parameters
+    number_of_spins = len(mx_mode)
+    driving_width = 0.05
+    frequency = eigenvalues_data[eigenmode] / (2 * np.pi)  # Convert angular (frequency) eigenvalue to frequency [Hz].
 
-    selected_mode_mx = np.append(np.append([0], selected_mode_mx), [0])
-    selected_mode_my = np.append(np.append([0], selected_mode_my), [0])
+    if has_endpoints:
+        # 0-valued reflects the (P-1) and (N+1) end spins that act as fixed nodes for the system.
+        mx_mode = np.append(np.append([0], mx_mode), [0])
+        my_mode = np.append(np.append([0], my_mode), [0])
+
+    # Generate plot
     fig, axes = plt.subplots(1, 1, figsize=(12, 6))
 
-    sns.lineplot(x=range(0, len(selected_mode_mx)), y=selected_mode_mx, marker='', ls=':', lw=3, label='Mx', zorder=2)
-    sns.lineplot(x=range(0, len(selected_mode_my)), y=selected_mode_my, color='r', ls='-', lw=3, label='My', zorder=1)
+    sns.lineplot(x=range(0, len(mx_mode)), y=mx_mode, marker='', ls=':', lw=3, label='Mx', zorder=2)
+    sns.lineplot(x=range(0, len(my_mode)), y=my_mode, color='r', ls='-', lw=3, label='My', zorder=1)
 
-    axes.set(title=f"Eigenmode[{mode + 1}]",
-             xlabel="Site Number", ylabel="Amplitude (arb)",
-             xlim=(0, len(selected_mode_mx)), ylim=(-0.035, 0.035),
-             xticks=np.arange(0, len(selected_mode_mx), np.floor((len(selected_mode_mx) - 2) / 4)))
+    axes.set(title=f"Eigenmode[{eigenmode + 1}]",
+             xlabel="Site Number", ylabel="Amplitude [arb.]",
+             xlim=(0, number_of_spins), ylim=(-0.05, 0.05),
+             xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 4))
 
-    legend = axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                         frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                         title='Propagation\n   Direction', fontsize=10)
+    # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
+    axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                title=f"Frequency [GHz]\n        {frequency:4.2f}\n\n    Propagation\n      Direction",
+                fontsize=10)
 
-    axes.text(len(selected_mode_mx) * 0.84, (1 / 3) * axes.get_ylim()[1],
-              f"Frequency\n{eigval / (2 * np.pi):4.2f} [GHz]", style='italic', fontsize=12,
-              bbox={'facecolor': 'white', 'alpha': 1.0, 'pad': 5, 'edgecolor': 'white'})
-
-    axes.axvspan(0, 1, color='black', alpha=0.2)
-    axes.axvspan(len(selected_mode_mx) - 2, len(selected_mode_mx) - 1, color='black', alpha=0.2)
+    axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
 
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
+
     plt.show()
 
 
