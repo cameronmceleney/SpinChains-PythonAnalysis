@@ -38,8 +38,8 @@ def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info(f"{PROGRAM_NAME} - Program start...")
 
-    das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin")
-
+    # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
+    das.data_analysis(file_prefix="rk2Shockwave_", file_identifier="Test", file_descriptor="1542", breaking_paper=False)
     lg.info(f"{PROGRAM_NAME} - Program end!")
 
     exit()

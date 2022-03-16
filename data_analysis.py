@@ -29,7 +29,7 @@ PROGRAM_NAME = "data_analysis.py"
 """
 
 
-def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTest"):
+def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTest", breaking_paper=False):
     """
     Import a dataset in csv format, plotting the signal and the corresponding FFTs, for a user-defined number of sites.
 
@@ -51,36 +51,44 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     rc_params_update()
 
     full_file_name = f"{file_prefix}{file_identifier}{file_descriptor}"
-    # data_absolute_path = f"{sp.directory_tree_testing()[0]}{full_file_name}.csv"
+    data_absolute_path = f"{sp.directory_tree_testing()[0]}{full_file_name}.csv"
 
     # Tracking how long the data import took is important for monitoring large files.
     lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
-    # m_all_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path)
-    mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0],
-                                                    only_essentials=False)
-    lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
-    plt_rk.eigenmodes(mx_data, my_data, eigen_vals_data, full_file_name)
-    # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
-    exit()
+    if breaking_paper:
+        mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0],
+                                                        only_essentials=False)
+        lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
+        lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
+        plt_rk.eigenmodes(mx_data, my_data, eigen_vals_data, full_file_name)
 
-    # First column of data file is always the real-time at that iteration. Convert to [s] from [ns]
-    # mx_time = m_all_data[:, 0] / 1e-9
+    else:
+        m_all_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path,
+                                                                          only_essentials=True)
+        lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
 
-    shouldContinuePlotting = True
-    while shouldContinuePlotting:
-        # User will plot data one spin site at a time, as each plot can take an extended amount of time to create
+        lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
+        plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
 
-        # target_spin = int(input("Plot which spin (-ve to exit): "))
-        target_spin = 1
+        shouldContinuePlotting = True
+        while shouldContinuePlotting:
+            # User will plot data one spin site at a time, as each plot can take an extended amount of time to create
 
-        if target_spin >= 1:
+            # target_spin = int(input("Plot which spin (-ve to exit): "))
+            target_spin = 1
 
-            # plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
-            shouldContinuePlotting = False
-        else:
-            shouldContinuePlotting = False
+            if target_spin >= 1:
+
+                # plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
+                shouldContinuePlotting = False
+            else:
+                shouldContinuePlotting = False
+
+    exit(0)
+
+
+
 
 
 def rc_params_update():
@@ -120,7 +128,7 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
-def import_data(file_name, input_filepath, only_essentials=True):
+def import_data(file_name, input_filepath, only_essentials):
     """
     Imports, separates, formats, and returns the simulation data from the eigenvalue and eigenvector output csv files.
 
@@ -139,10 +147,13 @@ def import_data(file_name, input_filepath, only_essentials=True):
     if only_essentials:
         # Outputs the data needed to plot single-image panes
         lg.info(f"{PROGRAM_NAME} - Importing data points...")
+
         # Loads all input data
-        header_data = import_data_headers(input_filepath)
         all_data_without_header = np.loadtxt(open(input_filepath, "rb"), delimiter=",", skiprows=9)
+        header_data = import_data_headers(input_filepath)
+
         lg.info(f"{PROGRAM_NAME} - Data points imported!")
+
         return all_data_without_header, header_data
 
     else:
