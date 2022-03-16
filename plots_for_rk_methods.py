@@ -44,7 +44,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=N
 
     subplot_labels = create_plot_labels(list_of_spin_sites, key_data['drivingRegionLHS'], key_data['drivingRegionLHS'])
 
-    time_values = np.linspace(0, key_data['maxSimTime'], key_data['numberOfDataPoints'] + 1)
+    time_values = np.linspace(0, key_data['maxSimTime'], int(key_data['stopIterVal']) + 1)
 
     fig = plt.figure(figsize=(12, 12))
     plt.suptitle('Mx Values from Shockwave Code\nRK2[Midpoint]', size=24)
@@ -204,12 +204,14 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
 
     :return: The subplot information required to be plotted in the main figure environment.
     """
+
     if ax is None:
         ax = plt.gca()
 
     ax.plot(time_data, amplitude_data)
     ax.set(**plt_set_kwargs)
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+
     if which_subplot == 0:
         ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
 
