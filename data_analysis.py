@@ -45,6 +45,8 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     :param str file_prefix: This is the 'file_identity' variable in the C++ code.
     :param str file_identifier: This is the 'filename' variable in the C++ code.
     :param str file_descriptor: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
+    :param bool breaking_paper: Temporary argument to allow for the user to plot eigenmodes from ranplotter.py (True),
+    or signals (cpp_rk2_plot.py) (False).
 
     :return: Nothing.
     """
@@ -86,9 +88,6 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 shouldContinuePlotting = False
 
     exit(0)
-
-
-
 
 
 def rc_params_update():
