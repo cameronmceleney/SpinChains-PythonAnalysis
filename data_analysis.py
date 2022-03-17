@@ -92,11 +92,12 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 print("Note: To select sites to compare, edit code directly.")
                 print("Generating plot...")
                 plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
+                lg.info(f"{PROGRAM_NAME} - Plotting 3P complete!")
                 break
 
             elif select_plotter == 'FS':
                 mx_time = m_all_data[:, 0] / 1e-9
-
+                lg.info(f"{PROGRAM_NAME} - User chose to plot FS. Beginning first plot...")
                 cont_plotting_FFT = True
                 while cont_plotting_FFT:
                     # User will plot one spin site at a time, as plotting can take a long time.
@@ -106,14 +107,17 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                     print("Generating plot...")
                     if target_spin >= 1:
                         plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin, header_data_params)
+                        lg.info(f"{PROGRAM_NAME} - Finished plotting spin site #{target_spin} in FS. Continuing...")
                         cont_plotting_FFT = False  # Remove this after testing.
                     else:
                         cont_plotting_FFT = False
-
+                lg.info(f"{PROGRAM_NAME} - Completed plotting FS!")
                 break  # Break out of elif statement
 
             elif select_plotter == 'EXIT':
                 print("Exiting program...")
+                lg.info(f"{PROGRAM_NAME} - Exiting program from (select_plotter == EXIT)!")
+
                 exit(0)
 
             else:
@@ -121,6 +125,8 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                     select_plotter = input("Invalid option. Select function should to use: ").upper()
 
         print("Code complete!")
+        lg.info(f"{PROGRAM_NAME} - Code complete! Exiting.")
+
         exit(0)
 
 
