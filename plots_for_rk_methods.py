@@ -144,12 +144,13 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 
 # ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
-def fft_and_signal_four(time_data, amplitude_data, spin_site):
+def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params):
     """
     Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
 
     :param float time_data: The time data as an array which must be of the same length as y_axis_data.
     :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
+    :param dict simulation_params: Key simulation parameters.
     :param int spin_site: The spin site being plotted.
 
     :return: A figure containing four sub-plots.
@@ -185,7 +186,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site):
 
             for i, ax in enumerate(axes, start=row * 2):
                 custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
-                                plt_set_kwargs=plot_set_params[i])
+                                plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
 
     plt.show()
 
@@ -218,7 +219,7 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
     return ax
 
 
-def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, ax=None):
+def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_params, ax=None):
     """
     Custom plotter for each FFT within 'fft_and_signal_four'.
 
@@ -227,10 +228,11 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, ax=None):
     :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
     :param dict plt_set_kwargs: **kwargs for the ax.set() function.
     :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
+    :param dict simulation_params: Key simulation parameters from csv header.
     :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
 
     :return: The subplot information required to be plotted in the main figure environment."""
-    frequencies, fourierTransform, natural_frequency, driving_freq = fft_data(amplitude_data)
+    frequencies, fourierTransform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
 
     if ax is None:
         ax = plt.gca()
@@ -254,38 +256,39 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, ax=None):
     return ax
 
 
-def fft_data(amplitude_data):
+def fft_data(amplitude_data, simulation_params):
     """
     Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
 
+    :param dict simulation_params: Imported key simulation parameters.
     :param amplitude_data: Magnitudes of magnetic moments for a spin site
 
     :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
     (1st eigenvalue) [2], and driving frequency [3] for the system.
     """
-    # Data should be added here from the simulation. Reader function will be included in the future.
-    sim_params = {"stepsize": 2.857e-13,
-                  "total_iterations": 141 * 1e3,
-                  "gamma": 29.2,
-                  "H_static": 0.1,
-                  "freq_drive": 3.5,
-                  "total_datapoints": 1e7,
-                  "hz_to_ghz": 1e-9}
+    # Simulation parameters needed for FFT computations that are always the same are saved here.
+    # gamma is in [GHz/T] here.
+    core_values = {"gamma": 29.2,
+                   "hz_to_ghz": 1e-9}
 
-    # This is the first natural frequency of the system, corresponding to the first eigenvalue.
-    natural_freq = sim_params['gamma'] * sim_params['H_static']
+    # Data in file header is in [Hz] by default.
+    driving_Freq_GHz = simulation_params['drivingFreq'] * core_values["hz_to_ghz"]
+
+    # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
+    # add other markers to the plot(s)
+    natural_freq = core_values['gamma'] * simulation_params['biasField']
 
     # Calculate FFT parameters
-    timeInterval = sim_params['stepsize'] * sim_params['total_iterations']
-    nSamples = len(amplitude_data)
+    timeInterval = simulation_params['stepsize'] * simulation_params['stopIterVal']
+    nSamples = simulation_params['numberOfDataPoints']
     dt = timeInterval / nSamples  # Or multiply the stepsize by the number of iterations between data recordings
 
     # Compute the FFT
     fourierTransform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
     fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency, and negative values
-    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * sim_params["hz_to_ghz"]
+    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * core_values["hz_to_ghz"]
 
-    return frequencies, fourierTransform, natural_freq, sim_params['freq_drive']
+    return frequencies, fourierTransform, natural_freq, driving_Freq_GHz
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
