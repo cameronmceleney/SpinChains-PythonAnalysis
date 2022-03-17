@@ -47,7 +47,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=N
     time_values = np.linspace(0, key_data['maxSimTime'], int(key_data['stopIterVal']) + 1)
 
     fig = plt.figure(figsize=(12, 12))
-    plt.suptitle('Mx Values from Shockwave Code\nRK2[Midpoint]', size=24)
+    plt.suptitle('Comparison of $M_x$ Values At\nDifferent Spin Sites', size=24)
 
     # Three subplots which are each a different pane
     plot_pane_1 = plt.subplot2grid((4, 4), (0, 0), colspan=4, rowspan=2)  # Top pane for comparison of multiple datasets
@@ -242,14 +242,17 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
+    ax.axvline(x=driving_freq, label=f"Driving. {driving_freq:2.2f}", color='green')
+
     if which_subplot == 2:
         ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
+        # If at a node, then 3-wave generation is occurring.
+        ax.axvline(x=driving_freq * 3, label=f"T.W.G. {driving_freq:2.2f}", color='purple')
     else:
         ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
-        ax.axvline(x=driving_freq, label=f"Driving. {driving_freq}", color='green')
 
-        ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                  title='Freq. List [GHz]', fontsize=12)
+    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+              title='Freq. List [GHz]', fontsize=12)
 
     ax.grid(color='white')
 
