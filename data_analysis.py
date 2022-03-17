@@ -73,27 +73,55 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
 
         lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
 
-        # Use this if you wish to see what ranplotter would normally output
-        # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
-        mx_time = m_all_data[:, 0] / 1e-9
+        print('\n---------------------------------------------------------------------------------------')
+        print('''
+    The plotting functions available are:
+    
+        *   Three panes [3P] (Compare several spin sites)
+        *   FFT & Signal [FS] (Examine signal from a site, and its FFT)
+        
+    The terms within the square brackets are the keys for each function. 
+    If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
+              ''')
+        print('---------------------------------------------------------------------------------------\n')
+        select_plotter = input("Which function to use: ").upper()
+        while True:
 
-        plt_rk.fft_and_signal_four(mx_time, m_all_data[:, 1], 1, header_data_params)
-        exit(0)
-        shouldContinuePlotting = True
-        while shouldContinuePlotting:
-            # User will plot data one spin site at a time, as each plot can take an extended amount of time to create
+            if select_plotter == '3P':
+                # Use this if you wish to see what ranplotter.py would output
+                print("Note: To select sites to compare, edit code directly.")
+                print("Generating plot...")
+                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
+                break
 
-            # target_spin = int(input("Plot which spin (-ve to exit): "))
-            target_spin = 1
+            elif select_plotter == 'FS':
+                mx_time = m_all_data[:, 0] / 1e-9
 
-            if target_spin >= 1:
+                cont_plotting_FFT = True
+                while cont_plotting_FFT:
+                    # User will plot one spin site at a time, as plotting can take a long time.
 
-                plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin)
-                shouldContinuePlotting = False
+                    # target_spin = int(input("Plot which spin (-ve to exit): "))
+                    target_spin = 1  # Remove this after testing.
+                    print("Generating plot...")
+                    if target_spin >= 1:
+                        plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin, header_data_params)
+                        cont_plotting_FFT = False  # Remove this after testing.
+                    else:
+                        cont_plotting_FFT = False
+
+                break  # Break out of elif statement
+
+            elif select_plotter == 'EXIT':
+                print("Exiting program...")
+                exit(0)
+
             else:
-                shouldContinuePlotting = False
+                while select_plotter not in ["3P", "FS", "EXIT"]:
+                    select_plotter = input("Invalid option. Select function should to use: ").upper()
 
-    exit(0)
+        print("Code complete!")
+        exit(0)
 
 
 def rc_params_update():
