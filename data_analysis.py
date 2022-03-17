@@ -59,6 +59,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
 
     if breaking_paper:
+        # Used to plot figures from macedo2021breaking. Often used, so has a fast way to call.
         mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0],
                                                         only_essentials=False)
         lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
@@ -76,7 +77,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
         # plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
         mx_time = m_all_data[:, 0] / 1e-9
 
-        plt_rk.fft_and_signal_four(time_data=mx_time, amplitude_data=m_all_data[:, 1], spin_site=1)
+        plt_rk.fft_and_signal_four(mx_time, m_all_data[:, 1], 1, header_data_params)
         exit(0)
         shouldContinuePlotting = True
         while shouldContinuePlotting:
