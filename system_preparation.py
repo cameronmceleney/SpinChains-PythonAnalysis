@@ -4,6 +4,7 @@
 # Standard libraries
 from datetime import datetime
 import errno as errno
+import logging as lg
 import os as os
 from sys import platform, exit
 
@@ -19,6 +20,11 @@ from sys import platform, exit
     Filename    : globalvariables
     IDE         : PyCharm
 """
+
+
+def system_setup(has_directory_been_created=True, has_custom_name=False):
+    data, outputs, logging = directory_tree_testing(has_directory_been_created, has_custom_name)
+    logging_setup(logging)
 
 
 def directory_tree_testing(has_directory_been_created=True, has_custom_name=False):
@@ -41,10 +47,12 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
              All plots and GIFs should be saved here"""
 
     if has_custom_name:
-        parent_name = custom_name()
+        parent_name = custom_parent_dir_name()
     else:
         parent_name = date_of_today()
         # parent_name = "11 Mar 22"
+
+    lg.info(f"Target (parent) directory is {parent_name}.")
 
     if platform == "linux" or platform == "linux2":
         print("Detected Linux. This OS is not yet supported. Exiting")
@@ -58,10 +66,11 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
         if not has_directory_been_created:
             create_directory(mac_dir_root, parent_name)
 
-        input_data_directory = f"{mac_dir_root}{parent_name}/RK2 Shockwaves Tests Data/"
-        output_data_directory = f"{mac_dir_root}{parent_name}/RK2 Shockwaves Tests Outputs/"
+        input_data_directory = f"{mac_dir_root}{parent_name}/Simulation_Data/"
+        output_data_directory = f"{mac_dir_root}{parent_name}/Outputs/"
+        logging_directory = f"{mac_dir_root}{parent_name}/Logs/"
 
-        return input_data_directory, output_data_directory
+        return input_data_directory, output_data_directory, logging_directory
 
     elif platform == "win32" or platform == "win64":
         # Windows
@@ -70,13 +79,16 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
         if not has_directory_been_created:
             create_directory(windows_dir_root, parent_name)
 
-        input_data_directory = f"{windows_dir_root}{parent_name}\\RK2 Shockwaves Tests Data\\"
-        output_data_directory = f"{windows_dir_root}{parent_name}\\RK2 Shockwaves Tests Outputs\\"
+        input_data_directory = f"{windows_dir_root}{parent_name}\\Simulation_Data\\"
+        output_data_directory = f"{windows_dir_root}{parent_name}\\Outputs\\"
+        logging_directory = f"{windows_dir_root}{parent_name}\\Logs\\"
 
-        return input_data_directory, output_data_directory
+        logging_setup()
+
+        return input_data_directory, output_data_directory, logging_directory
 
 
-def custom_name():
+def custom_parent_dir_name():
     """
     Take input from the user
 
@@ -120,7 +132,7 @@ def create_directory(root_dir_path, parent_dir_name, should_show_errors=False):
     parent_dir_path = os.path.join(root_dir_path, parent_dir_name)
 
     # Create set (to avoid duplicates) of all the directories to be made under the parent_dir
-    sub_dirs = {"RK2 Shockwaves Tests Data", "RK2 Shockwaves Tests Outputs"}
+    sub_dirs = {"Simulation_Data", "Outputs"}
     path_list = []
 
     for i, child_dir_name in enumerate(sub_dirs):
@@ -142,3 +154,16 @@ def create_directory(root_dir_path, parent_dir_name, should_show_errors=False):
                 # User-selected flag in function argument
                 print(f"Directory '{child_dir_name}' already exists.")
                 pass
+
+
+def logging_setup(logging_directory_path):
+    """Initialisation of basic logging information."""
+    today_date = datetime.now().strftime("%y%m%d")
+    current_time = datetime.now().strftime("%H%M")
+
+    lg.basicConfig(filename=f'{logging_directory_path}/{today_date}-{current_time}.log',
+                   filemode='w',
+                   level=lg.INFO,
+                   format='%(asctime)s | %(module)s::%(funcName)s | %(levelname)s | %(message)s',
+                   datefmt='%Y-%m-%d %H:%M:%S',
+                   force=True)

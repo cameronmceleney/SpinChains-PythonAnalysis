@@ -53,25 +53,26 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
     rc_params_update()
 
     full_file_name = f"{file_prefix}{file_identifier}{file_descriptor}"
+    full_output_path = f"{sp.directory_tree_testing()[1]}{file_identifier}{file_descriptor}"
     data_absolute_path = f"{sp.directory_tree_testing()[0]}{full_file_name}.csv"
 
     # Tracking how long the data import took is important for monitoring large files.
-    lg.info(f"{PROGRAM_NAME} - Invoking functions to import data..")
+    lg.info(f"Invoking functions to import data..")
 
     if breaking_paper:
         # Used to plot figures from macedo2021breaking. Often used, so has a fast way to call.
         mx_data, my_data, eigen_vals_data = import_data(full_file_name, sp.directory_tree_testing()[0],
                                                         only_essentials=False)
-        lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
-        lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
+        lg.info(f"All functions that import data are finished!")
+        lg.info(f"Invoking functions to plot data...")
         plt_rk.eigenmodes(mx_data, my_data, eigen_vals_data, full_file_name)
 
     else:
         m_all_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path,
                                                                           only_essentials=True)
-        lg.info(f"{PROGRAM_NAME} - All functions that import data are finished!")
+        lg.info(f"All functions that import data are finished!")
 
-        lg.info(f"{PROGRAM_NAME} - Invoking functions to plot data...")
+        lg.info(f"Invoking functions to plot data...")
 
         print('\n---------------------------------------------------------------------------------------')
         print('''
@@ -89,34 +90,39 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
 
             if select_plotter == '3P':
                 # Use this if you wish to see what ranplotter.py would output
+                lg.info(f"Plotting function selected: three panes.")
                 print("Note: To select sites to compare, edit code directly.")
                 print("Generating plot...")
-                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [0, 1])
-                lg.info(f"{PROGRAM_NAME} - Plotting 3P complete!")
+                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [1])
+                lg.info(f"Plotting 3P complete!")
                 break
 
             elif select_plotter == 'FS':
+                # Use this to see fourier transforms of data
+
                 mx_time = m_all_data[:, 0] / 1e-9
-                lg.info(f"{PROGRAM_NAME} - User chose to plot FS. Beginning first plot...")
+                lg.info(f"Plotting function selected: Fourier Signal.")
+
                 cont_plotting_FFT = True
                 while cont_plotting_FFT:
                     # User will plot one spin site at a time, as plotting can take a long time.
-
-                    # target_spin = int(input("Plot which spin (-ve to exit): "))
-                    target_spin = 1  # Remove this after testing.
+                    target_spin = int(input("Plot which spin (-ve to exit): "))
                     print("Generating plot...")
+
                     if target_spin >= 1:
-                        plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin, header_data_params)
-                        lg.info(f"{PROGRAM_NAME} - Finished plotting spin site #{target_spin} in FS. Continuing...")
-                        cont_plotting_FFT = False  # Remove this after testing.
+                        plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin, header_data_params,
+                                                   full_output_path)
+                        lg.info(f"Finished plotting spin site #{target_spin} in FS. Continuing...")
+                        # cont_plotting_FFT = False  # Remove this after testing.
                     else:
                         cont_plotting_FFT = False
-                lg.info(f"{PROGRAM_NAME} - Completed plotting FS!")
+
+                lg.info(f"Completed plotting FS!")
                 break  # Break out of elif statement
 
             elif select_plotter == 'EXIT':
                 print("Exiting program...")
-                lg.info(f"{PROGRAM_NAME} - Exiting program from (select_plotter == EXIT)!")
+                lg.info(f"Exiting program from (select_plotter == EXIT)!")
 
                 exit(0)
 
@@ -125,7 +131,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                     select_plotter = input("Invalid option. Select function should to use: ").upper()
 
         print("Code complete!")
-        lg.info(f"{PROGRAM_NAME} - Code complete! Exiting.")
+        lg.info(f"Code complete! Exiting.")
 
         exit(0)
 
@@ -167,6 +173,10 @@ def rc_params_update():
                          'figure.dpi': 300})
 
 
+def get_filename(filename):
+    return filename
+
+
 def import_data(file_name, input_filepath, only_essentials):
     """
     Imports, separates, formats, and returns the simulation data from the eigenvalue and eigenvector output csv files.
@@ -185,13 +195,13 @@ def import_data(file_name, input_filepath, only_essentials):
 
     if only_essentials:
         # Outputs the data needed to plot single-image panes
-        lg.info(f"{PROGRAM_NAME} - Importing data points...")
+        lg.info(f"Importing data points...")
 
         # Loads all input data
         all_data_without_header = np.loadtxt(open(input_filepath, "rb"), delimiter=",", skiprows=9)
         header_data = import_data_headers(input_filepath)
 
-        lg.info(f"{PROGRAM_NAME} - Data points imported!")
+        lg.info(f"Data points imported!")
 
         return all_data_without_header, header_data
 
@@ -209,9 +219,9 @@ def import_data(file_name, input_filepath, only_essentials):
 
         for i, (array_name, file_name) in enumerate(zip(output_data_array_names, filtered_filenames)):
 
-            if path.exists(input_filepath+file_name):
+            if path.exists(input_filepath + file_name):
                 # Check if each filtered data file (mx, my, eigenvalue) is in the target directory.
-                output_data_arrays[i] = np.loadtxt(input_filepath+file_name, delimiter=',')
+                output_data_arrays[i] = np.loadtxt(input_filepath + file_name, delimiter=',')
                 does_data_exist[i] = True
                 print(f"{array_name}: found")
 
@@ -246,7 +256,7 @@ def import_data(file_name, input_filepath, only_essentials):
                         np.savetxt(f"{input_filepath}{filtered_filenames[2]}", eigenvalues_filtered, delimiter=',')
 
                         print(f"\nFiles successfully generated and save in {input_filepath}!\n")
-                        break   # Exits while True: loop.
+                        break  # Exits while True: loop.
 
                     elif generate_files_response == 'N':
                         print("\nWill not generate files. Exiting...\n")
@@ -279,7 +289,7 @@ def import_data_headers(filename):
     :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
     containing strings; the names of each spin site.
     """
-    lg.info(f"{PROGRAM_NAME} - Importing file headers...")
+    lg.info(f"Importing file headers...")
 
     with open(filename) as file_header_data:
         csv_reader = csv.reader(file_header_data)
@@ -310,6 +320,9 @@ def import_data_headers(filename):
     key_params['numSpins'] = int(data_values[12])
     key_params['stepsize'] = float(data_values[13])
 
-    lg.info(f"{PROGRAM_NAME} - File headers imported!")
+    lg.info(f"File headers imported!")
+
+    if "Time" in simulated_spin_sites:
+        simulated_spin_sites.remove("Time")
 
     return key_params, simulated_spin_sites

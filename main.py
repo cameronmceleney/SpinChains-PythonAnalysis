@@ -24,33 +24,22 @@ PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
 """
 
 
-def logging_setup():
-    """Initialisation of basic logging information."""
-    lg.basicConfig(filename='logfile.log',
-                   filemode='w',
-                   level=lg.INFO,
-                   format='%(asctime)s - %(message)s',
-                   datefmt='%d/%m/%Y %I:%M:%S %p',
-                   force=True)
-
-
 def main():
-    """All functions should be initialised here (excluding core operating features like logging)."""
-    lg.info(f"{PROGRAM_NAME} - Program start...")
+    """All functions should be irnitialised here (excluding core operating features like logging)."""
+    lg.info(f"Program start...")
 
     filename_base = str(input("Enter the unique identifier of the file: "))
 
     # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
-    das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base)
-    lg.info(f"{PROGRAM_NAME} - Program end!")
+    das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
+                      breaking_paper=False)
 
     exit()
 
 
 if __name__ == '__main__':
-    logging_setup()
 
-    sp.directory_tree_testing(has_directory_been_created=False, has_custom_name=False)
+    sp.system_setup(has_directory_been_created=True, has_custom_name=False)
 
     main()
 
