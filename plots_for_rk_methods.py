@@ -59,12 +59,12 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=N
         ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
 
     spin_sites_to_plot = []
-    for i in range(0, len(amplitude_data[0])):
-        # The variable spin_sites_to_plot is useful when building the software, as sometimes not all sites are wanted
+    for i in range(1, len(amplitude_data[0])):
+        # Exclude 0 as the first column of data will always be time values.
+        # The variable spin_sites_to_plot is useful when building the software, as sometimes not all sites are wanted.
         spin_sites_to_plot.append(amplitude_data[:, i])
 
     for site, magnitudes in enumerate(spin_sites_to_plot):
-
         if sites_to_compare:
             # Assigns each spin site to a pane based upon either user's input (IF), or presets (ELSE)
             if site in sites_to_compare:
@@ -144,7 +144,7 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 
 # ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
-def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params):
+def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params, filename):
     """
     Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
 
@@ -155,13 +155,17 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params)
 
     :return: A figure containing four sub-plots.
     """
-    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [normalised]",
-                           "xlim": (0, 40)},
-                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, 5)},
+    # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
+    temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
+    x_scaling = 0.2
+    t_shaded_xlim = temporal_xlim * x_scaling
+
+    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [arb.]",
+                           "xlim": (0, temporal_xlim), "ylim": (-1.0, 1.0)},
+                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (0, 30), "yscale": 'log'},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 5),
-                           "yscale": 'log'}}
+                           "yscale": 'log', "xlim": (0, 30)},
+                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "yscale": 'log', "xlim": (0, 5)}}
 
     fig = plt.figure(figsize=(12, 12), constrained_layout=True, )
     fig.suptitle(f"Data from Spin Site #{spin_site}")
@@ -177,7 +181,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params)
 
             for i, ax in enumerate(axes, start=row * 2):
                 custom_temporal_plot(time_data, amplitude_data, ax=ax, which_subplot=i,
-                                     plt_set_kwargs=plot_set_params[i])
+                                     plt_set_kwargs=plot_set_params[i], xlim_scaling=x_scaling)
 
         else:
             sub_fig.suptitle(f"FFT Data")
@@ -188,10 +192,11 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params)
                 custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
                                 plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
 
+    fig.savefig(f"{filename}_{spin_site}.png")
     plt.show()
 
 
-def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, ax=None):
+def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, xlim_scaling=0.2, ax=None):
     """
     Custom plotter for each temporal signal within 'fft_and_signal_four'.
 
@@ -201,6 +206,7 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
     :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
     :param dict plt_set_kwargs: **kwargs for the ax.set() function.
     :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
+    :param float xlim_scaling: Allows for the shaded region to have its width varied.
     :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
 
     :return: The subplot information required to be plotted in the main figure environment.
@@ -208,13 +214,13 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
 
     if ax is None:
         ax = plt.gca()
-
     ax.plot(time_data, amplitude_data)
     ax.set(**plt_set_kwargs)
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
     if which_subplot == 0:
-        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
+        # plt_set_kwargs['xlim'][1] is the upper value of the xlim
+        ax.axvspan(0, plt_set_kwargs['xlim'][1] * xlim_scaling, color='#DC143C', alpha=0.2, lw=0)
 
     return ax
 
@@ -234,6 +240,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     :return: The subplot information required to be plotted in the main figure environment."""
     frequencies, fourierTransform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
 
+    drivingFreq_Hz = simulation_params['drivingFreq'] / 1e9
     if ax is None:
         ax = plt.gca()
 
@@ -242,13 +249,15 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
-    ax.axvline(x=driving_freq, label=f"Driving. {driving_freq:2.2f}", color='green')
+    ax.axvline(x=drivingFreq_Hz, label=f"Driving. {drivingFreq_Hz:2.2f}", color='green')
 
     if which_subplot == 2:
         ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
-        # If at a node, then 3-wave generation is occurring.
-        ax.axvline(x=driving_freq * 3, label=f"T.W.G. {driving_freq:2.2f}", color='purple')
+        # If at a node, then 3-wave generation may be occurring. This loop plots that location.
+        triple_wave_gen_freq = drivingFreq_Hz * 3
+        ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
+        # This should be an eigenfrequency
         ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
