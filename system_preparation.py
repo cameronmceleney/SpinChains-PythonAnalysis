@@ -50,7 +50,7 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
         parent_name = custom_parent_dir_name()
     else:
         parent_name = date_of_today()
-        # parent_name = "11 Mar 22"
+        # parent_name = "18 Mar 22"
 
     lg.info(f"Target (parent) directory is {parent_name}.")
 
@@ -82,8 +82,6 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
         input_data_directory = f"{windows_dir_root}{parent_name}\\Simulation_Data\\"
         output_data_directory = f"{windows_dir_root}{parent_name}\\Outputs\\"
         logging_directory = f"{windows_dir_root}{parent_name}\\Logs\\"
-
-        logging_setup()
 
         return input_data_directory, output_data_directory, logging_directory
 
@@ -132,7 +130,7 @@ def create_directory(root_dir_path, parent_dir_name, should_show_errors=False):
     parent_dir_path = os.path.join(root_dir_path, parent_dir_name)
 
     # Create set (to avoid duplicates) of all the directories to be made under the parent_dir
-    sub_dirs = {"Simulation_Data", "Outputs"}
+    sub_dirs = {"Simulation_Data", "Outputs", "Logs"}
     path_list = []
 
     for i, child_dir_name in enumerate(sub_dirs):

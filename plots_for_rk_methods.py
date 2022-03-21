@@ -11,7 +11,6 @@ import sys as sys
 from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
 
-
 # My packages / Any header files
 import system_preparation as sp
 
@@ -152,6 +151,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
     :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
     :param dict simulation_params: Key simulation parameters.
     :param int spin_site: The spin site being plotted.
+    :param filename: The name of the file that is being read from.
 
     :return: A figure containing four sub-plots.
     """
