@@ -28,8 +28,27 @@ import system_preparation as sp
 """
 
 
+# -------------------------------------- Plot paper figures -------------------------------------
+def paper_figures(amplitude_data, key_data, filename):
+
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
+    plt.subplots_adjust(top=0.82)
+    axes.set_title(f"Mx Values for {key_data['drivingFreq']:2.2e} GHz")
+    axes.plot(np.arange(0, key_data["numSpins"] + 1), amplitude_data, ls='-', lw=3, label="Final State")
+    axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.25),
+                   minor_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.125 / 1))
+    axes.set(xlabel=f"Spin Sites", ylabel=f"m$_x$",
+             xlim=[0, key_data["numSpins"]], ylim=[-1 * 1.75e-3, 1.75e-3])
+    axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
+                   minor_locator=ticker.AutoMinorLocator())
+    axes.legend(loc=1, frameon=True)
+    fig.savefig(f"{filename}.png")
+    plt.show()
+
+
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
-def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=None):
+def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to_compare=None):
     """
     Plots a graph
 
@@ -38,12 +57,13 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=N
     :param dict key_data: All key simulation parameters imported from csv file.
     :param list list_of_spin_sites: Spin sites that were simulated.
     :param list[int] sites_to_compare: Optional. User-defined list of sites to plot.
+    :param filename: data.
     """
     key_data['maxSimTime'] *= 1e9
 
-    subplot_labels = create_plot_labels(list_of_spin_sites, key_data['drivingRegionLHS'], key_data['drivingRegionLHS'])
+    subplot_labels = create_plot_labels(list_of_spin_sites, key_data['drivingRegionLHS'], key_data['drivingRegionRHS'])
 
-    time_values = np.linspace(0, key_data['maxSimTime'], int(key_data['stopIterVal']) + 1)
+    time_values = np.linspace(0, key_data['maxSimTime'], int(key_data['numberOfDataPoints']) + 1)
 
     fig = plt.figure(figsize=(12, 12))
     plt.suptitle('Comparison of $M_x$ Values At\nDifferent Spin Sites', size=24)
@@ -90,7 +110,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=N
                        minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.125))
 
         axes.plot(time_values, magnitudes, ls='-', lw=3, label=subplot_labels[site])
-        axes.set(xlabel='Time [ns]', ylabel='Signal [arb.]', xlim=[0, key_data['maxSimTime']])
+        axes.set(xlabel='Time [ns]', ylabel="m$_x$", xlim=[0, key_data['maxSimTime']])
         axes.legend(loc=1, frameon=True)
 
         # This IF statement allows the comparison pane (a1) to have different axis limits to the other panes
@@ -102,7 +122,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, sites_to_compare=N
                            minor_locator=ticker.AutoMinorLocator())
 
     fig.tight_layout()
-    fig.savefig(f"{sp.directory_tree_testing()[1]}rk2Shockwave_Test1542.png")
+    fig.savefig(f"{filename}.png")
     plt.show()
 
 
