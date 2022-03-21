@@ -25,7 +25,7 @@ PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
 
 
 def main():
-    """All functions should be irnitialised here (excluding core operating features like logging)."""
+    """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info(f"Program start...")
 
     filename_base = str(input("Enter the unique identifier of the file: "))
@@ -39,7 +39,7 @@ def main():
 
 if __name__ == '__main__':
 
-    sp.system_setup(has_directory_been_created=True, has_custom_name=False)
+    sp.system_setup(has_directory_been_created=False, has_custom_name=False)
 
     main()
 
