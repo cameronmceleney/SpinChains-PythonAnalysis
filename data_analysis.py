@@ -93,7 +93,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 lg.info(f"Plotting function selected: three panes.")
                 print("Note: To select sites to compare, edit code directly.")
                 print("Generating plot...")
-                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, [1])
+                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, full_output_path, [3, 4])
                 lg.info(f"Plotting 3P complete!")
                 break
 
@@ -120,6 +120,14 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 lg.info(f"Completed plotting FS!")
                 break  # Break out of elif statement
 
+            elif select_plotter == "PF":
+                # Use this if you wish to see what ranplotter.py would output
+                lg.info(f"Plotting function selected: paper figure.")
+                print("Generating plot...")
+                plt_rk.paper_figures(m_all_data[100, :], header_data_params, full_output_path)
+                lg.info(f"Plotting 3P complete!")
+                break
+
             elif select_plotter == 'EXIT':
                 print("Exiting program...")
                 lg.info(f"Exiting program from (select_plotter == EXIT)!")
@@ -127,7 +135,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 exit(0)
 
             else:
-                while select_plotter not in ["3P", "FS", "EXIT"]:
+                while select_plotter not in ["3P", "FS", "EXIT", "PF"]:
                     select_plotter = input("Invalid option. Select function should to use: ").upper()
 
         print("Code complete!")
