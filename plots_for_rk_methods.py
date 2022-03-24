@@ -34,7 +34,7 @@ def paper_figures(amplitude_data, key_data, filename):
     fig, axes = plt.subplots(1, 1, figsize=(12, 6))
     plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
     plt.subplots_adjust(top=0.82)
-    axes.set_title(f"Mx Values for {key_data['drivingFreq'] / 1e9:2.2e} GHz")
+    axes.set_title(f"Mx Values for {key_data['drivingFreq'] / 1e9:2.2f} GHz")
     axes.plot(np.arange(0, key_data["numSpins"] + 1), amplitude_data, ls='-', lw=3, label="Final State")
     axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.25),
                    minor_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.125 / 1))
