@@ -78,8 +78,9 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
         print('''
     The plotting functions available are:
     
-        *   Three panes [3P] (Compare several spin sites)
-        *   FFT & Signal [FS] (Examine signal from a site, and its FFT)
+        *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
+        *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
+        *   Paper Figure [PF] (Plot final state of system at all sites)
         
     The terms within the square brackets are the keys for each function. 
     If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
@@ -93,7 +94,7 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 lg.info(f"Plotting function selected: three panes.")
                 print("Note: To select sites to compare, edit code directly.")
                 print("Generating plot...")
-                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, full_output_path, [3, 4])
+                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, full_output_path, [3, 4, 5])
                 lg.info(f"Plotting 3P complete!")
                 break
 
@@ -121,11 +122,11 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 break  # Break out of elif statement
 
             elif select_plotter == "PF":
-                # Use this if you wish to see what ranplotter.py would output
+                # Plots final state of system, similar to the Figs. in macedo2021breaking.
                 lg.info(f"Plotting function selected: paper figure.")
                 print("Generating plot...")
-                plt_rk.paper_figures(m_all_data[100, :], header_data_params, full_output_path)
-                lg.info(f"Plotting 3P complete!")
+                plt_rk.paper_figures(m_all_data[-1, :], header_data_params, full_output_path)
+                lg.info(f"Plotting PF complete!")
                 break
 
             elif select_plotter == 'EXIT':
