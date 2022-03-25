@@ -46,5 +46,5 @@ if __name__ == '__main__':
     """
     Notes
     
-    For the paper, linearFMR = (2 * np.pi * 28.3e9 / (2 * np.pi)) * np.sqrt(172e-6 * (172e-6 + 4 * np.pi * 0.086)) / 1e9
+    For the paper, linearFMR = (2 * np.pi * 28.3e9 / (2 * np.pi)) * np.sqrt(172e-6 * (172e-6 +  4 * np.pi * 0.086)) / 1e9
     """
