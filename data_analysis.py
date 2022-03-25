@@ -122,10 +122,11 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 break  # Break out of elif statement
 
             elif select_plotter == "PF":
+                mx_time = m_all_data[:, 0] / 1e-9
                 # Plots final state of system, similar to the Figs. in macedo2021breaking.
                 lg.info(f"Plotting function selected: paper figure.")
                 print("Generating plot...")
-                plt_rk.paper_figures(m_all_data[:], header_data_params, full_output_path)
+                plt_rk.paper_figures(mx_time, m_all_data[:, 1:], header_data_params, full_output_path)
                 lg.info(f"Plotting PF complete!")
                 break
 
@@ -147,7 +148,8 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
 
 def rc_params_update():
     """Container for program's custom rc params, as well as Seaborn (library) selections."""
-    sns.set(context='notebook', style='dark', font='Kohinoor Devanagari', palette='muted', color_codes=True)
+    plt.style.use('fivethirtyeight')
+    sns.set(context='notebook', font='Kohinoor Devanagari', palette='muted', color_codes=True)
     ##############################################################################
     # Sets global conditions including font sizes, ticks and sheet style
     # Sets various font size. fsize: general text. lsize: legend. tsize: title. ticksize: numbers next to ticks

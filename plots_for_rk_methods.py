@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Standard modules (common)
+import gif as gif
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -29,22 +30,40 @@ import system_preparation as sp
 
 
 # -------------------------------------- Plot paper figures -------------------------------------
-def paper_figures(amplitude_data, key_data, filename):
+def paper_figures(time_data, amplitude_data, key_data, filename):
+    frames = []
 
+    plt.plot(time_data, np.abs(amplitude_data[:, 400]))
+    plt.tight_layout()
+    plt.show()
+    exit(0)
+    for index in range(0, int(key_data['numberOfDataPoints']+1), int(key_data['numberOfDataPoints'] * 0.01)):
+        frame = paper_figures_plot(time_data, amplitude_data, key_data, filename, index)
+        frames.append(frame)
+
+    gif.save(frames, f"{filename}.gif", duration=0.25, unit='s')
+
+
+@gif.frame
+def paper_figures_plot(time_data, amplitude_data, key_data, filename, index=-1):
     fig, axes = plt.subplots(1, 1, figsize=(12, 6))
     plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
     plt.subplots_adjust(top=0.82)
     axes.set_title(f"Mx Values for {key_data['drivingFreq'] / 1e9:2.2f} GHz")
-    axes.plot(np.arange(0, key_data["numSpins"] + 1), amplitude_data, ls='-', lw=3, label="Final State")
+
+    axes.plot(np.arange(1, key_data["numSpins"]+1), amplitude_data[index, :], ls='-', lw=3, label=f"{time_data[index]:2.2f}")
+
     axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.25),
                    minor_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.125 / 1))
+    y_limit_value = max(amplitude_data[-1, :])
     axes.set(xlabel=f"Spin Sites", ylabel=f"m$_x$",
-             xlim=[0, key_data["numSpins"]], ylim=[-1 * 1.75e-3, 1.75e-3])
+             xlim=[0, key_data["numSpins"]], ylim=[-1 * y_limit_value, y_limit_value])
     axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                    minor_locator=ticker.AutoMinorLocator())
-    axes.legend(loc=1, frameon=True)
-    fig.savefig(f"{filename}.png")
-    plt.show()
+
+    axes.legend(title="Real time [ns]", loc=1, frameon=True)
+    # fig.savefig(f"{filename}.png") #ylim=[-1 * 1.75e-3, 1.75e-3]
+    # plt.show()
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
