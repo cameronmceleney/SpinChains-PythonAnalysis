@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 # Standard modules (common)
-import gif as gif
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -11,6 +10,7 @@ import sys as sys
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
+from PIL import Image, ImageDraw
 
 # My packages / Any header files
 import system_preparation as sp
@@ -30,18 +30,71 @@ import system_preparation as sp
 
 
 # -------------------------------------- Plot paper figures -------------------------------------
-def paper_figures(time_data, amplitude_data, key_data, filename):
-    frames = []
+class PaperFigures:
 
-    plt.plot(time_data, np.abs(amplitude_data[:, 400]))
-    plt.tight_layout()
-    plt.show()
-    exit(0)
-    for index in range(0, int(key_data['numberOfDataPoints']+1), int(key_data['numberOfDataPoints'] * 0.01)):
-        frame = paper_figures_plot(time_data, amplitude_data, key_data, filename, index)
-        frames.append(frame)
+    def __init__(self, time_data, amplitude_data, key_data, filename):
 
-    gif.save(frames, f"{filename}.gif", duration=0.25, unit='s')
+        self.time_data = time_data
+        self.amplitude_data = amplitude_data
+        self.filename = filename
+
+        self.num_spins = key_data["numSpins"]
+        self.driving_frequency = key_data['drivingFreq'] / 1e9
+        self.data_points = key_data['numberOfDataPoints']
+        self.y_limit_value = max(self.amplitude_data[-1, :])
+
+        kwargs = {"title": f"Mx Values for {self.driving_frequency:2.2f} GHz",
+                  "xlabel": f"Spin Sites", "ylabel": f"m$_x$",
+                  "xlim": [0, self.num_spins], "ylim": [-1 * self.y_limit_value, self.y_limit_value]}
+
+        self.fig = plt.figure()
+        self.axes = self.fig.add_subplot(111)
+        self.kwargs = kwargs
+
+        for key, val in self.kwargs.items():
+            getattr(self.axes, 'set_'+key)(val)
+
+    def plot_paper_figure(self, index=-1):
+        plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
+        plt.subplots_adjust(top=0.82)
+
+        self.axes.plot(np.arange(1, self.num_spins + 1), self.amplitude_data[index, :], ls='-', lw=3,
+                       label=f"{self.time_data[index]:2.2f}")
+
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.num_spins * 0.25),
+                            minor_locator=ticker.MultipleLocator(self.num_spins * 0.125))
+        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
+                            minor_locator=ticker.AutoMinorLocator())
+
+        self.axes.legend(title="Real time [ns]", loc=1, frameon=True)
+        print("Plotting figure")
+
+    def save_paper_figure(self):
+        self.plot_paper_figure()
+        self.fig.savefig(f"{self.filename}.png")
+
+    def create_gif(self):
+        images = []
+        for index in range(0, int(self.data_points+1), int(self.data_points * 0.01)):
+            draw = ImageDraw.draw()
+            images.append(self.plot_paper_figure(index))
+
+        images[0].save(f"{self.filename}.gif",
+                       save_all=True, append_images=images[1:],
+                       optimize=False, duration=10)
+
+
+def paper_figures(time_data, amplitude_data, key_data, filename, create_gif=False):
+
+    if create_gif:
+        frames = []
+        for index in range(0, int(key_data['numberOfDataPoints']+1), int(key_data['numberOfDataPoints'] * 0.01)):
+            frame = paper_figures_plot(time_data, amplitude_data, key_data, filename, index)
+            frames.append(frame)
+
+        gif.save(frames, f"{filename}.gif", duration=0.25, unit='s')
+    else:
+        paper_figures_plot(time_data, amplitude_data, key_data, filename)
 
 
 @gif.frame

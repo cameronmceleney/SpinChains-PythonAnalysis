@@ -126,7 +126,10 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 # Plots final state of system, similar to the Figs. in macedo2021breaking.
                 lg.info(f"Plotting function selected: paper figure.")
                 print("Generating plot...")
-                plt_rk.paper_figures(mx_time, m_all_data[:, 1:], header_data_params, full_output_path)
+                #plt_rk.paper_figures(mx_time, m_all_data[:, 1:], header_data_params, full_output_path)
+                pf1 = plt_rk.PaperFigures(mx_time, m_all_data[:, 1:], header_data_params, full_output_path)
+                pf1.create_gif()
+                plt.show()
                 lg.info(f"Plotting PF complete!")
                 break
 
