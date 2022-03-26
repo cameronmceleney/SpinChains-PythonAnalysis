@@ -47,10 +47,10 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
              All plots and GIFs should be saved here"""
 
     if has_custom_name:
-        parent_name = custom_parent_dir_name()
+        parent_name = str(input("Enter the name of the parent directory: "))
     else:
-        parent_name = date_of_today()
-        #parent_name = "24 Mar 22"
+        # parent_name = date_of_today()
+        parent_name = "24 Mar 22"
 
     lg.info(f"Target (parent) directory is {parent_name}.")
 
@@ -84,17 +84,6 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
         logging_directory = f"{windows_dir_root}{parent_name}\\Logs\\"
 
         return input_data_directory, output_data_directory, logging_directory
-
-
-def custom_parent_dir_name():
-    """
-    Take input from the user
-
-    :return: A user-defined string"""
-
-    users_custom_name = str(input("Enter the name of the parent directory: "))
-
-    return users_custom_name
 
 
 def date_of_today():

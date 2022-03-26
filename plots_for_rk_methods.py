@@ -10,10 +10,9 @@ import sys as sys
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
-from PIL import Image, ImageDraw
+import gif as gif
 
 # My packages / Any header files
-import system_preparation as sp
 
 """
     Description of what Shockwave Site Comparison does
@@ -31,92 +30,115 @@ import system_preparation as sp
 
 # -------------------------------------- Plot paper figures -------------------------------------
 class PaperFigures:
+    """
+    Generates a single subplot that can either be a PNG or GIF.
 
+    Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
+    change the invocation in data.analysis.py.
+    """
     def __init__(self, time_data, amplitude_data, key_data, filename):
-
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.filename = filename
 
-        self.num_spins = key_data["numSpins"]
-        self.driving_frequency = key_data['drivingFreq'] / 1e9
+        # Individual attributes from key_data that are needed for the class
+        self.number_spins = key_data["numSpins"]
+        self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
         self.data_points = key_data['numberOfDataPoints']
-        self.y_limit_value = max(self.amplitude_data[-1, :])
 
-        kwargs = {"title": f"Mx Values for {self.driving_frequency:2.2f} GHz",
-                  "xlabel": f"Spin Sites", "ylabel": f"m$_x$",
-                  "xlim": [0, self.num_spins], "ylim": [-1 * self.y_limit_value, self.y_limit_value]}
-
-        self.fig = plt.figure()
+        # Attributes for plots
+        self.fig = plt.figure(figsize=(12, 6), dpi=100)
         self.axes = self.fig.add_subplot(111)
-        self.kwargs = kwargs
+        self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} GHz",
+                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$",
+                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
-        for key, val in self.kwargs.items():
-            getattr(self.axes, 'set_'+key)(val)
+    def _draw_figure(self, plot_row=-1, has_single_figure=True):
+        """
+        Private method to plot the given row of data, and create a single figure.
 
-    def plot_paper_figure(self, index=-1):
+        If no figure param is passed, then the method will use the class' __init__ attributes.
+
+        :param int plot_row: Given row in dataset to plot.
+        :param bool has_single_figure: Flag to ensure that class
+        attribute is used for single figure case, to allow for the saving of the figure out with this method.
+
+        :return: No return statement. Method will output a figure to wherever the method was invoked.
+        """
+        if has_single_figure:
+            # For images, may want to further alter plot outside this method. Hence, the use of attribute.
+            fig = self.fig
+            ax = self.axes
+        else:
+            # For GIFs
+            fig = plt.figure(figsize=(12, 6), dpi=100)  # Each frame requires a new fig to prevent stuttering.
+            ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
+
         plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
-        plt.subplots_adjust(top=0.82)
+        plt.subplots_adjust(top=0.80)
 
-        self.axes.plot(np.arange(1, self.num_spins + 1), self.amplitude_data[index, :], ls='-', lw=3,
-                       label=f"{self.time_data[index]:2.2f}")
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=3,
+                label=f"{self.time_data[plot_row]:2.2f}")  # Easier to have time-stamp as label than textbox.
 
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.num_spins * 0.25),
-                            minor_locator=ticker.MultipleLocator(self.num_spins * 0.125))
-        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                            minor_locator=ticker.AutoMinorLocator())
+        ax.set(**self.kwargs)
 
-        self.axes.legend(title="Real time [ns]", loc=1, frameon=True)
-        print("Plotting figure")
+        # Change tick markers as needed.
+        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
+                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125))
+        ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
+                     minor_locator=ticker.AutoMinorLocator())
 
-    def save_paper_figure(self):
-        self.plot_paper_figure()
+        ax.legend(title="Real time [ns]", loc=1,
+                  frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+
+        fig.tight_layout()
+
+    def create_png(self, row_number=-1):
+        """
+        Generate a PNG for a single row of the given dataset.
+
+        A row corresponds to an instant in time, so this can be particularly useful for investigating the final 'state'
+        of a system.
+
+        :param int row_number: Which row of data to be plotted. Defaults to plotting the final row.
+
+        :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
+        """
+        self._draw_figure(plot_row=row_number)
         self.fig.savefig(f"{self.filename}.png")
 
-    def create_gif(self):
-        images = []
-        for index in range(0, int(self.data_points+1), int(self.data_points * 0.01)):
-            draw = ImageDraw.draw()
-            images.append(self.plot_paper_figure(index))
+    @gif.frame
+    def _plot_paper_gif(self, index):
+        """
+        Private method to save a given row of a data as a frame suitable for use with the git library.
 
-        images[0].save(f"{self.filename}.gif",
-                       save_all=True, append_images=images[1:],
-                       optimize=False, duration=10)
+        Require decorator so use method as an inner class instead of creating child class.
 
+        :param int index: The row to be plotted.
+        """
+        self._draw_figure(index, False)
 
-def paper_figures(time_data, amplitude_data, key_data, filename, create_gif=False):
+    def create_gif(self, number_of_frames=0.05):
+        """
+        Generate a GIF from the imported data.
 
-    if create_gif:
+        Uses the data that is imported in data_analysis.py, and turns each row in to a single figure. Multiple figures
+        are then combined to form a GIF. This method does not accept *args or **kwargs, so to make any changes to
+        gif.save() one must access this method directly.
+
+        :param float number_of_frames: How many frames the GIF should have (values between [0.01, 1.0]).
+
+        :return: Will give a .gif file to the 'Outputs' folder of the given folder (selected earlier in the program).
+        """
+
         frames = []
-        for index in range(0, int(key_data['numberOfDataPoints']+1), int(key_data['numberOfDataPoints'] * 0.01)):
-            frame = paper_figures_plot(time_data, amplitude_data, key_data, filename, index)
+
+        for index in range(0, int(self.data_points + 1), int(self.data_points * number_of_frames)):
+            frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{filename}.gif", duration=0.25, unit='s')
-    else:
-        paper_figures_plot(time_data, amplitude_data, key_data, filename)
-
-
-@gif.frame
-def paper_figures_plot(time_data, amplitude_data, key_data, filename, index=-1):
-    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
-    plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
-    plt.subplots_adjust(top=0.82)
-    axes.set_title(f"Mx Values for {key_data['drivingFreq'] / 1e9:2.2f} GHz")
-
-    axes.plot(np.arange(1, key_data["numSpins"]+1), amplitude_data[index, :], ls='-', lw=3, label=f"{time_data[index]:2.2f}")
-
-    axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.25),
-                   minor_locator=ticker.MultipleLocator(key_data["numSpins"] * 0.125 / 1))
-    y_limit_value = max(amplitude_data[-1, :])
-    axes.set(xlabel=f"Spin Sites", ylabel=f"m$_x$",
-             xlim=[0, key_data["numSpins"]], ylim=[-1 * y_limit_value, y_limit_value])
-    axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                   minor_locator=ticker.AutoMinorLocator())
-
-    axes.legend(title="Real time [ns]", loc=1, frameon=True)
-    # fig.savefig(f"{filename}.png") #ylim=[-1 * 1.75e-3, 1.75e-3]
-    # plt.show()
+        gif.save(frames, f"{self.filename}.gif", duration=250, unit='ms')
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
@@ -330,23 +352,23 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
 
     :return: The subplot information required to be plotted in the main figure environment."""
-    frequencies, fourierTransform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
+    frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
 
-    drivingFreq_Hz = simulation_params['drivingFreq'] / 1e9
+    driving_freq_hz = simulation_params['drivingFreq'] / 1e9
     if ax is None:
         ax = plt.gca()
 
     # Must be abs(FFTransform) to make sense!
-    ax.plot(frequencies, abs(fourierTransform),
+    ax.plot(frequencies, abs(fourier_transform),
             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
-    ax.axvline(x=drivingFreq_Hz, label=f"Driving. {drivingFreq_Hz:2.2f}", color='green')
+    ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
 
     if which_subplot == 2:
         ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
         # If at a node, then 3-wave generation may be occurring. This loop plots that location.
-        triple_wave_gen_freq = drivingFreq_Hz * 3
+        triple_wave_gen_freq = driving_freq_hz * 3
         ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
         # This should be an eigenfrequency
@@ -376,23 +398,23 @@ def fft_data(amplitude_data, simulation_params):
                    "hz_to_ghz": 1e-9}
 
     # Data in file header is in [Hz] by default.
-    driving_Freq_GHz = simulation_params['drivingFreq'] * core_values["hz_to_ghz"]
+    driving_freq_ghz = simulation_params['drivingFreq'] * core_values["hz_to_ghz"]
 
     # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
     # add other markers to the plot(s)
     natural_freq = core_values['gamma'] * simulation_params['biasField']
 
     # Calculate FFT parameters
-    timeInterval = simulation_params['stepsize'] * simulation_params['stopIterVal']
-    nSamples = simulation_params['numberOfDataPoints']
-    dt = timeInterval / nSamples  # Or multiply the stepsize by the number of iterations between data recordings
+    time_interval = simulation_params['stepsize'] * simulation_params['stopIterVal']
+    n_samples = simulation_params['numberOfDataPoints']
+    dt = time_interval / n_samples  # Or multiply the stepsize by the number of iterations between data recordings
 
     # Compute the FFT
-    fourierTransform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
-    fourierTransform = fourierTransform[range(int(nSamples / 2))]  # Exclude sampling frequency, and negative values
-    frequencies = (np.arange(int(nSamples / 2)) / (dt * nSamples)) * core_values["hz_to_ghz"]
+    fourier_transform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
+    fourier_transform = fourier_transform[range(int(n_samples / 2))]  # Exclude sampling frequency, and negative values
+    frequencies = (np.arange(int(n_samples / 2)) / (dt * n_samples)) * core_values["hz_to_ghz"]
 
-    return frequencies, fourierTransform, natural_freq, driving_Freq_GHz
+    return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
@@ -456,20 +478,20 @@ def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
                     has_valid_modes = False
                     break
 
-                BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
                 while True:
 
-                    if BreakQuery == 'Y':
+                    if has_more_plots == 'Y':
                         has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
                         break
 
-                    elif BreakQuery == 'N':
+                    elif has_more_plots == 'N':
                         print("Exiting program...")
                         exit(0)
 
                     else:
-                        while BreakQuery not in 'YN':
-                            BreakQuery = input("Do you want to continue plotting modes? Y/N: ").upper()
+                        while has_more_plots not in 'YN':
+                            has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
 
             if has_valid_modes:
                 plot_single_eigenmode(int(test_mode), mx_data, my_data, eigenvalues_data)
@@ -528,16 +550,16 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     # g is the driving field profile along the axis where the drive is applied. My simulations all have the
     # drive along the x-axis, hence the name 'gx'.
-    gx_LHS = g_ones + g_zeros
-    gx_RHS = g_zeros + g_ones
+    gx_lhs = g_ones + g_zeros
+    gx_rhs = g_zeros + g_ones
 
     fourier_coefficents_lhs = []
     fourier_coefficents_rhs = []
 
     for i in range(0, number_of_spins):
         # Select an eigenvector, and take the dot-product to return the coefficient of that particular mode.
-        fourier_coefficents_lhs.append(np.dot(gx_LHS, amplitude_mx_data[:, i]))
-        fourier_coefficents_rhs.append(np.dot(gx_RHS, amplitude_mx_data[:, i]))
+        fourier_coefficents_lhs.append(np.dot(gx_lhs, amplitude_mx_data[:, i]))
+        fourier_coefficents_rhs.append(np.dot(gx_rhs, amplitude_mx_data[:, i]))
 
     # Normalise the arrays of coefficients.
     fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)

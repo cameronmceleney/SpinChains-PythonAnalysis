@@ -68,8 +68,12 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
         plt_rk.eigenmodes(mx_data, my_data, eigen_vals_data, full_file_name)
 
     else:
-        m_all_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path,
-                                                                          only_essentials=True)
+        all_imported_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path,
+                                                                                 only_essentials=True)
+
+        m_time_data = all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
+        m_spin_data = all_imported_data[:, 1:]
+
         lg.info(f"All functions that import data are finished!")
 
         lg.info(f"Invoking functions to plot data...")
@@ -94,42 +98,44 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                 lg.info(f"Plotting function selected: three panes.")
                 print("Note: To select sites to compare, edit code directly.")
                 print("Generating plot...")
-                plt_rk.three_panes(m_all_data, header_data_params, header_data_sites, full_output_path, [3, 4, 5])
+                plt_rk.three_panes(all_imported_data, header_data_params, header_data_sites, full_output_path,
+                                   [3, 4, 5])
                 lg.info(f"Plotting 3P complete!")
                 break
 
             elif select_plotter == 'FS':
                 # Use this to see fourier transforms of data
 
-                mx_time = m_all_data[:, 0] / 1e-9
                 lg.info(f"Plotting function selected: Fourier Signal.")
 
-                cont_plotting_FFT = True
-                while cont_plotting_FFT:
+                has_more_to_plot = True
+                while has_more_to_plot:
                     # User will plot one spin site at a time, as plotting can take a long time.
                     target_spin = int(input("Plot which spin (-ve to exit): "))
                     print("Generating plot...")
 
                     if target_spin >= 1:
-                        plt_rk.fft_and_signal_four(mx_time, m_all_data[:, target_spin], target_spin, header_data_params,
+                        plt_rk.fft_and_signal_four(m_time_data, m_spin_data[:, target_spin], target_spin,
+                                                   header_data_params,
                                                    full_output_path)
                         lg.info(f"Finished plotting spin site #{target_spin} in FS. Continuing...")
                         # cont_plotting_FFT = False  # Remove this after testing.
                     else:
-                        cont_plotting_FFT = False
+                        has_more_to_plot = False
 
                 lg.info(f"Completed plotting FS!")
                 break  # Break out of elif statement
 
             elif select_plotter == "PF":
-                mx_time = m_all_data[:, 0] / 1e-9
                 # Plots final state of system, similar to the Figs. in macedo2021breaking.
                 lg.info(f"Plotting function selected: paper figure.")
+
                 print("Generating plot...")
-                #plt_rk.paper_figures(mx_time, m_all_data[:, 1:], header_data_params, full_output_path)
-                pf1 = plt_rk.PaperFigures(mx_time, m_all_data[:, 1:], header_data_params, full_output_path)
-                pf1.create_gif()
-                plt.show()
+
+                paper_fig = plt_rk.PaperFigures(m_time_data, m_spin_data, header_data_params, full_output_path)
+                paper_fig.create_png()
+                paper_fig.create_gif(number_of_frames=0.01)
+
                 lg.info(f"Plotting PF complete!")
                 break
 
