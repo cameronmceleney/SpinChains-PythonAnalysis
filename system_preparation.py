@@ -49,8 +49,8 @@ def directory_tree_testing(has_directory_been_created=True, has_custom_name=Fals
     if has_custom_name:
         parent_name = str(input("Enter the name of the parent directory: "))
     else:
-        # parent_name = date_of_today()
-        parent_name = "24 Mar 22"
+        parent_name = date_of_today()
+        # parent_name = "25 Mar 22"
 
     lg.info(f"Target (parent) directory is {parent_name}.")
 
