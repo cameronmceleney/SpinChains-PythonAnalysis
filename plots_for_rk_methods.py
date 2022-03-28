@@ -36,22 +36,25 @@ class PaperFigures:
     Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
     change the invocation in data.analysis.py.
     """
-    def __init__(self, time_data, amplitude_data, key_data, filename):
+
+    def __init__(self, time_data, amplitude_data, key_data, array_of_sites, output_filepath):
         self.time_data = time_data
         self.amplitude_data = amplitude_data
-        self.filename = filename
+        self.sites_array = array_of_sites
+        self.output_filepath = output_filepath
 
         # Individual attributes from key_data that are needed for the class
         self.number_spins = key_data["numSpins"]
         self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
         self.data_points = key_data['numberOfDataPoints']
+        self.max_time = key_data['maxSimTime'] * 1e9
 
         # Attributes for plots
-        self.fig = plt.figure(figsize=(12, 6), dpi=100)
+        self.fig = plt.figure(figsize=(12, 6), dpi=300)
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
-        self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} GHz",
-                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$",
+        self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
+                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True):
@@ -106,7 +109,8 @@ class PaperFigures:
         :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
         """
         self._draw_figure(plot_row=row_number)
-        self.fig.savefig(f"{self.filename}.png")
+        self.fig.savefig(f"{self.output_filepath}.png")
+        plt.show()
 
     @gif.frame
     def _plot_paper_gif(self, index):
@@ -125,7 +129,9 @@ class PaperFigures:
 
         Uses the data that is imported in data_analysis.py, and turns each row in to a single figure. Multiple figures
         are then combined to form a GIF. This method does not accept *args or **kwargs, so to make any changes to
-        gif.save() one must access this method directly.
+        gif.save() one must access this method directly. For more guidance see
+        `this article
+        <https://towardsdatascience.com/a-simple-way-to-turn-your-plots-into-gifs-in-python-f6ea4435ed3c>`_.
 
         :param float number_of_frames: How many frames the GIF should have (values between [0.01, 1.0]).
 
@@ -138,7 +144,40 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.filename}.gif", duration=250, unit='ms')
+        gif.save(frames, f"{self.output_filepath}.gif", duration=250, unit='ms')
+
+    def plot_site_variation(self, spin_site):
+        """
+        Plot the magnetisation of a site against time.
+
+        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+
+        :param int spin_site: The number of the spin site to be plotted.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+
+        self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=3,
+                       label=f"{self.sites_array[spin_site]}")  # Easier to have time-stamp as label than textbox.
+
+        self.axes.set(title=f"Mx Values for {self.driving_freq:2.2f} [GHz]",
+                      xlabel=f"Time [ns]", ylabel=f"m$_x$ [arb.]",
+                      xlim=[0, self.max_time])
+
+        # Change tick markers as needed.
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.2),
+                            minor_locator=ticker.MultipleLocator(self.max_time * 0.1))
+        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=9, prune='lower'),
+                            minor_locator=ticker.AutoMinorLocator())
+
+        self.axes.legend(title="Spin Site [#]", loc=1,
+                         frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+
+        self.axes.grid(visible=True, axis='y', which='major')
+        self.axes.grid(visible=False, axis='x', which='both')
+        self.fig.tight_layout()
+        self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
+        plt.show()
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
