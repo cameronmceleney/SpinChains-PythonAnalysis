@@ -135,8 +135,8 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                                                     header_data_params, header_data_sites,
                                                     full_output_path)
                 # paper_fig.create_png()
-                paper_fig.plot_site_variation(401)
-                # paper_fig.create_gif(number_of_frames=0.01)
+                # paper_fig.plot_site_variation(401)
+                paper_fig.create_gif(number_of_frames=0.0001)
 
                 lg.info(f"Plotting PF complete!")
                 break
