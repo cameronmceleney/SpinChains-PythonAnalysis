@@ -144,7 +144,7 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=250, unit='ms')
+        gif.save(frames, f"{self.output_filepath}.gif", duration=3.5, unit='ms')
 
     def plot_site_variation(self, spin_site):
         """
