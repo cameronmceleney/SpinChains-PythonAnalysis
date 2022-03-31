@@ -27,12 +27,14 @@ from mpl_toolkits import mplot3d
     Filename    : test3DContour
     IDE         : PyCharm
 """
+# input_path = "/Users/cameronmceleney/CLionProjects/Data/29 Mar 22/Simulation_Data"  # Mac
+input_path = "D:\\Data\\31 Mar 22\\Simulation_Data"  # Windows
+time = "1437"
+
 
 def compare_plots():
-    input_path = "/Users/cameronmceleney/CLionProjects/Data/29 Mar 22/Simulation_Data"
-    time = "2313"
-    mx_all_data = np.loadtxt(f"{input_path}/rk2_mx_LLGTest{time}.csv", delimiter=",", skiprows=9)
-    my_all_data = np.loadtxt(f"{input_path}/rk2_my_LLGTest{time}.csv", delimiter=",", skiprows=9)
+    mx_all_data = np.loadtxt(f"{input_path}\\rk2_mx_LLGTest{time}.csv", delimiter=",", skiprows=9)
+    my_all_data = np.loadtxt(f"{input_path}\\rk2_my_LLGTest{time}.csv", delimiter=",", skiprows=9)
     m_time_data = mx_all_data[:, 0]
     mx_m_data = mx_all_data[:, 1:]
     my_m_data = my_all_data[:, 1:]
@@ -45,11 +47,9 @@ def compare_plots():
     plt.show()
 
 def create_contour_Plot():
-    input_path = "/Users/cameronmceleney/CLionProjects/Data/28 Mar 22/Simulation_Data"
-    time = "1234"
-    mx_all_data = np.loadtxt(f"{input_path}/rk2_mx_LLGTest{time}.csv", delimiter=",", skiprows=9)
-    my_all_data = np.loadtxt(f"{input_path}/rk2_my_LLGTest{time}.csv", delimiter=",", skiprows=9)
-    mz_all_data = np.loadtxt(f"{input_path}/rk2_mz_LLGTest{time}.csv", delimiter=",", skiprows=9)
+    mx_all_data = np.loadtxt(f"{input_path}\\rk2_mx_LLGTest{time}.csv", delimiter=",", skiprows=9)
+    my_all_data = np.loadtxt(f"{input_path}\\rk2_my_LLGTest{time}.csv", delimiter=",", skiprows=9)
+    mz_all_data = np.loadtxt(f"{input_path}\\rk2_mz_LLGTest{time}.csv", delimiter=",", skiprows=9)
 
     m_time_data = mx_all_data[:, 0]
     mx_m_data = mx_all_data[:, 1:]

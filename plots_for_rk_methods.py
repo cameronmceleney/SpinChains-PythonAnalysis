@@ -144,7 +144,7 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=4, unit='ms')
+        gif.save(frames, f"{self.output_filepath}.gif", duration=2, unit='ms')
 
     def plot_site_variation(self, spin_site):
         """
@@ -162,7 +162,7 @@ class PaperFigures:
 
         self.axes.set(title=f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                       xlabel=f"Time [ns]", ylabel=f"m$_x$ [arb.]",
-                      xlim=[0, self.max_time])
+                      xlim=[5.5, 6.5])
 
         # Change tick markers as needed.
         self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.2),
