@@ -29,6 +29,131 @@ PROGRAM_NAME = "data_analysis.py"
 """
 
 
+class ImportData:
+    """
+    Test class to handle the full importing of data.
+
+    Previously, functions could only handle a single input. This meant the program had to be compiled each time the
+    target dataset was altered; a huge pain.
+    """
+
+    def __init__(self, file_descriptor, file_prefix="rk2", file_component="mx", file_identifier="LLGTest",
+                 is_eigenmodes=False):
+
+        rc_params_update()
+
+        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
+        self.full_output_path = f"{sp.directory_tree_testing()[1]}{file_identifier}{file_descriptor}"
+        self.data_absolute_path = f"{sp.directory_tree_testing()[0]}{self.full_filename}.csv"
+        self.is_eigenmodes = is_eigenmodes
+
+        # Tracking how long the data import took is important for monitoring large files.
+        lg.info(f"Invoking functions to import data..")
+        if self.is_eigenmodes:
+            self.mx_data, self.my_data, self.eigenvalues_data = import_data(self.full_filename,
+                                                                            sp.directory_tree_testing()[0],
+                                                                            only_essentials=False)
+        else:
+            self.all_imported_data, [self.header_data_params, self.header_data_sites] = import_data(self.full_filename, self.data_absolute_path,
+                                                                                     only_essentials=True)
+
+            self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
+            self.m_spin_data = self.all_imported_data[:, 1:]
+        lg.info(f"All functions that import data are finished!")
+
+    def control_method(self):
+        if self.is_eigenmodes:
+            self._plot_eigenmodes()
+        else:
+            self._data_plotting_selections()
+
+    def _plot_eigenmodes(self):
+        lg.info(f"Invoking functions to plot data...")
+        plt_rk.eigenmodes(self.mx_data, self.my_data, self.eigenvalues_data, self.full_filename)
+
+    def _data_plotting_selections(self):
+        lg.info(f"Invoking functions to plot data...")
+
+        print('\n---------------------------------------------------------------------------------------')
+        print('''
+        The plotting functions available are:
+
+            *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
+            *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
+            *   Paper Figure [PF] (Plot final state of system at all sites)
+
+        The terms within the square brackets are the keys for each function. 
+        If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
+                  ''')
+        print('---------------------------------------------------------------------------------------\n')
+        select_plotter = input("Which function to use: ").upper()
+        while True:
+
+            if select_plotter == '3P':
+                # Use this if you wish to see what ranplotter.py would output
+                lg.info(f"Plotting function selected: three panes.")
+                print("Note: To select sites to compare, edit code directly.")
+                print("Generating plot...")
+                plt_rk.three_panes(self.all_imported_data, self.header_data_params, self.header_data_sites, self.full_output_path,
+                                   [3, 4, 5])
+                lg.info(f"Plotting 3P complete!")
+                break
+
+            elif select_plotter == 'FS':
+                # Use this to see fourier transforms of data
+
+                lg.info(f"Plotting function selected: Fourier Signal.")
+
+                has_more_to_plot = True
+                while has_more_to_plot:
+                    # User will plot one spin site at a time, as plotting can take a long time.
+                    target_spin = int(input("Plot which spin (-ve to exit): "))
+                    print("Generating plot...")
+
+                    if target_spin >= 1:
+                        plt_rk.fft_and_signal_four(self.m_time_data, self.m_spin_data[:, target_spin], target_spin,
+                                                   self.header_data_params,
+                                                   self.full_output_path)
+                        lg.info(f"Finished plotting spin site #{target_spin} in FS. Continuing...")
+                        # cont_plotting_FFT = False  # Remove this after testing.
+                    else:
+                        has_more_to_plot = False
+
+                lg.info(f"Completed plotting FS!")
+                break  # Break out of elif statement
+
+            elif select_plotter == "PF":
+                # Plots final state of system, similar to the Figs. in macedo2021breaking.
+                lg.info(f"Plotting function selected: paper figure.")
+
+                print("Generating plot...")
+                paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
+                                                self.header_data_params, self.header_data_sites,
+                                                self.full_output_path)
+                # paper_fig.create_png()
+                # paper_fig.plot_site_variation(401)
+                paper_fig.create_gif(number_of_frames=0.001)
+
+                lg.info(f"Plotting PF complete!")
+                break
+
+            elif select_plotter == 'EXIT':
+                print("Exiting program...")
+                lg.info(f"Exiting program from (select_plotter == EXIT)!")
+
+                exit(0)
+
+            else:
+                while select_plotter not in ["3P", "FS", "EXIT", "PF"]:
+                    select_plotter = input("Invalid option. Select function should to use: ").upper()
+
+        print("Code complete!")
+        lg.info(f"Code complete! Exiting.")
+
+        exit(0)
+
+
+
 def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTest", breaking_paper=False):
     """
     Import a dataset in csv format, plotting the signal and the corresponding FFTs, for a user-defined number of sites.
@@ -135,8 +260,8 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
                                                 header_data_params, header_data_sites,
                                                 full_output_path)
                 # paper_fig.create_png()
-                # paper_fig.plot_site_variation(401)
-                paper_fig.create_gif(number_of_frames=0.001)
+                paper_fig.plot_site_variation(1600)
+                # paper_fig.create_gif(number_of_frames=0.001)
 
                 lg.info(f"Plotting PF complete!")
                 break
@@ -193,10 +318,6 @@ def rc_params_update():
                          'axes.spines.right': False,
                          'figure.titlesize': 24,
                          'figure.dpi': 300})
-
-
-def get_filename(filename):
-    return filename
 
 
 def import_data(file_name, input_filepath, only_essentials):
