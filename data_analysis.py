@@ -132,11 +132,11 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
 
                 print("Generating plot...")
                 paper_fig = plt_rk.PaperFigures(m_time_data, m_spin_data,
-                                                    header_data_params, header_data_sites,
-                                                    full_output_path)
+                                                header_data_params, header_data_sites,
+                                                full_output_path)
                 # paper_fig.create_png()
                 # paper_fig.plot_site_variation(401)
-                paper_fig.create_gif(number_of_frames=0.0001)
+                paper_fig.create_gif(number_of_frames=0.001)
 
                 lg.info(f"Plotting PF complete!")
                 break
