@@ -15,7 +15,8 @@ import gif as gif
 # My packages / Any header files
 
 """
-    Description of what Shockwave Site Comparison does
+    Contains all the plotting functionality required for my data analysis. The data for each method comes from the file
+    data_analysis.py. These plots will only work for data from my RK methods.
 """
 
 """
@@ -23,7 +24,7 @@ import gif as gif
     
     Author      : cameronmceleney
     Created on  : 13/03/2022 18:06
-    Filename    : Shockwave Site Comparison
+    Filename    : plots_for_rk_methods.py
     IDE         : PyCharm
 """
 
