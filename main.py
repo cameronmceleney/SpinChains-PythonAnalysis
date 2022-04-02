@@ -31,8 +31,10 @@ def main():
     filename_base = str(input("Enter the unique identifier of the file: "))
 
     # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
-    das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
-                      breaking_paper=False)
+    # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
+    #                  breaking_paper=False)
+
+    das.SelectMethodToPlot(filename_base, "rk2", "mx", "LLGTest")
 
     exit()
 

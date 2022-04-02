@@ -59,17 +59,69 @@ class ImportSingleFile(ImportData):
 
     def import_from_single_file(self):
         """
-        Outputs the data needed to plot single-image panes
+        Outputs the data needed to plot single-image panes.
+
+        Contained in single method to unify processing option. Separated from import_data_headers() (unlike in previous
+        files) for when multiple datafiles, with the same header, are imported.
         """
         lg.info(f"Importing data points...")
 
         # Loads all input data
-        all_data_without_header = np.loadtxt(open(self.input_data_path, "rb"), delimiter=",", skiprows=9)
-        header_data = import_data_headers(self.input_data_path)
-
+        all_data_without_header = np.loadtxt(self.input_data_path, delimiter=",", skiprows=9)
         lg.info(f"Data points imported!")
 
-        return all_data_without_header, header_data
+        return all_data_without_header
+
+    def import_data_headers(self):
+        """
+        Import the header lines of each csv file to obtain the C++ simulation parameters.
+
+        Each simulation in C++ returns all the key parameters, required to replicate the simulation, as headers in csv
+        files. This function imports that data, and creates dictionaries to store it.
+
+        The Python dictionary keys are the same variable names as their C++ counterparts (for consistency). Casting is
+        required as data comes from csvreader as strings.
+
+        :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
+        containing strings; the names of each spin site.
+        """
+        lg.info(f"Importing file headers...")
+
+        with open(self.input_data_path) as file_header_data:
+            csv_reader = csv.reader(file_header_data)
+            next(csv_reader)  # 1st line. title_line
+            next(csv_reader)  # 2nd line. Blank.
+            next(csv_reader)  # 3rd line. Column title for each key simulation parameter. data_names
+            data_values = next(csv_reader)  # 4th line. Values associated with column titles from 3rd line.
+            next(csv_reader)  # 5th line. Blank.
+            next(csv_reader)  # 6th line. Simulation notes. sim_notes
+            next(csv_reader)  # 7th line. Describes how to understand column titles from 3rd line. data_names_explained
+            next(csv_reader)  # 8th line. Blank.
+            list_of_simulated_sites = next(csv_reader)  # 9th line. Number for each spin site that was simulated
+
+        # Assignment to dict is done individually to improve readability.
+        key_params = dict()
+        key_params['biasField'] = float(data_values[0])
+        key_params['biasFieldDriving'] = float(data_values[1])
+        key_params['biasFieldDrivingScale'] = float(data_values[2])
+        key_params['drivingFreq'] = float(data_values[3])
+        key_params['drivingRegionLHS'] = int(data_values[4])
+        key_params['drivingRegionRHS'] = int(data_values[5])
+        key_params['drivingRegionWidth'] = int(data_values[6])
+        key_params['maxSimTime'] = float(data_values[7])
+        key_params['exchangeMaxVal'] = float(data_values[8])
+        key_params['stopIterVal'] = float(data_values[9])
+        key_params['exchangeMinVal'] = float(data_values[10])
+        key_params['numberOfDataPoints'] = int(data_values[11])
+        key_params['numSpins'] = int(data_values[12])
+        key_params['stepsize'] = float(data_values[13])
+
+        lg.info(f"File headers imported!")
+
+        if "Time" in list_of_simulated_sites:
+            list_of_simulated_sites.remove("Time")
+
+        return key_params, list_of_simulated_sites
 
 
 class ImportEigenmodes(ImportData):
@@ -105,44 +157,81 @@ class ImportEigenmodes(ImportData):
                 self._does_data_exist_in_dir[i] = False
                 print(f"{output_file_description}: not found")
 
-        for _, does_exist in enumerate(self._does_data_exist_in_dir):
+        for i, does_exist in enumerate(self._does_data_exist_in_dir):
             # Tests existence of each filtered array until either False is returned, or all are present (all True).
 
-            if not does_exist:
-                # Instance of missing file has been found, and will need to generate all filtered files that are needed.
-                # Before doing so, allow user to opt-out.
-                generate_files_response = input('Run import code to generate missing files? Y/N: ').upper()
-
-                while True:
-                    # Loops for as long as user input is accepted. Otherwise, forced them to comply.
-                    if generate_files_response == 'Y':
-                        self._generate_missing_files()
-                        break
-
-                    elif generate_files_response == 'N':
-                        print("\nWill not generate files. Exiting...\n")
-                        exit(0)
-
-                    else:
-                        while generate_files_response not in 'YN':
-                            generate_files_response = input("Invalid selection, try again. Run import code to "
-                                                            "generate missing files? Y/N: ").upper()
+            try:
+                does_exist is True
+            except ValueError:
+                try:
+                    does_exist is False
+                except ValueError:
+                    lg.info(f"Boolean variable (does_exist) was dtype None.")
+                    exit(1)
+                else:
+                    self._generate_file_that_is_missing(i)
+            else:
+                print(f"{self.input_filenames_descriptions[i]} successfully found")
 
         else:
             print("All files successfully found!\n")
 
         return self._arrays_to_output[0], self._arrays_to_output[1], self._arrays_to_output[2]
 
-    def _generate_missing_files(self):
+    @staticmethod
+    def _generate_file_that_is_missing(index):
+
+        # Instance of missing file has been found, and will need to generate all filtered files that are needed.
+        # Before doing so, allow user to opt-out.
+
+        while True:
+            generate_file_query = input('Run import code to generate missing files? y/n: ').upper()
+            try:
+                generate_file_query in "YN"
+            except ValueError:
+                continue
+            else:
+                if generate_file_query == 'Y':
+                    if index in [0, 1]:
+                        print('self._generate_missing_eigenvectors()')
+                        return
+                    elif index == 2:
+                        print('self._generate_missing_eigenvalues()')
+                        return
+                    else:
+                        lg.error(f"Index of value {index} was called")
+                        return
+                elif generate_file_query == 'N':
+                    print("\nWill not generate files. Exiting...\n")
+                    lg.info("User chose to not generate missing files. Code exited.")
+                    exit(0)
+
+    def _generate_missing_eigenvalues(self):
+
+        lg.info(f"Missing Eigenvalues file found. Attempting to generate new file in correct format...")
 
         # 'Raw' refers to the data produces from the C++ code.
         eigenvalues_raw = np.loadtxt(f"{self.input_dir_path}eigenvalues_{self.full_file_name}.csv",
                                      delimiter=",")
+
+        # Filtered refers to the data imported into, and amended by, this Python code.
+        eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
+
+        # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
+        np.savetxt(f"{self.input_dir_path}{self.output_filenames[2]}", eigenvalues_filtered,
+                   delimiter=',')
+
+        lg.info(f"Successfully generated missing (eigenvalues) file, which is saved in {self.input_dir_path}")
+
+    def _generate_missing_eigenvectors(self):
+
+        lg.info(f"Missing (mx) and/or (my) file(s) found. Attempting to generate new files in correct format...")
+
+        # 'Raw' refers to the data produces from the C++ code.
         eigenvectors_raw = np.loadtxt(f"{self.input_dir_path}eigenvectors_{self.full_file_name}.csv",
                                       delimiter=",")
 
         # Filtered refers to the data imported into, and amended by, this Python code.
-        eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
         eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
 
         mx_data = eigenvectors_filtered[:, 0::2]
@@ -151,10 +240,8 @@ class ImportEigenmodes(ImportData):
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[0]}", mx_data, delimiter=',')
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[1]}", my_data, delimiter=',')
-        np.savetxt(f"{self.input_dir_path}{self.output_filenames[2]}", eigenvalues_filtered,
-                   delimiter=',')
 
-        print(f"\nFiles successfully generated and save in {self.input_dir_path}!\n")
+        lg.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
 
 
 class PlotImportedData:
@@ -165,44 +252,48 @@ class PlotImportedData:
     target dataset was altered; a huge pain.
     """
 
-    def __init__(self, file_descriptor, file_prefix="rk2", file_component="mx", file_identifier="LLGTest",
-                 has_eigenmodes=False):
+    def __init__(self, file_descriptor, file_prefix="rk2", file_component="mx", file_identifier="LLGTest"):
+        self.fd = file_descriptor
+        self.fp = file_prefix
+        self.fc = file_component
+        self.fi = file_identifier
 
         rc_params_update()
 
         self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
         self.full_output_path = f"{sp.directory_tree_testing()[1]}{file_identifier}{file_descriptor}"
         self.data_absolute_path = f"{sp.directory_tree_testing()[0]}{self.full_filename}.csv"
-        self.has_eigenmodes = has_eigenmodes
 
         self.accepted_keywords = ["3P", "FS", "EXIT", "PF"]
 
-        # Tracking how long the data import took is important for monitoring large files.
-        lg.info(f"Invoking functions to import data..")
-        if self.has_eigenmodes:
-            self.mx_data, self.my_data, self.eigenvalues_data = import_data(self.full_filename,
-                                                                            sp.directory_tree_testing()[0],
-                                                                            only_essentials=False)
-        else:
-            self.all_imported_data, [self.header_data_params, self.header_data_sites] = import_data(self.full_filename,
-                                                                                                    self.data_absolute_path,
-                                                                                                    only_essentials=True)
 
-            self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
-            self.m_spin_data = self.all_imported_data[:, 1:]
-        lg.info(f"All functions that import data are finished!")
+class PlotEigenmodes(PlotImportedData):
 
-    def call_methods(self):
-        if self.has_eigenmodes:
-            self._plot_eigenmodes()
-        else:
-            self._data_plotting_control()
+    def __init__(self, file_descriptor, file_prefix, file_component, file_identifier):
+        super().__init__(file_descriptor, file_prefix, file_component, file_identifier)
 
-    def _plot_eigenmodes(self):
+        eigenmodes_data = ImportEigenmodes(self.fd, self.fp, self.fc, self.fi)
+        eigenmodes_data.import_eigenmodes()
+        [self.mx_data, self.my_data, self.eigenvalues_data] = eigenmodes_data
+
+    def plot_eigenmodes(self):
         lg.info(f"Invoking functions to plot data...")
         plt_rk.eigenmodes(self.mx_data, self.my_data, self.eigenvalues_data, self.full_filename)
 
-    def _data_plotting_control(self):
+
+class SelectMethodToPlot(PlotImportedData):
+
+    def __init__(self, file_descriptor, file_prefix, file_component, file_identifier):
+        super().__init__(file_descriptor, file_prefix, file_component, file_identifier)
+
+        imported_data = ImportSingleFile(self.fd, self.fp, self.fc, self.fi)
+        self.all_imported_data = imported_data.import_from_single_file()
+        [self.header_data_params, self.header_data_sites] = imported_data.import_data_headers()
+
+        self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
+        self.m_spin_data = self.all_imported_data[:, 1:]
+
+    def call_methods(self):
 
         lg.info(f"Invoking functions to plot data...")
 
