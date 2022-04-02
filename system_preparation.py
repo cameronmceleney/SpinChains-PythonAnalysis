@@ -23,7 +23,9 @@ from sys import platform, exit
 
 
 def system_setup(has_directory_been_created=False, has_custom_name=False):
+
     data, outputs, logging = directory_tree_testing(has_directory_been_created, has_custom_name)
+
     logging_setup(logging)
 
 
