@@ -48,14 +48,13 @@ class ImportData:
         self.input_data_path = f"{self.input_dir_path}{self.full_file_name}.csv"
         self.output_data_path = f"{self.output_dir_path}{file_identifier}{filename_timestamp}"
 
-        # self.breaking_paper = breaking_paper  # if true then only_essentials is false and input path is
-        # sp.directory_tree_testing()[0], else only_essentials is true and input path is self.input_data_path
-
 
 class ImportSingleFile(ImportData):
 
     def __init__(self, filename_timestamp, filename_rk_method, filename_component, file_identifier):
         super().__init__(filename_timestamp, filename_rk_method, filename_component, file_identifier)
+
+
 
     def import_from_single_file(self):
         """
@@ -66,8 +65,18 @@ class ImportSingleFile(ImportData):
         """
         lg.info(f"Importing data points...")
 
+        all_data_without_header = None
         # Loads all input data
-        all_data_without_header = np.loadtxt(self.input_data_path, delimiter=",", skiprows=9)
+        try:
+            is_file_present_in_dir = path.exists(self.input_data_path)
+            if not is_file_present_in_dir:
+                raise FileNotFoundError
+        except FileNotFoundError:
+            print(f"File {self.full_file_name} was not found")
+            exit(1)
+        else:
+            all_data_without_header = np.loadtxt(self.input_data_path, delimiter=",", skiprows=9)
+
         lg.info(f"Data points imported!")
 
         return all_data_without_header
@@ -264,8 +273,6 @@ class PlotImportedData:
         self.full_output_path = f"{sp.directory_tree_testing()[1]}{file_identifier}{file_descriptor}"
         self.data_absolute_path = f"{sp.directory_tree_testing()[0]}{self.full_filename}.csv"
 
-        self.accepted_keywords = ["3P", "FS", "EXIT", "PF"]
-
 
 class PlotEigenmodes(PlotImportedData):
 
@@ -288,10 +295,13 @@ class SelectMethodToPlot(PlotImportedData):
 
         imported_data = ImportSingleFile(self.fd, self.fp, self.fc, self.fi)
         self.all_imported_data = imported_data.import_from_single_file()
+
         [self.header_data_params, self.header_data_sites] = imported_data.import_data_headers()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
+
+        self.accepted_keywords = ["3P", "FS", "EXIT", "PF"]
 
     def call_methods(self):
 
@@ -369,7 +379,7 @@ class SelectMethodToPlot(PlotImportedData):
 
         lg.info(f"Completed plotting FS!")
 
-    def _invoke_paper_figures(self):
+    def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         lg.info(f"Plotting function selected: paper figure.")
 
@@ -377,9 +387,18 @@ class SelectMethodToPlot(PlotImportedData):
         paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
                                         self.header_data_params, self.header_data_sites,
                                         self.full_output_path)
-        # paper_fig.create_png()
-        # paper_fig.plot_site_variation(401)
-        paper_fig.create_gif(number_of_frames=0.001)
+
+        if has_override:
+            pf_selection = override_name
+        else:
+            pf_selection = str(input("Which figure should be created: "))
+
+        if pf_selection == "PNG":
+            paper_fig.create_png()
+        elif pf_selection == "SV":
+            paper_fig.plot_site_variation(401)
+        elif pf_selection == "GIF":
+            paper_fig.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")
 

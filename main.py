@@ -34,14 +34,21 @@ def main():
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
-    das.SelectMethodToPlot(filename_base, "rk2", "mx", "LLGTest")
+    cake_mx = das.SelectMethodToPlot(filename_base, "rk2", "mx", "LLGTest")
+    cake_mx._invoke_paper_figures(True)
+
+    cake_my = das.SelectMethodToPlot(filename_base, "rk2", "my", "LLGTest")
+    cake_my._invoke_paper_figures(True, "GIF")
+
+    cake_mz = das.SelectMethodToPlot(filename_base, "rk2", "mz", "LLGTest")
+    cake_mz._invoke_paper_figures(True)
 
     exit()
 
 
 if __name__ == '__main__':
 
-    sp.system_setup(has_directory_been_created=False, has_custom_name=False)
+    sp.system_setup(has_directory_been_created=True, has_custom_name=False)
 
     main()
 
