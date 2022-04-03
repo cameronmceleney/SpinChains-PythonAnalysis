@@ -6,7 +6,7 @@ from datetime import datetime
 import errno as errno
 import logging as lg
 import os as os
-from sys import platform, exit
+from sys import platform
 
 """
     Description of what system_preparation.py does
@@ -65,7 +65,7 @@ class SystemSetup:
             # parent_name = str(input("Enter the name of the parent directory: "))
             parent_name = "02 Apr 22"
         else:
-            parent_name = self.date_of_today()
+            parent_name = self._date_of_today()
 
         lg.info(f"Target (parent) directory is {parent_name}.")
 
@@ -77,7 +77,7 @@ class SystemSetup:
             mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"  # Location of my C++ data on Mac
 
             if not self.has_target_dir_been_found:
-                self.create_directory(mac_dir_root, parent_name)
+                self._create_directory(mac_dir_root, parent_name)
 
             self.input_data_directory = f"{mac_dir_root}{parent_name}/Simulation_Data/"
             self.output_data_directory = f"{mac_dir_root}{parent_name}/Outputs/"
@@ -88,13 +88,13 @@ class SystemSetup:
             windows_dir_root = "D:\\Data\\"  # Location of my C++ data on Windows
 
             if not self.has_target_dir_been_found:
-                self.create_directory(windows_dir_root, parent_name)
+                self._create_directory(windows_dir_root, parent_name)
 
             self.input_data_directory = f"{windows_dir_root}{parent_name}\\Simulation_Data\\"
             self.output_data_directory = f"{windows_dir_root}{parent_name}\\Outputs\\"
             self.logging_directory = f"{windows_dir_root}{parent_name}\\Logs\\"
 
-        self.logging_setup()
+        self._logging_setup()
 
     def input_dir(self, should_print=False):
 
@@ -130,7 +130,7 @@ class SystemSetup:
             return self.logging_directory
 
     @staticmethod
-    def date_of_today():
+    def _date_of_today():
         """
         Finds and returns today's date in DD MMM YY format.
 
@@ -143,7 +143,7 @@ class SystemSetup:
 
         return date
 
-    def create_directory(self, root_dir_path, parent_dir_name, should_show_errors=False):
+    def _create_directory(self, root_dir_path, parent_dir_name, should_show_errors=False):
         """
         Create a tree of subdirectories to save simulation data.
 
@@ -188,7 +188,7 @@ class SystemSetup:
 
         self.has_target_dir_been_found = True
 
-    def logging_setup(self):
+    def _logging_setup(self):
         """Initialisation of basic logging information."""
 
         if self.logging_directory is None:
@@ -203,4 +203,3 @@ class SystemSetup:
                        format='%(asctime)s | %(module)s::%(funcName)s | %(levelname)s | %(message)s',
                        datefmt='%Y-%m-%d %H:%M:%S',
                        force=True)
-
