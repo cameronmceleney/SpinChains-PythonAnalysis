@@ -34,14 +34,9 @@ def main():
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
-    cake_mx = das.SelectMethodToPlot(filename_base, "rk2", "mx", "LLGTest")
-    cake_mx._invoke_paper_figures(True)
-
-    cake_my = das.SelectMethodToPlot(filename_base, "rk2", "my", "LLGTest")
-    cake_my._invoke_paper_figures(True, "GIF")
-
-    cake_mz = das.SelectMethodToPlot(filename_base, "rk2", "mz", "LLGTest")
-    cake_mz._invoke_paper_figures(True)
+    test = sp.SystemSetup()
+    test.detect_os(True)
+    test.input_dir(True)
 
     exit()
 
