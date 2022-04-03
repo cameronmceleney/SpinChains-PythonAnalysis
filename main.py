@@ -34,16 +34,18 @@ def main():
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
-    test = sp.SystemSetup()
-    test.detect_os(True)
-    test.input_dir(True)
+    system_setup = sp.SystemSetup()
+    system_setup.detect_os(True)
+    lg.info("success")
+
+    Dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
+                                    file_component='mx')
+    Dataset1.call_methods()
 
     exit()
 
 
 if __name__ == '__main__':
-
-    sp.system_setup(has_directory_been_created=True, has_custom_name=False)
 
     main()
 
