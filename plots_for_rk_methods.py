@@ -50,6 +50,9 @@ class PaperFigures:
         self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
         self.data_points = key_data['numberOfDataPoints']
         self.max_time = key_data['maxSimTime'] * 1e9
+        self.driving_width = key_data['drivingRegionWidth']
+        self.numGilbert = key_data['numGilbert']
+        self.drLHS = key_data['drivingRegionLHS']
 
         # Attributes for plots
         self.fig = plt.figure(figsize=(12, 6), dpi=300)
@@ -77,7 +80,7 @@ class PaperFigures:
             ax = self.axes
         else:
             # For GIFs
-            fig = plt.figure(figsize=(12, 6), dpi=100)  # Each frame requires a new fig to prevent stuttering.
+            fig = plt.figure(figsize=(12, 6), dpi=300)  # Each frame requires a new fig to prevent stuttering.
             ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
 
         plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
@@ -90,7 +93,8 @@ class PaperFigures:
 
         if not has_single_figure:
             left, bottom, width, height = (
-            [0, self.number_spins - 300, (self.number_spins - 600) / 2], ax.get_ylim()[0], 300, 2 * ax.get_ylim()[1])
+                [0, self.number_spins - self.numGilbert],
+                ax.get_ylim()[0], self.driving_width, 2 * ax.get_ylim()[1])
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
                                          # fill=False,
@@ -102,7 +106,7 @@ class PaperFigures:
                                          alpha=0.1,
                                          facecolor="red")
 
-            rectDriving = mpatches.Rectangle((left[2], bottom), width, height,
+            rectDriving = mpatches.Rectangle((self.drLHS, bottom), width, height,
                                              # fill=False,
                                              alpha=0.1,
                                              facecolor="blue")
@@ -112,8 +116,8 @@ class PaperFigures:
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        ax.xaxis.set(major_locator=ticker.MultipleLocator((self.number_spins - 600) * 0.25),
-                     minor_locator=ticker.MultipleLocator((self.number_spins - 600) * 0.125))
+        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
+                     minor_locator=ticker.MultipleLocator(self.number_spins  * 0.125))
         ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                      minor_locator=ticker.AutoMinorLocator())
 
@@ -169,7 +173,7 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}_2.gif", duration=2, unit='ms')
+        gif.save(frames, f"{self.output_filepath}.gif", duration=2, unit='ms')
 
     def plot_site_variation(self, spin_site):
         """
@@ -481,7 +485,7 @@ def fft_data(amplitude_data, simulation_params):
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
 
-def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file):
+def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_tri=False):
     x = mx_data[:, spin_site]
     y = my_data[:, spin_site]
     z = mz_data[:, spin_site]
@@ -489,10 +493,11 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file):
     # 'magma' is also nice
     fig = plt.figure(figsize=(12, 12))
     ax = plt.axes(projection='3d')
-    # ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
-    ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
-
-    plt.show()
+    if use_tri:
+        ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
+    else:
+        ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
+        ax.legend()
 
     ax.set_xlabel('m$_x$', fontsize=12)
     ax.set_ylabel('m$_y$', fontsize=12)
@@ -501,9 +506,8 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file):
     ax.xaxis.set_rotate_label(False)
     ax.yaxis.set_rotate_label(False)
     ax.zaxis.set_rotate_label(False)
-    ax.legend()
     plt.show()
-    fig.savefig(f"{output_file}.png")
+    fig.savefig(f"{output_file}_contour.png")
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
