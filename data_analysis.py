@@ -183,16 +183,16 @@ class PlotImportedData:
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
 
-        self.all_imported_data = self.import_data_from_file()
+        self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
 
         [self.header_data_params, self.header_data_sites] = self.import_headers_from_file()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
 
-        self.accepted_keywords = ["3P", "FS", "EXIT", "PF"]
+        self.accepted_keywords = ["3P", "FS", "EXIT", "PF", "CP"]
 
-    def import_data_from_file(self):
+    def import_data_from_file(self, filename, input_data_path):
         """
         Outputs the data needed to plot single-image panes.
 
@@ -204,15 +204,15 @@ class PlotImportedData:
         all_data_without_header = None
         # Loads all input data
         try:
-            is_file_present_in_dir = path.exists(self.input_data_path)
+            is_file_present_in_dir = path.exists(input_data_path)
             if not is_file_present_in_dir:
                 raise FileNotFoundError
         except FileNotFoundError:
-            print(f"File {self.full_filename} was not found")
-            lg.error(f"File {self.full_filename} was not found")
+            print(f"File {filename} was not found")
+            lg.error(f"File {filename} was not found")
             exit(1)
         else:
-            all_data_without_header = np.loadtxt(self.input_data_path, delimiter=",", skiprows=9)
+            all_data_without_header = np.loadtxt(input_data_path, delimiter=",", skiprows=9)
 
         lg.info(f"Data points imported!")
 
@@ -280,6 +280,7 @@ class PlotImportedData:
             *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
             *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
             *   Paper Figure [PF] (Plot final state of system at all sites)
+            *   Contour Plot [CP] (Plot a single site as a 3D map)
 
         The terms within the square brackets are the keys for each function. 
         If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
@@ -309,6 +310,9 @@ class PlotImportedData:
 
         elif method_to_call == "PF":
             self._invoke_paper_figures()
+
+        elif method_to_call == "CP":
+            self._invoke_contour_plot()
 
         elif method_to_call == "EXIT":
             self._exit_conditions()
@@ -345,6 +349,27 @@ class PlotImportedData:
 
         lg.info(f"Completed plotting FS!")
 
+    def _invoke_contour_plot(self):
+        # Use this if you wish to see what ranplotter.py would output
+        lg.info(f"Plotting function selected: three panes.")
+        spin_site = int(input("Plot which site: "))
+
+        mx_name = f"{self.fp}_mx_{self.fi}{self.fd}"
+        my_name = f"{self.fp}_my_{self.fi}{self.fd}"
+        mz_name = f"{self.fp}_mz_{self.fi}{self.fd}"
+        mx_path = f"{self.in_path}{mx_name}.csv"
+        my_path = f"{self.in_path}{my_name}.csv"
+        mz_path = f"{self.in_path}{mz_name}.csv"
+
+        mx_m_data = self.import_data_from_file(filename=mx_name,
+                                               input_data_path=mx_path)
+        my_m_data = self.import_data_from_file(filename=my_name,
+                                               input_data_path=my_path)
+        mz_m_data = self.import_data_from_file(filename=mz_name,
+                                               input_data_path=mz_path)
+        plt_rk.create_contour_plot(self.all_imported_data, my_m_data, mz_m_data, spin_site)
+        lg.info(f"Plotting CP complete!")
+
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         lg.info(f"Plotting function selected: paper figure.")
@@ -361,7 +386,8 @@ class PlotImportedData:
         if pf_selection == "PNG":
             paper_fig.create_png()
         elif pf_selection == "SV":
-            paper_fig.plot_site_variation(401)
+            site_num = int(input("Plot which site: "))
+            paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
             paper_fig.create_gif(number_of_frames=0.01)
 
@@ -432,7 +458,8 @@ def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTe
         print('''
     The plotting functions available are:
     
-        *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
+        *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a 
+            selection)
         *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
         *   Paper Figure [PF] (Plot final state of system at all sites)
         

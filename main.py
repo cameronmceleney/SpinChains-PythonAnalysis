@@ -28,16 +28,14 @@ def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info(f"Program start...")
 
-    filename_base = str(input("Enter the unique identifier of the file: "))
-
     # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(True)
-    lg.info("success")
+    system_setup.detect_os(has_custom_name=True)
 
+    filename_base = "2313" # str(input("Enter the unique identifier of the file: "))
     Dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                     file_component='mx')
     Dataset1.call_methods()

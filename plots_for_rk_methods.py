@@ -457,6 +457,29 @@ def fft_data(amplitude_data, simulation_params):
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
 
+def create_contour_plot(mx_data, my_data, mz_data, spin_site):
+    x = mx_data[:, spin_site]
+    y = my_data[:, spin_site]
+    z = mz_data[:, spin_site]
+
+
+    # 'magma' is also nice
+    fig = plt.figure(figsize=(12, 12))
+    ax = plt.axes(projection='3d')
+    ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none')
+    plt.show()
+
+    ax.set_xlabel('m$_x$', fontsize=12)
+    ax.set_ylabel('m$_y$', fontsize=12)
+    ax.set_zlabel('m$_z$', fontsize=12)
+
+    ax.xaxis.set_rotate_label(False)
+    ax.yaxis.set_rotate_label(False)
+    ax.zaxis.set_rotate_label(False)
+    ax.legend()
+    plt.show()
+
+
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
 def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
     """
