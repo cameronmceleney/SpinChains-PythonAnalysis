@@ -351,7 +351,7 @@ class PlotImportedData:
 
     def _invoke_contour_plot(self):
         # Use this if you wish to see what ranplotter.py would output
-        lg.info(f"Plotting function selected: three panes.")
+        lg.info(f"Plotting function selected: contour plot.")
         spin_site = int(input("Plot which site: "))
 
         mx_name = f"{self.fp}_mx_{self.fi}{self.fd}"
@@ -367,7 +367,7 @@ class PlotImportedData:
                                                input_data_path=my_path)
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
-        plt_rk.create_contour_plot(self.all_imported_data, my_m_data, mz_m_data, spin_site)
+        plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path)
         lg.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):

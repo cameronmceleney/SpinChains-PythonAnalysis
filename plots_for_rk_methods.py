@@ -10,6 +10,7 @@ import sys as sys
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
+import matplotlib.patches as mpatches
 import gif as gif
 
 # My packages / Any header files
@@ -87,9 +88,32 @@ class PaperFigures:
 
         ax.set(**self.kwargs)
 
+        if not has_single_figure:
+            left, bottom, width, height = (
+            [0, self.number_spins - 300, (self.number_spins - 600) / 2], ax.get_ylim()[0], 300, 2 * ax.get_ylim()[1])
+
+            rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
+                                         # fill=False,
+                                         alpha=0.1,
+                                         facecolor="red")
+
+            rectRHS = mpatches.Rectangle((left[1], bottom), width, height,
+                                         # fill=False,
+                                         alpha=0.1,
+                                         facecolor="red")
+
+            rectDriving = mpatches.Rectangle((left[2], bottom), width, height,
+                                             # fill=False,
+                                             alpha=0.1,
+                                             facecolor="blue")
+
+            plt.gca().add_patch(rectLHS)
+            plt.gca().add_patch(rectRHS)
+            plt.gca().add_patch(rectDriving)
+
         # Change tick markers as needed.
-        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
-                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125))
+        ax.xaxis.set(major_locator=ticker.MultipleLocator((self.number_spins - 600) * 0.25),
+                     minor_locator=ticker.MultipleLocator((self.number_spins - 600) * 0.125))
         ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                      minor_locator=ticker.AutoMinorLocator())
 
@@ -145,7 +169,7 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=2, unit='ms')
+        gif.save(frames, f"{self.output_filepath}_2.gif", duration=2, unit='ms')
 
     def plot_site_variation(self, spin_site):
         """
@@ -457,16 +481,17 @@ def fft_data(amplitude_data, simulation_params):
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
 
-def create_contour_plot(mx_data, my_data, mz_data, spin_site):
+def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file):
     x = mx_data[:, spin_site]
     y = my_data[:, spin_site]
     z = mz_data[:, spin_site]
 
-
     # 'magma' is also nice
     fig = plt.figure(figsize=(12, 12))
     ax = plt.axes(projection='3d')
-    ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none')
+    # ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
+    ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
+
     plt.show()
 
     ax.set_xlabel('m$_x$', fontsize=12)
@@ -478,6 +503,7 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site):
     ax.zaxis.set_rotate_label(False)
     ax.legend()
     plt.show()
+    fig.savefig(f"{output_file}.png")
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
