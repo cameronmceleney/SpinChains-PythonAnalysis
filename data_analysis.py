@@ -261,6 +261,7 @@ class PlotImportedData:
         key_params['numberOfDataPoints'] = int(data_values[11])
         key_params['numSpins'] = int(data_values[12])
         key_params['stepsize'] = float(data_values[13])
+        key_params['numGilbert'] = int(data_values[14])
 
         lg.info(f"File headers imported!")
 
@@ -367,7 +368,7 @@ class PlotImportedData:
                                                input_data_path=my_path)
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
-        plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path)
+        plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, True)
         lg.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
@@ -389,7 +390,7 @@ class PlotImportedData:
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.01)
+            paper_fig.create_gif(number_of_frames=0.001)
 
         lg.info(f"Plotting PF complete!")
 
@@ -714,6 +715,10 @@ def import_data_headers(filename):
     key_params['numberOfDataPoints'] = int(data_values[11])
     key_params['numSpins'] = int(data_values[12])
     key_params['stepsize'] = float(data_values[13])
+    key_params['numGilbert'] = int(data_values[14])
+
+    print(key_params['numGilbert'])
+    exit(0)
 
     lg.info(f"File headers imported!")
 
