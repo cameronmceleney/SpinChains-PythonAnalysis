@@ -208,6 +208,185 @@ class PaperFigures:
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
         plt.show()
 
+class PaperFigures2:
+    """
+    Generates a single subplot that can either be a PNG or GIF.
+
+    Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
+    change the invocation in data.analysis.py.
+    """
+
+    def __init__(self, time_data, amplitude_data, amplitude_data2,key_data, array_of_sites, output_filepath):
+        self.time_data = time_data
+        self.amplitude_data = amplitude_data
+        self.amplitude_data2 = amplitude_data2
+        self.sites_array = array_of_sites
+        self.output_filepath = output_filepath
+
+        # Individual attributes from key_data that are needed for the class
+        self.number_spins = key_data["numSpins"]
+        self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
+        self.data_points = key_data['numberOfDataPoints']
+        self.max_time = key_data['maxSimTime'] * 1e9
+        self.driving_width = key_data['drivingRegionWidth']
+        self.numGilbert = key_data['numGilbert']
+        self.drLHS = key_data['drivingRegionLHS']
+
+        # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
+        self.fig = plt.figure(figsize=(12, 6), dpi=300)
+        self.axes = self.fig.add_subplot(111)
+        self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
+                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
+                       "xlim": [0, self.number_spins], "ylim": [-0.01, 0.01]}
+
+    def _draw_figure(self, plot_row=-1, has_single_figure=True):
+        """
+        Private method to plot the given row of data, and create a single figure.
+
+        If no figure param is passed, then the method will use the class' __init__ attributes.
+
+        :param int plot_row: Given row in dataset to plot.
+        :param bool has_single_figure: Flag to ensure that class
+        attribute is used for single figure case, to allow for the saving of the figure out with this method.
+
+        :return: No return statement. Method will output a figure to wherever the method was invoked.
+        """
+        if has_single_figure:
+            # For images, may want to further alter plot outside this method. Hence, the use of attribute.
+            fig = self.fig
+            ax = self.axes
+        else:
+            # For GIFs
+            fig = plt.figure(figsize=(12, 6), dpi=300)  # Each frame requires a new fig to prevent stuttering.
+            ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
+
+        plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
+        plt.subplots_adjust(top=0.80)
+
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
+                label=f"Non-linear")  # Easier to have time-stamp as label than textbox.
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data2[plot_row, :], ls='-', lw=0.5,
+                label=f"Linear")  # Easier to have time-stamp as label than textbox.
+
+        ax.set(**self.kwargs)
+
+        if not has_single_figure:
+            left, bottom, width, height = (
+                [0, self.number_spins - self.numGilbert],
+                ax.get_ylim()[0], self.numGilbert, 2 * ax.get_ylim()[1])
+
+            rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
+                                         # fill=False,
+                                         alpha=0.1,
+                                         facecolor="red")
+
+            rectRHS = mpatches.Rectangle((left[1], bottom), width, height,
+                                         # fill=False,
+                                         alpha=0.1,
+                                         facecolor="red")
+
+            rectDriving = mpatches.Rectangle((self.drLHS, bottom), self.driving_width, height,
+                                             # fill=False,
+                                             alpha=0.1,
+                                             facecolor="blue")
+
+            plt.gca().add_patch(rectLHS)
+            plt.gca().add_patch(rectRHS)
+            plt.gca().add_patch(rectDriving)
+
+        # Change tick markers as needed.
+        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
+                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125))
+        ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
+                     minor_locator=ticker.AutoMinorLocator())
+
+        ax.legend(title=f"Real time [ns]\n{self.time_data[plot_row]:2.2f}", loc=1,
+                  frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+
+        fig.tight_layout()
+
+    def create_png(self, row_number=-1):
+        """
+        Generate a PNG for a single row of the given dataset.
+
+        A row corresponds to an instant in time, so this can be particularly useful for investigating the final 'state'
+        of a system.
+
+        :param int row_number: Which row of data to be plotted. Defaults to plotting the final row.
+
+        :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
+        """
+        self._draw_figure(plot_row=row_number)
+        self.fig.savefig(f"{self.output_filepath}.png")
+        plt.show()
+
+    @gif.frame
+    def _plot_paper_gif(self, index):
+        """
+        Private method to save a given row of a data as a frame suitable for use with the git library.
+
+        Require decorator so use method as an inner class instead of creating child class.
+
+        :param int index: The row to be plotted.
+        """
+        self._draw_figure(index, False)
+
+    def create_gif(self, number_of_frames=0.05):
+        """
+        Generate a GIF from the imported data.
+
+        Uses the data that is imported in data_analysis.py, and turns each row in to a single figure. Multiple figures
+        are then combined to form a GIF. This method does not accept *args or **kwargs, so to make any changes to
+        gif.save() one must access this method directly. For more guidance see
+        `this article
+        <https://towardsdatascience.com/a-simple-way-to-turn-your-plots-into-gifs-in-python-f6ea4435ed3c>`_.
+
+        :param float number_of_frames: How many frames the GIF should have (values between [0.01, 1.0]).
+
+        :return: Will give a .gif file to the 'Outputs' folder of the given folder (selected earlier in the program).
+        """
+
+        frames = []
+
+        for index in range(0, int(self.data_points + 1), int(self.data_points * number_of_frames)):
+            frame = self._plot_paper_gif(index)
+            frames.append(frame)
+
+        gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
+
+    def plot_site_variation(self, spin_site):
+        """
+        Plot the magnetisation of a site against time.
+
+        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+
+        :param int spin_site: The number of the spin site to be plotted.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+
+        self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=1,
+                       label=f"{self.sites_array[spin_site]}")  # Easier to have time-stamp as label than textbox.
+
+        self.axes.set(title=f"Mx Values for {self.driving_freq:2.2f} [GHz]",
+                      xlabel=f"Time [ns]", ylabel=f"m$_x$ [arb.]",
+                      xlim=[0, self.max_time])
+
+        # Change tick markers as needed.
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.2),
+                            minor_locator=ticker.MultipleLocator(self.max_time * 0.1))
+        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=9, prune='lower'),
+                            minor_locator=ticker.AutoMinorLocator())
+
+        self.axes.legend(title="Spin Site [#]", loc=1,
+                         frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+
+        self.axes.grid(visible=True, axis='y', which='major')
+        self.axes.grid(visible=False, axis='x', which='both')
+        self.fig.tight_layout()
+        self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
+        plt.show()
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
 def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to_compare=None):
