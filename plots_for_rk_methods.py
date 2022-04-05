@@ -54,13 +54,13 @@ class PaperFigures:
         self.numGilbert = key_data['numGilbert']
         self.drLHS = key_data['drivingRegionLHS']
 
-        # Attributes for plots
+        # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
         self.fig = plt.figure(figsize=(12, 6), dpi=300)
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                        "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
-                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+                       "xlim": [0, self.number_spins], "ylim": [-0.005, 0.005]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True):
         """
@@ -86,7 +86,7 @@ class PaperFigures:
         plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
         plt.subplots_adjust(top=0.80)
 
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=3,
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
                 label=f"{self.time_data[plot_row]:2.2f}")  # Easier to have time-stamp as label than textbox.
 
         ax.set(**self.kwargs)
@@ -94,7 +94,7 @@ class PaperFigures:
         if not has_single_figure:
             left, bottom, width, height = (
                 [0, self.number_spins - self.numGilbert],
-                ax.get_ylim()[0], self.driving_width, 2 * ax.get_ylim()[1])
+                ax.get_ylim()[0], self.numGilbert, 2 * ax.get_ylim()[1])
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
                                          # fill=False,
@@ -106,7 +106,7 @@ class PaperFigures:
                                          alpha=0.1,
                                          facecolor="red")
 
-            rectDriving = mpatches.Rectangle((self.drLHS, bottom), width, height,
+            rectDriving = mpatches.Rectangle((self.drLHS, bottom), self.driving_width, height,
                                              # fill=False,
                                              alpha=0.1,
                                              facecolor="blue")
@@ -117,7 +117,7 @@ class PaperFigures:
 
         # Change tick markers as needed.
         ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
-                     minor_locator=ticker.MultipleLocator(self.number_spins  * 0.125))
+                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125))
         ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                      minor_locator=ticker.AutoMinorLocator())
 
@@ -173,7 +173,7 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=2, unit='ms')
+        gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
 
     def plot_site_variation(self, spin_site):
         """
@@ -186,12 +186,12 @@ class PaperFigures:
         :return: Saves a .png image to the designated output folder.
         """
 
-        self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=3,
+        self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=1,
                        label=f"{self.sites_array[spin_site]}")  # Easier to have time-stamp as label than textbox.
 
         self.axes.set(title=f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                       xlabel=f"Time [ns]", ylabel=f"m$_x$ [arb.]",
-                      xlim=[5.5, 6.5])
+                      xlim=[0, self.max_time])
 
         # Change tick markers as needed.
         self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.2),
