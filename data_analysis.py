@@ -179,15 +179,19 @@ class PlotImportedData:
         rc_params_update()
 
         self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
+        self.full_filename2 = f"{file_prefix}_{file_component}_{file_identifier}{1519}"
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
+        self.input_data_path2 = f"{self.in_path}{self.full_filename2}.csv"
 
         self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
+        self.all_imported_data2 = self.import_data_from_file(self.full_filename2, self.input_data_path2)
 
         [self.header_data_params, self.header_data_sites] = self.import_headers_from_file()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
+        self.m_spin_data2 = self.all_imported_data2[:, 1:]
 
         self.accepted_keywords = ["3P", "FS", "EXIT", "PF", "CP"]
 
@@ -379,6 +383,10 @@ class PlotImportedData:
                                         self.header_data_params, self.header_data_sites,
                                         self.full_output_path)
 
+        paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2,
+                                          self.header_data_params, self.header_data_sites,
+                                          self.full_output_path)
+
         if has_override:
             pf_selection = override_name
         else:
@@ -390,7 +398,7 @@ class PlotImportedData:
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.01)
+            paper_fig2.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")
 
