@@ -12,7 +12,6 @@ import csv as csv
 from os import path
 
 # My packages / Any header files
-import system_preparation as sp
 import plots_for_rk_methods as plt_rk
 
 """
@@ -192,7 +191,8 @@ class PlotImportedData:
 
         self.accepted_keywords = ["3P", "FS", "EXIT", "PF", "CP"]
 
-    def import_data_from_file(self, filename, input_data_path):
+    @staticmethod
+    def import_data_from_file(filename, input_data_path):
         """
         Outputs the data needed to plot single-image panes.
 
@@ -368,7 +368,7 @@ class PlotImportedData:
                                                input_data_path=my_path)
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
-        plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, True)
+        plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
         lg.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
@@ -390,7 +390,7 @@ class PlotImportedData:
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.001)
+            paper_fig.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")
 
@@ -398,140 +398,6 @@ class PlotImportedData:
     def _exit_conditions():
         print("Exiting program...")
         lg.info(f"Exiting program from (select_plotter == EXIT)!")
-        exit(0)
-
-
-def data_analysis(file_descriptor, file_prefix="rk2_mx_", file_identifier="LLGTest", breaking_paper=False):
-    """
-    Import a dataset in csv format, plotting the signal and the corresponding FFTs, for a user-defined number of sites.
-
-    -----
-    Notes
-    -----
-
-    Ensure that the first column of the dataset are the timestamps that each measurement was taken at. If this is not
-    the case, then replace the variable 'mx_time' with an array of values:
-
-    * mx_time = np.linspace(start_time, end_time, number_of_iterations, endpoint=True)
-
-    :param str file_prefix: This is the 'file_identity' variable in the C++ code.
-    :param str file_identifier: This is the 'filename' variable in the C++ code.
-    :param str file_descriptor: The file_ext variable in the C++ code. Set as a function argument to reduce user inputs
-    :param bool breaking_paper: Temporary argument to allow for the user to plot eigenmodes from ranplotter.py (True),
-    or signals (cpp_rk2_plot.py) (False).
-
-    :return: Nothing.
-    """
-    rc_params_update()
-
-    system_setup = sp.SystemSetup()
-    system_setup.detect_os(True)
-    output_dir = system_setup.output_dir()
-    input_dir = system_setup.input_dir()
-
-    full_file_name = f"{file_prefix}{file_identifier}{file_descriptor}"
-    full_output_path = f"{input_dir}{file_identifier}{file_descriptor}"
-    data_absolute_path = f"{output_dir}{full_file_name}.csv"
-
-    # Tracking how long the data import took is important for monitoring large files.
-    lg.info(f"Invoking functions to import data..")
-
-    if breaking_paper:
-        # Used to plot figures from macedo2021breaking. Often used, so has a fast way to call.
-        mx_data, my_data, eigen_vals_data = import_data(full_file_name, input_dir,
-                                                        only_essentials=False)
-        lg.info(f"All functions that import data are finished!")
-        lg.info(f"Invoking functions to plot data...")
-        plt_rk.eigenmodes(mx_data, my_data, eigen_vals_data, full_file_name)
-
-    else:
-        all_imported_data, [header_data_params, header_data_sites] = import_data(full_file_name, data_absolute_path,
-                                                                                 only_essentials=True)
-
-        m_time_data = all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
-        m_spin_data = all_imported_data[:, 1:]
-
-        lg.info(f"All functions that import data are finished!")
-
-        lg.info(f"Invoking functions to plot data...")
-
-        print('\n---------------------------------------------------------------------------------------')
-        print('''
-    The plotting functions available are:
-    
-        *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a 
-            selection)
-        *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
-        *   Paper Figure [PF] (Plot final state of system at all sites)
-        
-    The terms within the square brackets are the keys for each function. 
-    If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
-              ''')
-        print('---------------------------------------------------------------------------------------\n')
-        select_plotter = input("Which function to use: ").upper()
-        while True:
-
-            if select_plotter == '3P':
-                # Use this if you wish to see what ranplotter.py would output
-                lg.info(f"Plotting function selected: three panes.")
-                print("Note: To select sites to compare, edit code directly.")
-                print("Generating plot...")
-                plt_rk.three_panes(all_imported_data, header_data_params, header_data_sites, full_output_path,
-                                   [3, 4, 5])
-                lg.info(f"Plotting 3P complete!")
-                break
-
-            elif select_plotter == 'FS':
-                # Use this to see fourier transforms of data
-
-                lg.info(f"Plotting function selected: Fourier Signal.")
-
-                has_more_to_plot = True
-                while has_more_to_plot:
-                    # User will plot one spin site at a time, as plotting can take a long time.
-                    target_spin = int(input("Plot which spin (-ve to exit): "))
-                    print("Generating plot...")
-
-                    if target_spin >= 1:
-                        plt_rk.fft_and_signal_four(m_time_data, m_spin_data[:, target_spin], target_spin,
-                                                   header_data_params,
-                                                   full_output_path)
-                        lg.info(f"Finished plotting spin site #{target_spin} in FS. Continuing...")
-                        # cont_plotting_FFT = False  # Remove this after testing.
-                    else:
-                        has_more_to_plot = False
-
-                lg.info(f"Completed plotting FS!")
-                break  # Break out of elif statement
-
-            elif select_plotter == "PF":
-                # Plots final state of system, similar to the Figs. in macedo2021breaking.
-                lg.info(f"Plotting function selected: paper figure.")
-
-                print("Generating plot...")
-                paper_fig = plt_rk.PaperFigures(m_time_data, m_spin_data,
-                                                header_data_params, header_data_sites,
-                                                full_output_path)
-                # paper_fig.create_png()
-                paper_fig.plot_site_variation(1600)
-                # paper_fig.create_gif(number_of_frames=0.001)
-
-                lg.info(f"Plotting PF complete!")
-                break
-
-            elif select_plotter == 'EXIT':
-                print("Exiting program...")
-                lg.info(f"Exiting program from (select_plotter == EXIT)!")
-
-                exit(0)
-
-            else:
-                while select_plotter not in ["3P", "FS", "EXIT", "PF"]:
-                    select_plotter = input("Invalid option. Select function should to use: ").upper()
-
-        print("Code complete!")
-        lg.info(f"Code complete! Exiting.")
-
         exit(0)
 
 
@@ -571,158 +437,3 @@ def rc_params_update():
                          'axes.spines.right': False,
                          'figure.titlesize': 24,
                          'figure.dpi': 300})
-
-
-def import_data(file_name, input_filepath, only_essentials):
-    """
-    Imports, separates, formats, and returns the simulation data from the eigenvalue and eigenvector output csv files.
-
-    The data needed can be obtained from the C++ code:
-
-    * For only_essentials=True, use the outputs from 'SpinChainEigenSolver'.
-    * For only_essentials=False, use the outputs from 'Numerical_Methods'.
-
-    :param str file_name: Name of file to be imported. Note! This should not include a prefix like 'eigenvalues'
-    :param str input_filepath: The absolute filepath to the dir containing input files.
-    :param bool only_essentials: Streamlined option that is used for plotting panes.
-
-    :return: Three arrays which can be used to generate all plots in plots_for_rk_methods.py.
-    """
-
-    if only_essentials:
-        # Outputs the data needed to plot single-image panes
-        lg.info(f"Importing data points...")
-
-        # Loads all input data
-        all_data_without_header = np.loadtxt(open(input_filepath, "rb"), delimiter=",", skiprows=9)
-        header_data = import_data_headers(input_filepath)
-
-        lg.info(f"Data points imported!")
-
-        return all_data_without_header, header_data
-
-    else:
-
-        # Containers to store key information about the returned arrays. Iterating through containers was felt to be
-        # easier to read than having many lines of variable declarations and initialisations.
-        output_data_array_names = ["mx_data", "my_data", "eigenvalues_data"]  # Names of output data arrays found below.
-        output_data_arrays = [None, None, None]  # Each array is initialised as none to ensure garbage isn't contained.
-        does_data_exist = [False, False, False]  # Tests if each filtered array is in the target directory.
-        filtered_filenames = [f"mx_formatted_{file_name}.csv", f"my_formatted_{file_name}.csv",
-                              f"eigenvalues_formatted_{file_name}.csv"]  # filtered means being in the needed format
-
-        print(f"\nChecking chosen directories for files...")
-
-        for i, (array_name, file_name) in enumerate(zip(output_data_array_names, filtered_filenames)):
-
-            if path.exists(input_filepath + file_name):
-                # Check if each filtered data file (mx, my, eigenvalue) is in the target directory.
-                output_data_arrays[i] = np.loadtxt(input_filepath + file_name, delimiter=',')
-                does_data_exist[i] = True
-                print(f"{array_name}: found")
-
-            else:
-                print(f"{array_name}: not found")
-
-        for _, does_exist in enumerate(does_data_exist):
-            # Tests existence of each filtered array until either False is returned, or all are present (all True).
-
-            if not does_exist:
-                # Generate all filtered files that are needed. Before doing so, allow user to opt-out.
-                generate_files_response = input('Run import code to generate missing files? Y/N: ').upper()
-
-                while True:
-                    # Loops for as long as user input is accepted. Otherwise, forced them to comply.
-                    if generate_files_response == 'Y':
-
-                        # 'Raw' refers to the data produces from the C++ code.
-                        eigenvalues_raw = np.loadtxt(f"{input_filepath}eigenvalues_{file_name}.csv", delimiter=",")
-                        eigenvectors_raw = np.loadtxt(f"{input_filepath}eigenvectors_{file_name}.csv", delimiter=",")
-
-                        # Filtered refers to the data imported into, and amended by, this Python code.
-                        eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
-                        eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
-
-                        mx_data = eigenvectors_filtered[:, 0::2]
-                        my_data = eigenvectors_filtered[:, 1::2]
-
-                        # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
-                        np.savetxt(f"{input_filepath}{filtered_filenames[0]}", mx_data, delimiter=',')
-                        np.savetxt(f"{input_filepath}{filtered_filenames[1]}", my_data, delimiter=',')
-                        np.savetxt(f"{input_filepath}{filtered_filenames[2]}", eigenvalues_filtered, delimiter=',')
-
-                        print(f"\nFiles successfully generated and save in {input_filepath}!\n")
-                        break  # Exits while True: loop.
-
-                    elif generate_files_response == 'N':
-                        print("\nWill not generate files. Exiting...\n")
-                        exit(0)
-
-                    else:
-                        while generate_files_response not in 'YN':
-                            generate_files_response = input("Invalid selection, try again. Run import code to "
-                                                            "generate missing files? Y/N: ").upper()
-
-        else:
-            #
-            print("All files successfully found!\n")
-
-        return output_data_arrays[0], output_data_arrays[1], output_data_arrays[2]
-
-
-def import_data_headers(filename):
-    """
-    Import the header lines of each csv file to obtain the C++ simulation parameters.
-
-    Each simulation in C++ returns all the key parameters, required to replicate the simulation, as headers in csv
-    files. This function imports that data, and creates dictionaries to store it.
-
-    The Python dictionary keys are the same variable names as their C++ counterparts (for consistency). Casting is
-    required as data comes from csvreader as strings.
-
-    :param str filename: The filename of the data to be imported. Obtained from data_analysis.data_analysis()
-
-    :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
-    containing strings; the names of each spin site.
-    """
-    lg.info(f"Importing file headers...")
-
-    with open(filename) as file_header_data:
-        csv_reader = csv.reader(file_header_data)
-        next(csv_reader)  # 1st line. title_line
-        next(csv_reader)  # 2nd line. Blank.
-        next(csv_reader)  # 3rd line. Column title for each key simulation parameter. data_names
-        data_values = next(csv_reader)  # 4th line. Values associated with column titles from 3rd line.
-        next(csv_reader)  # 5th line. Blank.
-        next(csv_reader)  # 6th line. Simulation notes. sim_notes
-        next(csv_reader)  # 7th line. Describes how to understand column titles from 3rd line. data_names_explained
-        next(csv_reader)  # 8th line. Blank.
-        simulated_spin_sites = next(csv_reader)  # 9th line. Number for each spin site that was simulated
-
-    # Assignment to dict is done individually to improve readability.
-    key_params = dict()
-    key_params['biasField'] = float(data_values[0])
-    key_params['biasFieldDriving'] = float(data_values[1])
-    key_params['biasFieldDrivingScale'] = float(data_values[2])
-    key_params['drivingFreq'] = float(data_values[3])
-    key_params['drivingRegionLHS'] = int(data_values[4])
-    key_params['drivingRegionRHS'] = int(data_values[5])
-    key_params['drivingRegionWidth'] = int(data_values[6])
-    key_params['maxSimTime'] = float(data_values[7])
-    key_params['exchangeMaxVal'] = float(data_values[8])
-    key_params['stopIterVal'] = float(data_values[9])
-    key_params['exchangeMinVal'] = float(data_values[10])
-    key_params['numberOfDataPoints'] = int(data_values[11])
-    key_params['numSpins'] = int(data_values[12])
-    key_params['stepsize'] = float(data_values[13])
-    key_params['numGilbert'] = int(data_values[14])
-
-    print(key_params['numGilbert'])
-    exit(0)
-
-    lg.info(f"File headers imported!")
-
-    if "Time" in simulated_spin_sites:
-        simulated_spin_sites.remove("Time")
-
-    return key_params, simulated_spin_sites
