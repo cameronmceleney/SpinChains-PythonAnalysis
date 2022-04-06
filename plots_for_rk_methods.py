@@ -216,10 +216,11 @@ class PaperFigures2:
     change the invocation in data.analysis.py.
     """
 
-    def __init__(self, time_data, amplitude_data, amplitude_data2,key_data, array_of_sites, output_filepath):
+    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, key_data, array_of_sites, output_filepath):
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.amplitude_data2 = amplitude_data2
+        self.amplitude_data3 = amplitude_data3
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
@@ -265,9 +266,11 @@ class PaperFigures2:
         plt.subplots_adjust(top=0.80)
 
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"Non-linear")  # Easier to have time-stamp as label than textbox.
+                label=f"Non-linear", zorder=2)  # Easier to have time-stamp as label than textbox.
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data2[plot_row, :], ls='-', lw=0.5,
-                label=f"Linear")  # Easier to have time-stamp as label than textbox.
+                label=f"1519", zorder=3)  # Easier to have time-stamp as label than textbox.
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data3[plot_row, :], ls='-', lw=0.5,
+                label=f"1951", zorder=1)  # Easier to have time-stamp as label than textbox.
 
         ax.set(**self.kwargs)
 
