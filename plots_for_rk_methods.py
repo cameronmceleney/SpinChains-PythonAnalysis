@@ -266,11 +266,11 @@ class PaperFigures2:
         plt.subplots_adjust(top=0.80)
 
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"Non-linear", zorder=2)  # Easier to have time-stamp as label than textbox.
+                label=f"Non-linear (x12)", zorder=2)  # Easier to have time-stamp as label than textbox.
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data2[plot_row, :], ls='-', lw=0.5,
-                label=f"1519", zorder=3)  # Easier to have time-stamp as label than textbox.
+                label=f"Linear (x2)", zorder=3)  # Easier to have time-stamp as label than textbox.
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data3[plot_row, :], ls='-', lw=0.5,
-                label=f"1951", zorder=1)  # Easier to have time-stamp as label than textbox.
+                label=f"Non-linear (x15)", zorder=1)  # Easier to have time-stamp as label than textbox.
 
         ax.set(**self.kwargs)
 
@@ -304,7 +304,7 @@ class PaperFigures2:
         ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                      minor_locator=ticker.AutoMinorLocator())
 
-        ax.legend(title=f"Real time [ns]\n{self.time_data[plot_row]:2.2f}", loc=1,
+        ax.legend(title=f"Real time [ns]\n{self.time_data[plot_row]:2.2f}\n Scaling compared to\ninitial drive", loc=1,
                   frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
 
         fig.tight_layout()
