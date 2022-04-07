@@ -216,11 +216,14 @@ class PaperFigures2:
     change the invocation in data.analysis.py.
     """
 
-    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, key_data, array_of_sites, output_filepath):
+    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, amplitude_data4, key_data,
+                 array_of_sites, output_filepath):
+
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.amplitude_data2 = amplitude_data2
         self.amplitude_data3 = amplitude_data3
+        self.amplitude_data4 = amplitude_data4
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
@@ -239,7 +242,7 @@ class PaperFigures2:
         self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                        "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
-                       "xlim": [0, self.number_spins], "ylim": [-0.01, 0.01]}
+                       "xlim": [0, self.number_spins], "ylim": [-0.001, 0.001]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True):
         """
@@ -266,11 +269,13 @@ class PaperFigures2:
         plt.subplots_adjust(top=0.80)
 
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"Non-linear (x12)", zorder=2)  # Easier to have time-stamp as label than textbox.
+                label=f"Linear (x1)", zorder=4)  # Easier to have time-stamp as label than textbox.
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data2[plot_row, :], ls='-', lw=0.5,
-                label=f"Linear (x2)", zorder=3)  # Easier to have time-stamp as label than textbox.
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data3[plot_row, :], ls='-', lw=0.5,
-                label=f"Non-linear (x15)", zorder=1)  # Easier to have time-stamp as label than textbox.
+                label=f"Linear (x3)", zorder=3)  # Easier to have time-stamp as label than textbox.
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data3[plot_row, :], ls='--', lw=0.5,
+                label=f"Non-linear (x12)", zorder=2)  # Easier to have time-stamp as label than textbox.
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data4[plot_row, :], ls='-', lw=0.5,
+                label=f"Non-linear (x20)", zorder=1)  # Easier to have time-stamp as label than textbox.
 
         ax.set(**self.kwargs)
 
@@ -557,7 +562,6 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                                 plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
 
     fig.savefig(f"{filename}_{spin_site}.png")
-    plt.show()
 
 
 def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, xlim_scaling=0.2, ax=None):
