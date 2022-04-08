@@ -216,7 +216,7 @@ class PaperFigures2:
     change the invocation in data.analysis.py.
     """
 
-    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, amplitude_data4, key_data,
+    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, amplitude_data4, amplitude_data5, key_data,
                  array_of_sites, output_filepath):
 
         self.time_data = time_data
@@ -224,6 +224,8 @@ class PaperFigures2:
         self.amplitude_data2 = amplitude_data2
         self.amplitude_data3 = amplitude_data3
         self.amplitude_data4 = amplitude_data4
+        self.amplitude_data5 = amplitude_data5
+
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
@@ -267,6 +269,9 @@ class PaperFigures2:
 
         plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
         plt.subplots_adjust(top=0.80)
+
+        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data5[plot_row, :], ls='-', lw=0.5,
+                label=f"Linear (x0.1)", zorder=5)  # Easier to have time-stamp as label than textbox.
 
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
                 label=f"Linear (x1)", zorder=4)  # Easier to have time-stamp as label than textbox.
