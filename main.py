@@ -33,7 +33,7 @@ def main():
     #                  breaking_paper=False)
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(has_custom_name=True)
+    system_setup.detect_os(has_custom_name=False)
 
     filename_base = str(input("Enter the unique identifier of the file: "))
     dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
