@@ -57,7 +57,7 @@ class PaperFigures:
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
         self.fig = plt.figure(figsize=(12, 6), dpi=300)
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 0.02  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                        "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
@@ -137,9 +137,10 @@ class PaperFigures:
 
         :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
         """
+        self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
         self._draw_figure(plot_row=row_number)
-        self.fig.savefig(f"{self.output_filepath}.png")
-        plt.show()
+        self.fig.savefig(f"{self.output_filepath}_row{row_number}.png")
+        #  plt.show()
 
     @gif.frame
     def _plot_paper_gif(self, index):
