@@ -215,7 +215,8 @@ class UnitConversion:
                     self._current_cgs()
                 elif self.cgs_to_si is False:
                     convert_from = "A"
-                    output_value = self.input_value * dict_of_si_currents[convert_from] / dict_of_si_currents[self.units_to]
+                    output_value = self.input_value * dict_of_si_currents[convert_from] / dict_of_si_currents[
+                        self.units_to]
             else:
                 # Can only use default SI units here at the moment; can't mix SI and CGS
                 convert_from = self.units_from
@@ -238,10 +239,11 @@ class UnitConversion:
         https://www.quora.com/What-is-the-cgs-unit-of-electric-current
         :return:
         """
-        c_cgs = 2.99792458e10 # The speed of light in CGS
+        c_cgs = 2.99792458e10  # The speed of light in CGS
         return 5
-# ---------------------------- Function Declarations ---------------------------
 
+
+# ---------------------------- Function Declarations ---------------------------
 def loggingSetup():
     """
     Minimum Working Example (MWE) for logging. Pre-defined levels are:
