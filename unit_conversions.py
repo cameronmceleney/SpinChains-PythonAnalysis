@@ -530,8 +530,19 @@ class UnitDecomposition:
         lhs_equation_separated_powers = self._find_powers_of_units(lhs_equation_stripped)
         rhs_equation_separated_powers = self._find_powers_of_units(rhs_equation_stripped)
 
-        print(lhs_equation, lhs_prefixes, lhs_equation_stripped, lhs_equation_separated_powers)
-        print(rhs_equation, rhs_prefixes, rhs_equation_stripped, rhs_equation_separated_powers)
+        # Combine powers of the same base unit on each side of equality, then sort powers into order.
+        lhs_combined_powers = self._combine_powers_of_units(lhs_equation_separated_powers)
+        rhs_combined_powers = self._combine_powers_of_units(rhs_equation_separated_powers)
+
+        # Output final units to user
+        lhs_units_output = self._equation_output(lhs_combined_powers, lhs_equation, show_output=True)
+        rhs_units_output = self._equation_output(rhs_combined_powers, rhs_equation, show_output=True)
+
+        if lhs_units_output == rhs_units_output:
+            print("The terms are the same!")
+        else:
+            print("The terms are not the same!")
+
 
     def _handle_unit_conversion(self):
         return self._find_prefixes(self.filtered_string)
@@ -625,10 +636,55 @@ class UnitDecomposition:
         # combine into a set of nested lists.
 
         list_to_return = []
-        for key in range(0, len(list_to_separate_powers), 2):
-            list_to_return.append([list_to_separate_powers[key], list_to_separate_powers[key+1]])
+        for key in range(0, len(list_to_separate_powers)):
+            list_to_return.append(list_to_separate_powers[key])
 
         return list_to_return
+
+    @staticmethod
+    def _combine_powers_of_units(list_to_combine):
+
+        si_base_units = {'m': 0, 's': 0, "Mole": 0, 'A': 0, 'K': 0, "cd": 0, "kg": 0}
+
+        for _, base_unit in enumerate(si_base_units):
+            temp_total = 0
+            for x in range(0, len(list_to_combine), 2):
+                if str(list_to_combine[x]) == base_unit:
+                    element = list_to_combine[x+1]
+                    sign = 1
+                    # There are two different unicode hyphens that need to be handled, else a ValueError occurs. Their
+                    # codes are '\u8722' and '\u0045'.
+                    if element.startswith('−') or element.startswith('-'):
+                        sign = -1
+                        element = int(element[1:])
+                    else:
+                        element = int(element)
+                    temp_total = temp_total + sign * element
+            si_base_units[base_unit] = temp_total
+
+        return si_base_units
+
+    @staticmethod
+    def _equation_output(dict_to_output, equation, print_all_components=False, show_output=True):
+        """
+        Description.
+
+        https://stackoverflow.com/questions/8519599/python-dictionary-to-string-custom-format
+        """
+        if print_all_components:
+            pass
+        else:
+            for k in list(dict_to_output.keys()):
+                if dict_to_output[k] == 0:
+                    del dict_to_output[k]
+
+        dict_as_string = ' + '.join([f'{key}^{ {value} }' for key, value in dict_to_output.items()])
+
+        if show_output:
+            print(f"{' '.join(equation)} = {dict_as_string}")
+
+        return dict_as_string
+
 
 # ---------------------------- Function Declarations ---------------------------
 def logging_setup():
@@ -658,7 +714,7 @@ def main():
     # uc = UnitConversion(initial_length)
     # MagneticFluxTest(initial_length).compute(True)
 
-    user_string = "V = I * R "  # input("Enter expression: ")
+    user_string = input("Enter expression: ")
     UnitDecomposition(user_string).generate_output()
     # test example: dF = um + GT - daH
 
