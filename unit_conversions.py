@@ -9,6 +9,7 @@ from sys import exit
 
 # 3rd Party packages
 from datetime import datetime
+import re as re
 
 # import matplotlib.pyplot as plt
 # import numpy as np
@@ -494,13 +495,39 @@ class UnitDecomposition:
             self._handle_unit_conversion()
 
     def _handle_equations(self):
+
+        # Separate equation into LHS and RHS
         lhs_equation, rhs_equation = [l.split(',') for l in ','.join(self.filtered_string).split('=')]
 
+        # Remove trailing whitespace after separating equation
         lhs_equation = list(filter(None, lhs_equation))
         rhs_equation = list(filter(None, rhs_equation))
 
-        print(lhs_equation, self._find_prefixes(lhs_equation))
-        print(rhs_equation, self._find_prefixes(rhs_equation))
+        # Tokenise equations to extract individual terms
+        lhs_equation = self._tokenise_expression(lhs_equation)
+        rhs_equation = self._tokenise_expression(rhs_equation)
+
+        # Generate list (of same length as original) that contains only the prefixes. None indicates either no prefix,
+        # or a symbol is present
+        lhs_prefixes = self._find_prefixes(lhs_equation)
+        rhs_prefixes = self._find_prefixes(rhs_equation)
+
+        # Generate list that contains equation without prefixes. Handle lists separately incase they're different
+        # lengths (zip would stop when the shorter list is completed)
+        lhs_equation_stripped = []
+        for key, value in enumerate(lhs_equation):
+            lhs_equation_stripped.append(value.replace(str(lhs_prefixes[key]), ''))
+
+        rhs_equation_stripped = []
+        for key, value in enumerate(rhs_equation):
+            rhs_equation_stripped.append(value.replace(str(rhs_prefixes[key]), ''))
+
+        # Substitute in the fundamental units to the stripped equation
+        lhs_equation_stripped = self._fundamental_units(lhs_equation_stripped)
+        rhs_equation_stripped = self._fundamental_units(rhs_equation_stripped)
+
+        print(lhs_equation, lhs_prefixes, lhs_equation_stripped)
+        print(rhs_equation, rhs_prefixes, rhs_equation_stripped)
 
     def _handle_unit_conversion(self):
         return self._find_prefixes(self.filtered_string)
@@ -520,6 +547,7 @@ class UnitDecomposition:
             # Check if each term in the expression has any prefixes
             if len(term) <= 1:
                 # Ignored individual symbols as they have no prefix
+                prefixes_found.append(None)
                 continue
 
             component_symbols = list(term)
@@ -531,9 +559,45 @@ class UnitDecomposition:
 
             if component_symbols[0] in si_prefixes.keys():
                 prefixes_found.append(component_symbols[0])
+                continue
 
         return prefixes_found
 
+    @staticmethod
+    def _tokenise_expression(string_to_tokenise):
+        """https://stackoverflow.com/questions/43389684/how-can-i-split-a-string-of-a-mathematical-expressions-in-python"""
+        if isinstance(string_to_tokenise, list):
+            string_to_tokenise = ''.join(string_to_tokenise)
+
+        tokens = []
+        tokenizer = re.compile(r"\s*([()+*/-]|\w+)")  # \s*([()+*/-]|\d+[a-zA-Z]+)
+        current_pos = 0
+        while current_pos < len(string_to_tokenise):
+            match = tokenizer.match(string_to_tokenise, current_pos)
+            if match is None:
+                raise SyntaxError
+            tokens.append(match.group(1))
+            current_pos = match.end()
+
+        return tokens
+
+    @staticmethod
+    def _fundamental_units(list_to_evaluate):
+        """
+        Converts a symbol to its fundamental unit equivalent.
+
+        Contains a huge list of all physics expressions, and how they are written in fundamental units.
+        """
+        common_expressions = {"F": "kg{1}*m{1}*s{-2}", "T": "k{1}", "V": "kg{1}*m{2}*s{−3}*A{−1}",
+                              "R": "kg{1}*m{2}*s{−3}*A{−2}"}
+
+        empty_list = []
+        for term in list_to_evaluate:
+            for key, value in common_expressions.items():
+                if term == key:
+                    empty_list.append(value)
+
+        return empty_list
 
 # ---------------------------- Function Declarations ---------------------------
 def logging_setup():
@@ -563,7 +627,9 @@ def main():
     # uc = UnitConversion(initial_length)
     # MagneticFluxTest(initial_length).compute(True)
 
-    UnitDecomposition("mF = dam Ga").generate_output()
+    user_string = input("Enter expression: ")
+    UnitDecomposition(user_string).generate_output()
+    # test example: dF = um + GT - daH
 
     # lg.info(f"{PROGRAM_NAME} end")
     exit()
