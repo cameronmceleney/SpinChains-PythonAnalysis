@@ -242,13 +242,16 @@ class UnitConversion:
         c_cgs = 2.99792458e10  # The speed of light in CGS
         return 5
 
-    def magnetism(self, text_output=False):
+    def magnetic_flux_density(self, text_output=False):
         """
         Converts measurements regarding magnetism (in general) from CGS to S.I. units (or the reverse).
 
         :return: Converted value
         :rtype: list of floats
         """
+        # B-field should be in terms of [G], but some people may use [Oe]. In air, 1[G] = 1[Oe]. No support for out
+        # with air right now (B[G] = u_r H[Oe]; u_r is the relative permeability).
+        magnetic_flux_density_units = ["G", "Oe"]
 
         try:
             if self.units_from == "DEFAULT":
@@ -257,7 +260,7 @@ class UnitConversion:
                 elif self.cgs_to_si is False:
                     self._magnetic_flux_si(text_output)
             else:
-                if self.units_to == "G" or self.units_from == "G":
+                if self.units_to in magnetic_flux_density_units or self.units_from == magnetic_flux_density_units:
                     self._magnetic_flux_gauss(text_output)
                 elif self.units_to == "Y" or self.units_from == "Y":
                     self._magnetic_flux_gamma(text_output)
@@ -266,7 +269,7 @@ class UnitConversion:
 
         except KeyError as ke:
             print(f"Magnetism: [{ke}] is not a valid input. Remember that the code is case-sensitive.")
-            exit(1)
+            raise ke
 
         else:
             return
@@ -275,23 +278,41 @@ class UnitConversion:
         """Converts between CGS and SI when Gauss [G] are involved."""
         convert_from = None
         output_value = None
+
         if self.units_from == "G":
             convert_from = "G"
-            input_in_gauss = 1e-4 * self.input_value # Move from [G] to [T], and then convert
-            output_value = self._magnetic_flux_si(internal_conversion=["T", input_in_gauss])
+            gauss_to_tesla = 1e-4 * self.input_value  # Move from [G] to [T], and then put through method
+            output_value = self._magnetic_flux_si(internal_conversion=["T", gauss_to_tesla])
+
         elif self.units_to == "G":
             convert_from = self.units_from
             input_in_tesla = self._magnetic_flux_si(internal_conversion=[convert_from, self.input_value])
             output_value = input_in_tesla * 1e4
 
         if text_output:
-            print(f"The magnetic flux {self.input_value}[{convert_from}] is {output_value:.5f}[{self.units_to}]")
+            print(f"Magnetic flux (CGS): {self.input_value}[{convert_from}] is {output_value:.5f}[{self.units_to}]")
         else:
             return self.input_value, convert_from, output_value, self.units_to
 
     def _magnetic_flux_gamma(self, text_output):
-        cake = 2
-        print(cake)
+        """Converts between CGS and SI when Gamma [Y] are involved."""
+        convert_from = None
+        output_value = None
+
+        if self.units_from == "Y":
+            convert_from = "Y"
+            gamma_to_tesla = 1e-9 * self.input_value  # Move from [G] to [T], and then put through method
+            output_value = self._magnetic_flux_si(internal_conversion=["T", gamma_to_tesla])
+
+        elif self.units_to == "Y":
+            convert_from = self.units_from
+            input_in_tesla = self._magnetic_flux_si(internal_conversion=[convert_from, self.input_value])
+            output_value = input_in_tesla * 1e9
+
+        if text_output:
+            print(f"Magnetic flux (CGS): {self.input_value}[{convert_from}] is {output_value:.5f}[{self.units_to}]")
+        else:
+            return self.input_value, convert_from, output_value, self.units_to
 
     def _magnetic_flux_si(self, text_output=False, internal_conversion=None):
         """Converts between two different magnetic flux inputs that are both in SI units"""
@@ -299,18 +320,21 @@ class UnitConversion:
         dict_si_magnetic_flux = {"PT": 1e15, "TT": 1e12, "GT": 1e9, "MT": 1e6, "kT": 1e3, "hT": 1e2, "daT": 1e1,
                                  "T": 1.0,
                                  "dT": 1e-1, "cT": 1e-2, "mT": 1e-3, "uT": 1e-6, "nT": 1e-9, "pT": 1e-12, "fT": 1e-15}
-
         if internal_conversion is None:
             output_value = self.input_value * dict_si_magnetic_flux[self.units_from] / \
                            dict_si_magnetic_flux[self.units_to]
 
             if text_output:
-                print(f"The magnetic flux {self.input_value}[{self.units_from}] is {output_value:.5f}[{self.units_to}]")
+                print(f"Magnetic flux (SI-SI): {self.input_value}[{self.units_from}] is {output_value:.5f}[{self.units_to}]")
             else:
                 return self.input_value, self.units_from, output_value, self.units_to
         else:
-            output_value = internal_conversion[1] * dict_si_magnetic_flux[internal_conversion[0]] / \
-                           dict_si_magnetic_flux[self.units_to]
+            if self.units_to == "G" or self.units_to == "Y":
+                output_value = internal_conversion[1] * dict_si_magnetic_flux[internal_conversion[0]] / \
+                               dict_si_magnetic_flux["T"]
+            else:
+                output_value = internal_conversion[1] * dict_si_magnetic_flux[internal_conversion[0]] / \
+                               dict_si_magnetic_flux[self.units_to]
 
             return output_value
 
@@ -341,7 +365,7 @@ def main():
 
     initial_length = input("Enter conversion in format ITOT0000: ")
     uc = UnitConversion(initial_length)
-    uc.magnetism(True)
+    uc.magnetic_flux_density(True)
 
     # lg.info(f"{PROGRAM_NAME} end")
     exit()
