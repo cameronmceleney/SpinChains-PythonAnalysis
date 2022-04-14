@@ -233,7 +233,8 @@ class UnitConversion:
             else:
                 return self.input_value, convert_from.lower(), output_value, self.units_to
 
-    def _current_cgs(self):
+    @staticmethod
+    def _current_cgs():
         """
         This is a work in progress.
 
@@ -241,7 +242,7 @@ class UnitConversion:
         :return:
         """
         c_cgs = 2.99792458e10  # The speed of light in CGS
-        return 5
+        return c_cgs
 
 
 class MagneticFluxDensity(UnitConversion):
@@ -497,7 +498,7 @@ class UnitDecomposition:
     def _handle_equations(self):
 
         # Separate equation into LHS and RHS
-        lhs_equation, rhs_equation = [l.split(',') for l in ','.join(self.filtered_string).split('=')]
+        lhs_equation, rhs_equation = [equations.split(',') for equations in ','.join(self.filtered_string).split('=')]
 
         # Remove trailing whitespace after separating equation
         lhs_equation = list(filter(None, lhs_equation))
@@ -543,7 +544,6 @@ class UnitDecomposition:
         else:
             print("The terms are not the same!")
 
-
     def _handle_unit_conversion(self):
         return self._find_prefixes(self.filtered_string)
 
@@ -580,7 +580,12 @@ class UnitDecomposition:
 
     @staticmethod
     def _tokenise_expression(string_to_tokenise):
-        """https://stackoverflow.com/questions/43389684/how-can-i-split-a-string-of-a-mathematical-expressions-in-python"""
+        """
+        Tokenizes the expression.
+
+        Link to a resource to explain how to tokenize using Regular Expressions (RegEx) in Python:
+        https://stackoverflow.com/questions/43389684/how-can-i-split-a-string-of-a-mathematical-expressions-in-python>.
+        """
         if isinstance(string_to_tokenise, list):
             string_to_tokenise = ''.join(string_to_tokenise)
 
@@ -650,7 +655,7 @@ class UnitDecomposition:
             temp_total = 0
             for x in range(0, len(list_to_combine), 2):
                 if str(list_to_combine[x]) == base_unit:
-                    element = list_to_combine[x+1]
+                    element = list_to_combine[x + 1]
                     sign = 1
                     # There are two different unicode hyphens that need to be handled, else a ValueError occurs. Their
                     # codes are '\u8722' and '\u0045'.
