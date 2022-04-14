@@ -526,8 +526,12 @@ class UnitDecomposition:
         lhs_equation_stripped = self._fundamental_units(lhs_equation_stripped)
         rhs_equation_stripped = self._fundamental_units(rhs_equation_stripped)
 
-        print(lhs_equation, lhs_prefixes, lhs_equation_stripped)
-        print(rhs_equation, rhs_prefixes, rhs_equation_stripped)
+        # Separate unit from their powers (to allow for combination later)
+        lhs_equation_separated_powers = self._find_powers_of_units(lhs_equation_stripped)
+        rhs_equation_separated_powers = self._find_powers_of_units(rhs_equation_stripped)
+
+        print(lhs_equation, lhs_prefixes, lhs_equation_stripped, lhs_equation_separated_powers)
+        print(rhs_equation, rhs_prefixes, rhs_equation_stripped, rhs_equation_separated_powers)
 
     def _handle_unit_conversion(self):
         return self._find_prefixes(self.filtered_string)
@@ -570,7 +574,7 @@ class UnitDecomposition:
             string_to_tokenise = ''.join(string_to_tokenise)
 
         tokens = []
-        tokenizer = re.compile(r"\s*([()+*/-]|\w+)")  # \s*([()+*/-]|\d+[a-zA-Z]+)
+        tokenizer = re.compile(r"\s*([()+*/-]|\w+)")
         current_pos = 0
         while current_pos < len(string_to_tokenise):
             match = tokenizer.match(string_to_tokenise, current_pos)
@@ -588,8 +592,16 @@ class UnitDecomposition:
 
         Contains a huge list of all physics expressions, and how they are written in fundamental units.
         """
+
+        """
+        F : Force                       (Newtons)
+        Ω : Electrical Resistance       (Ohms)
+        T : Temperature                 (Kelvin)        [Base Unit] 
+        R : Electric Current            (Amps)          [Base Unit]
+        V : Voltage                     (Volt)
+        """
         common_expressions = {"F": "kg{1}*m{1}*s{-2}", "T": "k{1}", "V": "kg{1}*m{2}*s{−3}*A{−1}",
-                              "R": "kg{1}*m{2}*s{−3}*A{−2}"}
+                              'R': "kg{1}*m{2}*s{−3}*A{−2}", "I": "A{1}"}
 
         empty_list = []
         for term in list_to_evaluate:
@@ -598,6 +610,25 @@ class UnitDecomposition:
                     empty_list.append(value)
 
         return empty_list
+
+    @staticmethod
+    def _find_powers_of_units(list_to_separate_powers):
+
+        if isinstance(list_to_separate_powers, list):
+            # Convert to string to then use re package.
+            list_to_separate_powers = ''.join(list_to_separate_powers)
+
+        # Remove {}* chars which should be the only non-digit, non-alpha chars in the string
+        list_to_separate_powers = list(filter(None, re.split('\s*[{}*]+', list_to_separate_powers)))
+
+        # Each even-numbered position (incl. zero) is a letter, and each odd-numbered position is a number. Need to
+        # combine into a set of nested lists.
+
+        list_to_return = []
+        for key in range(0, len(list_to_separate_powers), 2):
+            list_to_return.append([list_to_separate_powers[key], list_to_separate_powers[key+1]])
+
+        return list_to_return
 
 # ---------------------------- Function Declarations ---------------------------
 def logging_setup():
@@ -627,7 +658,7 @@ def main():
     # uc = UnitConversion(initial_length)
     # MagneticFluxTest(initial_length).compute(True)
 
-    user_string = input("Enter expression: ")
+    user_string = "V = I * R "  # input("Enter expression: ")
     UnitDecomposition(user_string).generate_output()
     # test example: dF = um + GT - daH
 
