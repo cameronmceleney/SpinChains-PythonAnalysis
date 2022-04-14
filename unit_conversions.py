@@ -354,6 +354,8 @@ class MagneticFluxDensity(UnitConversion):
 class MagneticFlux(UnitConversion):
 
     def __init__(self, input_string, cgs_to_si=False):
+        self.temp_from = None
+        self.temp_to = None
         super().__init__(input_string, cgs_to_si)
 
     def compute(self, text_output=False):
@@ -374,6 +376,12 @@ class MagneticFlux(UnitConversion):
                                  f"= {self.input_value}[{self.units_to}]")
                 else:
                     return self.input_value, self.units_from, self.input_value, self.units_to
+
+            if self.units_from != "Wb" and self.units_from in magnetic_flux_units_si:
+                self.units_from = "Wb"
+
+            if self.units_to != "Wb" and self.units_to in magnetic_flux_units_si:
+                self.units_to = "Wb"
 
             if self.units_from == "Mx" or self.units_to == "Mx":
                 self._maxwell(text_output)
@@ -434,6 +442,99 @@ class MagneticFlux(UnitConversion):
             return output_value
 
 
+class UnitDecomposition:
+
+    def __init__(self, input_string):
+        self.unfiltered_string = input_string
+        self.filtered_string = None
+
+    def _split_string(self, selected_string=None):
+        if selected_string is None:
+            selected_string = self.unfiltered_string
+
+        input_string = selected_string.strip()  # Remove leading and trailing whitespace
+        use_delimiter = " "
+        list_of_inputs = input_string.split(use_delimiter)
+        return list_of_inputs
+
+    @staticmethod
+    def _check_for_reserved_chars(string_to_test):
+        """Ensures that special characters required for mathematics are not present"""
+        reserved_chars = {'#', '*', '/', '^', '_'}
+        reserved_chars_found = []
+
+        try:
+            for char in reserved_chars:
+                if char in string_to_test:
+                    reserved_chars_found.append(char)
+        except ValueError as ve:
+            print(f"ValueError: {ve} caused the issue")
+            raise
+        else:
+            if reserved_chars_found:
+                raise ValueError(f"Reserved characters {reserved_chars_found} were found. Please edit your expression "
+                                 f"to omit these.")
+
+    def _check_if_equation(self, string_to_test=None):
+        """Tests if a string is an equation, and breaks it down into components"""
+        if string_to_test is None:
+            string_to_test = self.unfiltered_string
+
+        if '=' in string_to_test:
+            return True
+        else:
+            return False
+
+    def generate_output(self):
+
+        self.filtered_string = self._split_string()
+        if self._check_if_equation():
+            self._handle_equations()
+        else:
+            self._handle_unit_conversion()
+
+    def _handle_equations(self):
+        lhs_equation, rhs_equation = [l.split(',') for l in ','.join(self.filtered_string).split('=')]
+
+        lhs_equation = list(filter(None, lhs_equation))
+        rhs_equation = list(filter(None, rhs_equation))
+
+        print(lhs_equation, self._find_prefixes(lhs_equation))
+        print(rhs_equation, self._find_prefixes(rhs_equation))
+
+    def _handle_unit_conversion(self):
+        return self._find_prefixes(self.filtered_string)
+
+    @staticmethod
+    def _find_prefixes(string_to_check):
+
+        si_prefixes = {'Y': [1e24, "Yotta"], 'Z': [1e21, "Zetta"], 'E': [1e18, "Exa"], 'P': [1e15, "Peta"],
+                       'T': [1e12, "Tera"], 'G': [1e9, "Giga"], 'M': [1e6, "Mega"], 'k': [1e3, "kilo"],
+                       'h': [1e2, "hecto"], 'da': [1e1, "deka"], 'd': [1e-1, "deci"],
+                       'c': [1e-2, "centi"], 'm': [1e-3, "milli"], 'u': [1e-6, "mico"], 'n': [1e-9, "nano"],
+                       'p': [1e-12, "pico"], 'f': [1e-15, "femto"], 'a': [1e-18, "atto"], 'z': [1e-21, "zepto"],
+                       'y': [1e-24, "yocto"]}
+
+        prefixes_found = []
+        for term in string_to_check:
+            # Check if each term in the expression has any prefixes
+            if len(term) <= 1:
+                # Ignored individual symbols as they have no prefix
+                continue
+
+            component_symbols = list(term)
+
+            if len(component_symbols) > 2 and component_symbols[0] + component_symbols[1] == "da":
+                # Special case; only two letter prefix
+                prefixes_found.append("da")
+                continue
+
+            if component_symbols[0] in si_prefixes.keys():
+                prefixes_found.append(component_symbols[0])
+
+        return prefixes_found
+
+
 # ---------------------------- Function Declarations ---------------------------
 def logging_setup():
     """
@@ -458,9 +559,11 @@ def logging_setup():
 def main():
     # lg.info(f"{PROGRAM_NAME} start")
 
-    initial_length = input("Enter conversion in format ITOT0000: ")
-    uc = UnitConversion(initial_length)
-    MagneticFlux(initial_length).compute(True)
+    # initial_length = input("Enter conversion in format ITOT0000: ")
+    # uc = UnitConversion(initial_length)
+    # MagneticFluxTest(initial_length).compute(True)
+
+    UnitDecomposition("mF = dam Ga").generate_output()
 
     # lg.info(f"{PROGRAM_NAME} end")
     exit()
