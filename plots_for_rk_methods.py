@@ -217,15 +217,13 @@ class PaperFigures2:
     change the invocation in data.analysis.py.
     """
 
-    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, amplitude_data4, amplitude_data5, key_data,
+    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, key_data,
                  array_of_sites, output_filepath):
 
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.amplitude_data2 = amplitude_data2
         self.amplitude_data3 = amplitude_data3
-        self.amplitude_data4 = amplitude_data4
-        self.amplitude_data5 = amplitude_data5
 
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
@@ -242,10 +240,10 @@ class PaperFigures2:
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
         self.fig = plt.figure(figsize=(12, 6), dpi=300)
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 0.2  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                        "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
-                       "xlim": [0, self.number_spins], "ylim": [-0.001, 0.001]}
+                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True):
         """
@@ -271,17 +269,12 @@ class PaperFigures2:
         plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
         plt.subplots_adjust(top=0.80)
 
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data5[plot_row, :], ls='-', lw=0.5,
-                label=f"Linear (x0.1)", zorder=5)  # Easier to have time-stamp as label than textbox.
-
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"Linear (x1)", zorder=4)  # Easier to have time-stamp as label than textbox.
+                label=f"Linear (0.00024T)", zorder=3)  # Easier to have time-stamp as label than textbox.
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data2[plot_row, :], ls='-', lw=0.5,
-                label=f"Linear (x3)", zorder=3)  # Easier to have time-stamp as label than textbox.
+                label=f"Non-linear (0.0024T)", zorder=2)  # Easier to have time-stamp as label than textbox.
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data3[plot_row, :], ls='--', lw=0.5,
-                label=f"Non-linear (x12)", zorder=2)  # Easier to have time-stamp as label than textbox.
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data4[plot_row, :], ls='-', lw=0.5,
-                label=f"Non-linear (x20)", zorder=1)  # Easier to have time-stamp as label than textbox.
+                label=f"Non-linear (0.024T)", zorder=1)  # Easier to have time-stamp as label than textbox.
 
         ax.set(**self.kwargs)
 
@@ -539,7 +532,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                            "xlim": (0, temporal_xlim), "ylim": (-1.0, 1.0)},
                        1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "yscale": 'log', "xlim": (0, 30)},
+                           "yscale": 'log', "xlim": (0, 60)},
                        3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "yscale": 'log', "xlim": (0, 5)}}
 
     fig = plt.figure(figsize=(12, 12), constrained_layout=True, )

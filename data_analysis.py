@@ -179,21 +179,21 @@ class PlotImportedData:
         rc_params_update()
 
         self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
-        # self.full_filename2 = f"{file_prefix}_{file_component}_{file_identifier}{1628}"
-        # self.full_filename3 = f"{file_prefix}_{file_component}_{file_identifier}{1725}"
+        self.full_filename2 = f"{file_prefix}_{file_component}_{file_identifier}{1553}"
+        self.full_filename3 = f"{file_prefix}_{file_component}_{file_identifier}{1547}"
         # self.full_filename4 = f"{file_prefix}_{file_component}_{file_identifier}{1846}"
         # self.full_filename5 = f"{file_prefix}_{file_component}_{file_identifier}{1742}"
 
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
-        # self.input_data_path2 = f"{self.in_path}{self.full_filename2}.csv"
-        # self.input_data_path3 = f"{self.in_path}{self.full_filename3}.csv"
+        self.input_data_path2 = f"{self.in_path}{self.full_filename2}.csv"
+        self.input_data_path3 = f"{self.in_path}{self.full_filename3}.csv"
         # self.input_data_path4 = f"{self.in_path}{self.full_filename4}.csv"
         # self.input_data_path5 = f"{self.in_path}{self.full_filename5}.csv"
 
         self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
-        # self.all_imported_data2 = self.import_data_from_file(self.full_filename2, self.input_data_path2)
-        # self.all_imported_data3 = self.import_data_from_file(self.full_filename3, self.input_data_path3)
+        self.all_imported_data2 = self.import_data_from_file(self.full_filename2, self.input_data_path2)
+        self.all_imported_data3 = self.import_data_from_file(self.full_filename3, self.input_data_path3)
         # self.all_imported_data4 = self.import_data_from_file(self.full_filename4, self.input_data_path4)
         # self.all_imported_data5 = self.import_data_from_file(self.full_filename5, self.input_data_path5)
 
@@ -201,8 +201,8 @@ class PlotImportedData:
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
-        # self.m_spin_data2 = self.all_imported_data2[:, 1:]
-        # self.m_spin_data3 = self.all_imported_data3[:, 1:]
+        self.m_spin_data2 = self.all_imported_data2[:, 1:]
+        self.m_spin_data3 = self.all_imported_data3[:, 1:]
         # self.m_spin_data4 = self.all_imported_data4[:, 1:]
         # self.m_spin_data5 = self.all_imported_data5[:, 1:]
 
@@ -400,9 +400,9 @@ class PlotImportedData:
                                         self.header_data_params, self.header_data_sites,
                                         self.full_output_path)
 
-        # paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2, self.m_spin_data3, self.m_spin_data4, self.m_spin_data5,
-        #                                   self.header_data_params, self.header_data_sites,
-        #                                   self.full_output_path)
+        paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2, self.m_spin_data3,
+                                          self.header_data_params, self.header_data_sites,
+                                          self.full_output_path)
 
         if has_override:
             pf_selection = override_name
@@ -417,7 +417,7 @@ class PlotImportedData:
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.01)
+            paper_fig2.create_gif(number_of_frames=0.01)
             # paper_fig2.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")
