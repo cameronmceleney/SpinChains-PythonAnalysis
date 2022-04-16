@@ -500,7 +500,7 @@ class UnitDecomposition:
         # Separate equation into LHS and RHS
         lhs_equation, rhs_equation = [equations.split(',') for equations in ','.join(self.filtered_string).split('=')]
 
-        # Remove trailing whitespace after separating equation
+        # Remove trailing whitespace to prevent empty elements in lists later on
         lhs_equation = list(filter(None, lhs_equation))
         rhs_equation = list(filter(None, rhs_equation))
 
@@ -510,8 +510,12 @@ class UnitDecomposition:
 
         # Generate list (of same length as original) that contains only the prefixes. None indicates either no prefix,
         # or a symbol is present
-        lhs_prefixes = self._find_prefixes(lhs_equation)
-        rhs_prefixes = self._find_prefixes(rhs_equation)
+        lhs_prefixes = self._extract_prefixes(lhs_equation)
+        rhs_prefixes = self._extract_prefixes(rhs_equation)
+
+        # Generate list (of same length as original) to indicate how powers should be altered
+        lhs_operators = self._extract_operators(lhs_equation)
+        rhs_operators = self._extract_operators(rhs_equation)
 
         # Generate list that contains equation without prefixes. Handle lists separately incase they're different
         # lengths (zip would stop when the shorter list is completed)
@@ -532,8 +536,8 @@ class UnitDecomposition:
         rhs_equation_separated_powers = self._find_powers_of_units(rhs_equation_stripped)
 
         # Combine powers of the same base unit on each side of equality, then sort powers into order.
-        lhs_combined_powers = self._combine_powers_of_units(lhs_equation_separated_powers)
-        rhs_combined_powers = self._combine_powers_of_units(rhs_equation_separated_powers)
+        lhs_combined_powers = self._combine_powers_of_units(lhs_equation_separated_powers, lhs_operators)
+        rhs_combined_powers = self._combine_powers_of_units(rhs_equation_separated_powers, rhs_operators)
 
         # Output final units to user
         lhs_units_output = self._equation_output(lhs_combined_powers, lhs_equation, show_output=True)
@@ -545,11 +549,12 @@ class UnitDecomposition:
             print("The terms are not the same!")
 
     def _handle_unit_conversion(self):
-        return self._find_prefixes(self.filtered_string)
+        return self._extract_prefixes(self.filtered_string)
 
     @staticmethod
-    def _find_prefixes(string_to_check):
+    def _extract_prefixes(string_to_check):
 
+        # Performance increase option: Turn dict into a sorted dict, which is in order of most frequently used prefixes.
         si_prefixes = {'Y': [1e24, "Yotta"], 'Z': [1e21, "Zetta"], 'E': [1e18, "Exa"], 'P': [1e15, "Peta"],
                        'T': [1e12, "Tera"], 'G': [1e9, "Giga"], 'M': [1e6, "Mega"], 'k': [1e3, "kilo"],
                        'h': [1e2, "hecto"], 'da': [1e1, "deka"], 'd': [1e-1, "deci"],
@@ -573,6 +578,8 @@ class UnitDecomposition:
                 continue
 
             if component_symbols[0] in si_prefixes.keys():
+                # Symbol has multiple letters, but doesn't include da prefix. Need to check first char against all
+                # possible prefixes
                 prefixes_found.append(component_symbols[0])
                 continue
 
@@ -600,6 +607,31 @@ class UnitDecomposition:
             current_pos = match.end()
 
         return tokens
+
+    @staticmethod
+    def _extract_operators(list_with_operators):
+        """
+        Sort through a list, remove any digits or letters, and convert special symbols.
+
+        This method will produce an output allowing for the class to handle */+- operators in equations.
+        """
+        special_chars_pos = ['+', '-', '*']
+        special_chars_neg = ['/']
+
+        list_to_return = []
+
+        sign = 1
+        for term in list_with_operators:
+            if term in special_chars_pos:
+                sign = 1
+            elif term in special_chars_neg:
+                sign = -1
+
+            if term.isalnum():
+                list_to_return.append(sign)
+                continue
+
+        return list_to_return
 
     @staticmethod
     def _fundamental_units(list_to_evaluate, print_si=False):
@@ -638,6 +670,7 @@ class UnitDecomposition:
         A   : area                          (m{2})
         f   : frequency                     (s^{-1})
         I   : current                       (A{1})
+        m   : mass                          (kg{1})
         t   : time                          (s^{1})
         v   : velocity                      (m{1}*s^{-1})
         V   : volume                        (m{3})
@@ -646,7 +679,7 @@ class UnitDecomposition:
                      'A': "m{2}",
                      'f': "s{-1}",
                      'I': base_units['A'],
-                     'm': base_units['m'],
+                     'm': base_units['kg'],
                      't': base_units['s'],
                      'v': base_units['m'] + "*s{-1}"}
 
@@ -670,11 +703,18 @@ class UnitDecomposition:
         list_of_base_units = []
 
         for _, term in enumerate(list_to_evaluate):
-            # Extract each term from the given equation's symbol list
+            # Extract each term from the given equation's symbol list.
             for dict_to_search in expr_dicts:
                 if term in dict_to_search.keys():
-                    # If true, substitute the list's symbol for its base unit equivalent
-                    list_of_base_units.append(dict_to_search[term])
+                    # If true, substitute the list's symbol for its base unit equivalent.
+                    if list_to_evaluate[-1] == term:
+                        # Final element of list so no need to add separator.
+                        list_of_base_units.append(dict_to_search[term])
+                    else:
+                        # All other elements.
+                        list_of_base_units.append(dict_to_search[term])
+                        list_of_base_units.append('|:')
+
                     break  # No need to keep searching after a match is found, so can move to next iteration of FOR loop
 
         return list_of_base_units
@@ -686,22 +726,34 @@ class UnitDecomposition:
             # Convert to string to then use re package.
             list_to_separate_powers = ''.join(list_to_separate_powers)
 
-        # Remove {}* chars which should be the only non-digit, non-alpha chars in the string
-        list_to_separate_powers = list(filter(None, re.split('\s*[{}*]+', list_to_separate_powers)))
+        # Remove {}*+-/ chars which should be leave only non-digit, non-alpha chars in the string. If a / char is
+        # present, this needs to be recorded, so the sign of the exponent can be flipped
+        list_to_separate_powers = list(filter(None, re.split('\s*[{}*:]+', list_to_separate_powers)))
 
-        # Each even-numbered position (incl. zero) is a letter, and each odd-numbered position is a number. Need to
-        # combine into a set of nested lists.
-
-        list_to_return = []
-        for key in range(0, len(list_to_separate_powers)):
-            list_to_return.append(list_to_separate_powers[key])
-
-        return list_to_return
+        return list_to_separate_powers
 
     @staticmethod
-    def _combine_powers_of_units(list_to_combine):
+    def _combine_powers_of_units(list_to_combine, operator_signs):
 
         si_base_units = {'m': 0, 's': 0, "Mole": 0, 'A': 0, 'K': 0, "cd": 0, "kg": 0}
+
+        print(list_to_combine)
+
+        # Change signs of exponents as needed
+        i_sign = 0
+        for index, term in enumerate(list_to_combine):
+            if term == '|':
+                i_sign += 1
+                continue
+
+            if term.isdigit():
+                list_to_combine[index] = str(int(term) * operator_signs[i_sign])
+            elif term[0] == '−':
+                if term[1:].isdigit():
+                    list_to_combine[index] = str(-1 * int(term[1:]) * operator_signs[i_sign])
+
+        list_to_combine[:] = [x for x in list_to_combine if not x == '|']
+        print(list_to_combine)
 
         for _, base_unit in enumerate(si_base_units):
             temp_total = 0
@@ -771,7 +823,7 @@ def main():
     # uc = UnitConversion(initial_length)
     # MagneticFluxTest(initial_length).compute(True)
 
-    user_string = "m = I * A"  # input("Enter expression: ")
+    user_string = "F = m * a"  # input("Enter expression: ")
     UnitDecomposition(user_string).generate_output()
     # test example: dF = um + GT - daH
 
