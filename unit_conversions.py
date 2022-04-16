@@ -602,30 +602,82 @@ class UnitDecomposition:
         return tokens
 
     @staticmethod
-    def _fundamental_units(list_to_evaluate):
+    def _fundamental_units(list_to_evaluate, print_si=False):
         """
         Converts a symbol to its fundamental unit equivalent.
 
-        Contains a huge list of all physics expressions, and how they are written in fundamental units.
+        Contains a huge list of all physics expressions, and how they are written in fundamental units. For ref. only
         """
-
         """
-        F : Force                       (Newtons)
-        Ω : Electrical Resistance       (Ohms)
-        T : Temperature                 (Kelvin)        [Base Unit] 
-        R : Electric Current            (Amps)          [Base Unit]
-        V : Voltage                     (Volt)
+        These are the S.I. base units. To avoid symbol mis-identification, base_units dict should never be included in 
+        expr_dicts. This is because reserved internal symbols (base_units['A']) are a commonly used symbol (A = area).
+        
+        A   : electric current              (ampere)        
+        cd  : candela                       (luminous intensity) 
+        K   : Kelvin                        (temperature)
+        kg  : kilogram                      (mass)
+        m   : metre                         (length)
+        mol : mole                          (amount of substance)
+        s   : second                        (time)
         """
-        common_expressions = {"F": "kg{1}*m{1}*s{-2}", "T": "k{1}", "V": "kg{1}*m{2}*s{−3}*A{−1}",
-                              'R': "kg{1}*m{2}*s{−3}*A{−2}", "I": "A{1}"}
+        base_units = {'A': "A{1}",
+                      'cd': "cd{1}",
+                      'K': "K{1}",
+                      'kg': "kg{1}",
+                      'm': "m{1}",
+                      'mol': "mol{1}",
+                      's': "s{1}"}
 
-        empty_list = []
-        for term in list_to_evaluate:
-            for key, value in common_expressions.items():
-                if term == key:
-                    empty_list.append(value)
+        if print_si:
+            for key, value in enumerate(base_units):
+                print(f"{key}: {value}")
 
-        return empty_list
+        # Contain minimal Base Units, and crop up in many other expressions.
+        """
+        a   : acceleration                  (m{1}*s^{-2})
+        A   : area                          (m{2})
+        f   : frequency                     (s^{-1})
+        I   : current                       (A{1})
+        t   : time                          (s^{1})
+        v   : velocity                      (m{1}*s^{-1})
+        V   : volume                        (m{3})
+        """
+        core_expr = {'a': base_units['m'] + "*s{-2}",
+                     'A': "m{2}",
+                     'f': "s{-1}",
+                     'I': base_units['A'],
+                     'm': base_units['m'],
+                     't': base_units['s'],
+                     'v': base_units['m'] + "*s{-1}"}
+
+        # Commonly used expressions
+        """
+        F   : Force                         (Newtons)
+        R   : Electrical Resistance         (Ohms)
+        V   : Voltage                       (Volt)
+        """
+        reg_expr = {'F': "kg{1}*" + core_expr['a'],
+                    'R': "kg{1}*m{2}*s{−3}*A{−2}",
+                    'V': "kg{1}*m{2}*s{−3}*A{−1}"}
+
+        # Rarely used expressions. Complex, compound expressions should go here
+        """
+        """
+        rare_expr = {}
+
+        # All dicts to search for a symbol match. LHS
+        expr_dicts = [core_expr, reg_expr, rare_expr]
+        list_of_base_units = []
+
+        for _, term in enumerate(list_to_evaluate):
+            # Extract each term from the given equation's symbol list
+            for dict_to_search in expr_dicts:
+                if term in dict_to_search.keys():
+                    # If true, substitute the list's symbol for its base unit equivalent
+                    list_of_base_units.append(dict_to_search[term])
+                    break  # No need to keep searching after a match is found, so can move to next iteration of FOR loop
+
+        return list_of_base_units
 
     @staticmethod
     def _find_powers_of_units(list_to_separate_powers):
@@ -719,7 +771,7 @@ def main():
     # uc = UnitConversion(initial_length)
     # MagneticFluxTest(initial_length).compute(True)
 
-    user_string = input("Enter expression: ")
+    user_string = "m = I * A"  # input("Enter expression: ")
     UnitDecomposition(user_string).generate_output()
     # test example: dF = um + GT - daH
 
