@@ -673,7 +673,6 @@ class UnitDecomposition:
         m   : mass                          (kg{1})
         t   : time                          (s^{1})
         v   : velocity                      (m{1}*s^{-1})
-        V   : volume                        (m{3})
         """
         core_expr = {'a': base_units['m'] + "*s{-2}",
                      'A': "m{2}",
@@ -737,8 +736,6 @@ class UnitDecomposition:
 
         si_base_units = {'m': 0, 's': 0, "Mole": 0, 'A': 0, 'K': 0, "cd": 0, "kg": 0}
 
-        print(list_to_combine)
-
         # Change signs of exponents as needed
         i_sign = 0
         for index, term in enumerate(list_to_combine):
@@ -753,7 +750,6 @@ class UnitDecomposition:
                     list_to_combine[index] = str(-1 * int(term[1:]) * operator_signs[i_sign])
 
         list_to_combine[:] = [x for x in list_to_combine if not x == '|']
-        print(list_to_combine)
 
         for _, base_unit in enumerate(si_base_units):
             temp_total = 0
