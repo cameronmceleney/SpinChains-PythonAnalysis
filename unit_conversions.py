@@ -728,7 +728,7 @@ class UnitDecomposition:
         # Remove {}*+-/ chars which should be leave only non-digit, non-alpha chars in the string. If a / char is
         # present, this needs to be recorded, so the sign of the exponent can be flipped
         list_to_separate_powers = list(filter(None, re.split('\s*[{}*:]+', list_to_separate_powers)))
-
+        print(list_to_separate_powers)
         return list_to_separate_powers
 
     @staticmethod
