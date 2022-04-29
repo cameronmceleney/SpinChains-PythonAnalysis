@@ -31,7 +31,7 @@ PROGRAM_NAME = "data_analysis.py"
 class PlotEigenmodes:
 
     def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
-                 file_identifier="500spins"):
+                 file_identifier="4000spins"):
         self.fd = file_descriptor
         self.input_dir_path = input_dir_path
         self.output_dir_path = output_dir_path
@@ -39,17 +39,18 @@ class PlotEigenmodes:
         self.fc = file_component
         self.fi = file_identifier
 
-        self.full_filename = f"{self.fp}_{self.fc}_{self.fi}{self.fd}"
+        self.full_filename = f"{self.fp}_{self.fc}_{self.fi}-{self.fd}"
 
         rc_params_update()
 
         # Arrays are inherently mutable, so there is no need to use @property decorator
         self.input_filenames_descriptions = ["mx_data", "my_data", "eigenvalues_data"]
-        self._arrays_to_output = []  # Each array is initialised as none to remove garbage.
-        self._does_data_exist_in_dir = []  # Tests if each filtered array is in the target directory.
+        self._arrays_to_output = [0,0,0]  # Each array is initialised as none to remove garbage.
+        self._does_data_exist_in_dir = [False, False, False]  # Tests if each filtered array is in the target directory.
         self.output_filenames = [f"mx_formatted_{self.full_filename}.csv",
                                  f"my_formatted_{self.full_filename}.csv",
                                  f"eigenvalues_formatted_{self.full_filename}.csv"]
+        self.mx_data, self.my_data, self.eigenvalues_data = None, None, None
 
     def _import_eigenmodes(self):
         # Containers to store key information about the returned arrays. Iterating through containers was felt to be
@@ -162,7 +163,8 @@ class PlotEigenmodes:
 
     def plot_eigenmodes(self):
         lg.info(f"Invoking functions to plot data...")
-        plt_rk.eigenmodes(self.mx_data, self.my_data, self.eigenvalues_data, self.full_filename)
+        plt_rk.eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1], self._arrays_to_output[2],
+                          self.full_filename)
 
 
 class PlotImportedData:
@@ -179,21 +181,21 @@ class PlotImportedData:
         rc_params_update()
 
         self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
-        self.full_filename2 = f"{file_prefix}_{file_component}_{file_identifier}{1553}"
-        self.full_filename3 = f"{file_prefix}_{file_component}_{file_identifier}{1547}"
+        # self.full_filename2 = f"{file_prefix}_{file_component}_{file_identifier}{1553}"
+        # self.full_filename3 = f"{file_prefix}_{file_component}_{file_identifier}{1547}"
         # self.full_filename4 = f"{file_prefix}_{file_component}_{file_identifier}{1846}"
         # self.full_filename5 = f"{file_prefix}_{file_component}_{file_identifier}{1742}"
 
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
-        self.input_data_path2 = f"{self.in_path}{self.full_filename2}.csv"
-        self.input_data_path3 = f"{self.in_path}{self.full_filename3}.csv"
+        # self.input_data_path2 = f"{self.in_path}{self.full_filename2}.csv"
+        # self.input_data_path3 = f"{self.in_path}{self.full_filename3}.csv"
         # self.input_data_path4 = f"{self.in_path}{self.full_filename4}.csv"
         # self.input_data_path5 = f"{self.in_path}{self.full_filename5}.csv"
 
         self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
-        self.all_imported_data2 = self.import_data_from_file(self.full_filename2, self.input_data_path2)
-        self.all_imported_data3 = self.import_data_from_file(self.full_filename3, self.input_data_path3)
+        # self.all_imported_data2 = self.import_data_from_file(self.full_filename2, self.input_data_path2)
+        # self.all_imported_data3 = self.import_data_from_file(self.full_filename3, self.input_data_path3)
         # self.all_imported_data4 = self.import_data_from_file(self.full_filename4, self.input_data_path4)
         # self.all_imported_data5 = self.import_data_from_file(self.full_filename5, self.input_data_path5)
 
@@ -201,8 +203,8 @@ class PlotImportedData:
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
-        self.m_spin_data2 = self.all_imported_data2[:, 1:]
-        self.m_spin_data3 = self.all_imported_data3[:, 1:]
+        # self.m_spin_data2 = self.all_imported_data2[:, 1:]
+        # self.m_spin_data3 = self.all_imported_data3[:, 1:]
         # self.m_spin_data4 = self.all_imported_data4[:, 1:]
         # self.m_spin_data5 = self.all_imported_data5[:, 1:]
 
@@ -400,9 +402,9 @@ class PlotImportedData:
                                         self.header_data_params, self.header_data_sites,
                                         self.full_output_path)
 
-        paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2, self.m_spin_data3,
-                                          self.header_data_params, self.header_data_sites,
-                                          self.full_output_path)
+        # paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2, self.m_spin_data3,
+        #                                   self.header_data_params, self.header_data_sites,
+        #                                   self.full_output_path)
 
         if has_override:
             pf_selection = override_name
@@ -410,14 +412,14 @@ class PlotImportedData:
             pf_selection = str(input("Which figure (PNG/SV/GIF) should be created: ")).upper()
 
         if pf_selection == "PNG":
-            #row_num = int(input("Plot which row of data: "))
+            # row_num = int(input("Plot which row of data: "))
             for row_num in range(85, 99):
                 paper_fig.create_png(row_num)
         elif pf_selection == "SV":
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
-            paper_fig2.create_gif(number_of_frames=0.01)
+            paper_fig.create_gif(number_of_frames=0.01)
             # paper_fig2.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")

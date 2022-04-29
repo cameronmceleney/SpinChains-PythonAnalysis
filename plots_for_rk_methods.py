@@ -752,7 +752,7 @@ def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
                     sys.exit(0)
 
                 elif test_mode.upper() == 'FOURIER':
-                    generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name)
+                    generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name, False)
                     has_valid_modes = False
                     break
 
@@ -813,8 +813,10 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
         width_zeros = 0.95
 
     else:
-        step, lower, upper = int(input("Enter step, lower & upper: "))
-        width_ones = int(input("Enter width of driving region: "))
+        step = int(input("Enter step: "))
+        lower = int(input("Enter lower: "))
+        upper = int(input("Enter upper: "))
+        width_ones = float(input("Enter width of driving region: "))
         width_zeros = 1 - width_ones
 
     # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
@@ -841,21 +843,21 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     # Normalise the arrays of coefficients.
     fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
-    fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
+    fourier_coefficents_rhs = fourier_coefficents_rhs / np.linalg.norm(fourier_coefficents_rhs)
 
     # Plotting functions. Left here as nothing else will use this functionality.
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f' for {file_name}')
+    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f'for a Non-Uniform System')  # {file_name}
     plt.subplots_adjust(top=0.82)
 
     # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', label='Left', zorder=2)
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs)*1e1, lw=3, marker='o', label='Left', zorder=2)
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs)*1e1, lw=3, color='r',
                  marker='o', label='Right', zorder=1)
 
     # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
-    ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient [normalised]',
-           xlim=[lower, upper], ylim=[0.0, 0.1],
+    ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
+           xlim=[lower, upper], yscale='log', ylim=[1e-2, 1e-0],
            xticks=list(range(lower, upper + 1, step)),
            xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
 
@@ -870,6 +872,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     ax.grid(lw=2, ls='-')
 
+    plt.tight_layout()
     plt.show()
 
 
@@ -893,7 +896,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     my_mode = my_data[:, eigenmode] * -1
 
     # Simulation parameters
-    number_of_spins = len(mx_mode)
+    number_of_spins = len(mx_mode) + 2
     driving_width = 0.05
     frequency = eigenvalues_data[eigenmode] / (2 * np.pi)  # Convert angular (frequency) eigenvalue to frequency [Hz].
 
@@ -916,13 +919,14 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
     axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
                 frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                title=f"Frequency [GHz]\n        {frequency:4.2f}\n\n    Propagation\n      Direction",
+                title=f"Frequency [GHz]\n        {frequency:4.2f}\n\n    Component",
                 fontsize=10)
 
     axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
 
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
 
+    plt.tight_layout()
     plt.show()
 
 
