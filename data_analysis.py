@@ -412,9 +412,8 @@ class PlotImportedData:
             pf_selection = str(input("Which figure (PNG/SV/GIF) should be created: ")).upper()
 
         if pf_selection == "PNG":
-            # row_num = int(input("Plot which row of data: "))
-            for row_num in range(85, 99):
-                paper_fig.create_png(row_num)
+            row_num = int(input("Plot which row of data: "))
+            paper_fig.create_png(row_num)
         elif pf_selection == "SV":
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
