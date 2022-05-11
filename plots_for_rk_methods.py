@@ -12,6 +12,7 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 import gif as gif
+from scipy.fft import rfft, rfftfreq
 
 # My packages / Any header files
 
@@ -209,6 +210,7 @@ class PaperFigures:
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
         plt.show()
 
+
 class PaperFigures2:
     """
     Generates a single subplot that can either be a PNG or GIF.
@@ -395,6 +397,7 @@ class PaperFigures2:
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
         plt.show()
 
+
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
 def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to_compare=None):
     """
@@ -532,10 +535,13 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                            "xlim": (0, temporal_xlim), "ylim": (-1.0, 1.0)},
                        1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "yscale": 'log', "xlim": (0, 60)},
+                           "yscale": 'log', "xlim": (0, 30)},
                        3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "yscale": 'log', "xlim": (0, 5)}}
 
-    fig = plt.figure(figsize=(12, 12), constrained_layout=True, )
+    # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
+    # fig = plt.figure(figsize=(24, 16))
+
+    fig = plt.figure(figsize=(16, 12), constrained_layout=True)
     fig.suptitle(f"Data from Spin Site #{spin_site}")
 
     # create 2 rows of sub-figures
@@ -561,6 +567,13 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                                 plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
 
     fig.savefig(f"{filename}_{spin_site}.png")
+
+    #def mouse_event(event):
+    #    print('x: {} and y: {}'.format(event.xdata, event.ydata))
+
+    #cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
+
+    #plt.show()
 
 
 def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, xlim_scaling=0.2, ax=None):
@@ -589,6 +602,8 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
         # plt_set_kwargs['xlim'][1] is the upper value of the xlim
         ax.axvspan(0, plt_set_kwargs['xlim'][1] * xlim_scaling, color='#DC143C', alpha=0.2, lw=0)
 
+    ax.grid(False)
+
     return ax
 
 
@@ -611,7 +626,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     if ax is None:
         ax = plt.gca()
 
-    # Must be abs(FFTransform) to make sense!
+    # Plotting
     ax.plot(frequencies, abs(fourier_transform),
             marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
@@ -624,13 +639,14 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
         triple_wave_gen_freq = driving_freq_hz * 3
         ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
-        # This should be an eigenfrequency
+        # By default, plots the natural frequency.
         ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
               title='Freq. List [GHz]', fontsize=12)
 
     ax.grid(color='white')
+    ax.grid(False)
 
     return ax
 
@@ -657,15 +673,22 @@ def fft_data(amplitude_data, simulation_params):
     # add other markers to the plot(s)
     natural_freq = core_values['gamma'] * simulation_params['biasField']
 
-    # Calculate FFT parameters
-    time_interval = simulation_params['stepsize'] * simulation_params['stopIterVal']
-    n_samples = simulation_params['numberOfDataPoints']
-    dt = time_interval / n_samples  # Or multiply the stepsize by the number of iterations between data recordings
+    # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
+    sample_spacing = (simulation_params['maxSimTime'] / (simulation_params['numberOfDataPoints'] - 1)) \
+                     / core_values['hz_to_ghz']
 
     # Compute the FFT
-    fourier_transform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
-    fourier_transform = fourier_transform[range(int(n_samples / 2))]  # Exclude sampling frequency, and negative values
-    frequencies = (np.arange(int(n_samples / 2)) / (dt * n_samples)) * core_values["hz_to_ghz"]
+    n = amplitude_data.size
+    normalised_data = amplitude_data / amplitude_data.max()
+    fourier_transform = rfft(normalised_data)
+    frequencies = rfftfreq(n, sample_spacing)
+
+    # Old method
+    # fourier_transform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
+    # n_samples = simulation_params['numberOfDataPoints'] + 1
+    # dt = time_interval / n_samples  # Or multiply the stepsize by the number of iterations between data recordings
+    # fourier_transform = fourier_transform[range(int(n_samples / 2))]  # Exclude sampling frequency, and negative values
+    # frequencies = (np.arange(int(n_samples / 2)) / (dt * n_samples)) * core_values["hz_to_ghz"]
 
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
@@ -851,8 +874,8 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     plt.subplots_adjust(top=0.82)
 
     # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs)*1e1, lw=3, marker='o', label='Left', zorder=2)
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs)*1e1, lw=3, color='r',
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs) * 1e1, lw=3, marker='o', label='Left', zorder=2)
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs) * 1e1, lw=3, color='r',
                  marker='o', label='Right', zorder=1)
 
     # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.

@@ -139,7 +139,8 @@ class SystemSetup:
         :return: Today's date.
         """
 
-        date = datetime.today().strftime("%d %b %y")
+        # date = datetime.today().strftime("%d %b %y") # Old version left for backwards compatibility
+        date = datetime.today().strftime("%Y-%m-%d")  # Use ISO 8601 for dates
 
         return date
 
