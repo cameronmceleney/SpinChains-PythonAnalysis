@@ -355,21 +355,24 @@ class PlotImportedData:
         has_more_to_plot = True
         while has_more_to_plot:
             # User will plot one spin site at a time, as plotting can take a long time.
-            target_spin = int(input("Plot which spin (-ve to exit): "))
+            spins_to_plot = input("Plot which spin (-ve to exit): ").split()
 
-            if target_spin >= 1:
-                print("Generating plot...")
-                lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
-                target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date is located at [:, 0]
-                plt_rk.fft_and_signal_four(self.m_time_data, self.m_spin_data[:, target_spin_in_data], target_spin,
-                                           self.header_data_params,
-                                           self.full_output_path)
-                lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
-                # cont_plotting_FFT = False  # Remove this after testing.
-            else:
-                print("Exiting FFT plotting.")
-                lg.info(f"Exiting FS based upon user input of [{target_spin}]")
-                has_more_to_plot = False
+            for target_spin in spins_to_plot:
+                target_spin = int(target_spin)
+
+                if target_spin >= 1:
+                    print(f"Generating plot for [#{target_spin}]...")
+                    lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
+                    target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
+                    plt_rk.fft_and_signal_four(self.m_time_data, self.m_spin_data[:, target_spin_in_data], target_spin,
+                                               self.header_data_params,
+                                               self.full_output_path)
+                    lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
+                    # cont_plotting_FFT = False  # Remove this after testing.
+                else:
+                    print("Exiting FFT plotting.")
+                    lg.info(f"Exiting FS based upon user input of [{target_spin}]")
+                    has_more_to_plot = False
 
         lg.info(f"Completed plotting FS!")
 
