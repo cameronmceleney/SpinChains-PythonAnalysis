@@ -530,20 +530,24 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
     """
     # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
     temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
-    x_scaling = 0.2
-    t_shaded_xlim = temporal_xlim * x_scaling
+    x_scaling = 0.1
+    offset = 20  # Zero by default
+    t_shaded_xlim = temporal_xlim * x_scaling + offset
 
     plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (0, temporal_xlim), "ylim": (-1.0, 1.0)},
-                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (0, t_shaded_xlim)},
+                           "xlim": (offset, temporal_xlim), "ylim": (-1.0, 1.0)},
+                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (offset, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
                            "yscale": 'log', "xlim": (0, 30)},
                        3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "yscale": 'log', "xlim": (0, 5)}}
 
+    interactive = False
     # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
-    # fig = plt.figure(figsize=(24, 16))
+    if interactive:
+        fig = plt.figure(figsize=(24, 16))
+    else:
+        fig = plt.figure(figsize=(16, 12), constrained_layout=True)
 
-    fig = plt.figure(figsize=(16, 12), constrained_layout=True)
     fig.suptitle(f"Data from Spin Site #{spin_site}")
 
     # create 2 rows of sub-figures
@@ -557,7 +561,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
 
             for i, ax in enumerate(axes, start=row * 2):
                 custom_temporal_plot(time_data, amplitude_data, ax=ax, which_subplot=i,
-                                     plt_set_kwargs=plot_set_params[i], xlim_scaling=x_scaling)
+                                     plt_set_kwargs=plot_set_params[i], xlim_scaling=x_scaling, offset=offset)
 
         else:
             sub_fig.suptitle(f"FFT Data")
@@ -568,17 +572,17 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                 custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
                                 plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
 
-    fig.savefig(f"{filename}_{spin_site}.png")
+    if interactive:
+        # For interactive plots
+        def mouse_event(event):
+           print('x: {} and y: {}'.format(event.xdata, event.ydata))
+        cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
+        plt.show()
+    else:
+        fig.savefig(f"{filename}_{spin_site}.png")
 
-    #def mouse_event(event):
-    #    print('x: {} and y: {}'.format(event.xdata, event.ydata))
 
-    #cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
-
-    #plt.show()
-
-
-def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, xlim_scaling=0.2, ax=None):
+def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, offset=0, xlim_scaling=0.2, ax=None):
     """
     Custom plotter for each temporal signal within 'fft_and_signal_four'.
 
@@ -588,6 +592,7 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
     :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
     :param dict plt_set_kwargs: **kwargs for the ax.set() function.
     :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
+    :param float offset: Shift x-axis of plots by the given amount.
     :param float xlim_scaling: Allows for the shaded region to have its width varied.
     :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
 
@@ -596,13 +601,14 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
 
     if ax is None:
         ax = plt.gca()
+
     ax.plot(time_data, amplitude_data)
     ax.set(**plt_set_kwargs)
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
     if which_subplot == 0:
         # plt_set_kwargs['xlim'][1] is the upper value of the xlim
-        ax.axvspan(0, plt_set_kwargs['xlim'][1] * xlim_scaling, color='#DC143C', alpha=0.2, lw=0)
+        ax.axvspan(offset, offset + plt_set_kwargs['xlim'][1] * xlim_scaling, color='#DC143C', alpha=0.2, lw=0)
 
     ax.grid(False)
 
@@ -628,21 +634,23 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     if ax is None:
         ax = plt.gca()
 
-    # Plotting
+    # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
+    # Set marker='o' to see each datapoint, else leave as marker='' to hide
     ax.plot(frequencies, abs(fourier_transform),
-            marker='o', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
+            marker='', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
     ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
 
     if which_subplot == 2:
-        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
+        # ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
         # If at a node, then 3-wave generation may be occurring. This loop plots that location.
         triple_wave_gen_freq = driving_freq_hz * 3
         ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
+        a = 5
         # By default, plots the natural frequency.
-        ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
+        # ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
               title='Freq. List [GHz]', fontsize=12)
@@ -681,7 +689,8 @@ def fft_data(amplitude_data, simulation_params):
 
     # Compute the FFT
     n = amplitude_data.size
-    normalised_data = amplitude_data / amplitude_data.max()
+    normalised_data = amplitude_data
+
     fourier_transform = rfft(normalised_data)
     frequencies = rfftfreq(n, sample_spacing)
 
