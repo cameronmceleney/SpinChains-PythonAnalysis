@@ -45,7 +45,7 @@ class PlotEigenmodes:
 
         # Arrays are inherently mutable, so there is no need to use @property decorator
         self.input_filenames_descriptions = ["mx_data", "my_data", "eigenvalues_data"]
-        self._arrays_to_output = [0,0,0]  # Each array is initialised as none to remove garbage.
+        self._arrays_to_output = [0, 0, 0]  # Each array is initialised as none to remove garbage.
         self._does_data_exist_in_dir = [False, False, False]  # Tests if each filtered array is in the target directory.
         self.output_filenames = [f"mx_formatted_{self.full_filename}.csv",
                                  f"my_formatted_{self.full_filename}.csv",
@@ -208,7 +208,7 @@ class PlotImportedData:
         # self.m_spin_data4 = self.all_imported_data4[:, 1:]
         # self.m_spin_data5 = self.all_imported_data5[:, 1:]
 
-        self.accepted_keywords = ["3P", "FS", "EXIT", "PF", "CP"]
+        self.accepted_keywords = ["3P", "FS", "FT", "EXIT", "PF", "CP"]
 
     @staticmethod
     def import_data_from_file(filename, input_data_path):
@@ -299,6 +299,7 @@ class PlotImportedData:
 
             *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
             *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
+            *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
             *   Paper Figure [PF] (Plot final state of system at all sites)
             *   Contour Plot [CP] (Plot a single site as a 3D map)
 
@@ -326,6 +327,9 @@ class PlotImportedData:
             self._invoke_three_panes()
 
         elif method_to_call == "FS":
+            self._invoke_fs_functions()
+
+        elif method_to_call == "FT":
             self._invoke_fft_functions()
 
         elif method_to_call == "PF":
@@ -347,7 +351,7 @@ class PlotImportedData:
                            [3, 4, 5])
         lg.info(f"Plotting 3P complete!")
 
-    def _invoke_fft_functions(self):
+    def _invoke_fs_functions(self):
         # Use this to see fourier transforms of data
 
         lg.info(f"Plotting function selected: Fourier Signal.")
@@ -367,6 +371,35 @@ class PlotImportedData:
                     plt_rk.fft_and_signal_four(self.m_time_data, self.m_spin_data[:, target_spin_in_data], target_spin,
                                                self.header_data_params,
                                                self.full_output_path)
+                    lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
+                    # cont_plotting_FFT = False  # Remove this after testing.
+                else:
+                    print("Exiting FFT plotting.")
+                    lg.info(f"Exiting FS based upon user input of [{target_spin}]")
+                    has_more_to_plot = False
+
+        lg.info(f"Completed plotting FS!")
+
+    def _invoke_fft_functions(self):
+        # Use this to see fourier transforms of data
+
+        lg.info(f"Plotting function selected: Fourier Signal only.")
+
+        has_more_to_plot = True
+        while has_more_to_plot:
+            # User will plot one spin site at a time, as plotting can take a long time.
+            spins_to_plot = input("Plot which spin (-ve to exit): ").split()
+
+            for target_spin in spins_to_plot:
+                target_spin = int(target_spin)
+
+                if target_spin >= 1:
+                    print(f"Generating plot for [#{target_spin}]...")
+                    lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
+                    target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
+                    plt_rk.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
+                                    self.header_data_params,
+                                    self.full_output_path)
                     lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
@@ -446,7 +479,7 @@ def rc_params_update():
     ticksize = 14
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
-    t_dir = 'in'
+    t_dir = 'out'
     # sets the tick size(s) and tick width(w) for the major and minor axes of all plots
     t_maj_s = 10
     t_min_s = 5
