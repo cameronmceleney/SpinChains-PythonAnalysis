@@ -13,6 +13,8 @@ import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 import gif as gif
 from scipy.fft import rfft, rfftfreq
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
+                               AutoMinorLocator)
 
 # My packages / Any header files
 
@@ -516,6 +518,64 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 
 # ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
+def fft_only(amplitude_data, spin_site, simulation_params, filename):
+    interactive = False
+    # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
+    if interactive:
+        fig = plt.figure(figsize=(9, 9))
+    else:
+        fig = plt.figure(figsize=(12, 9), constrained_layout=True)
+
+    fig.suptitle(f"Data from Spin Site #{spin_site}")
+    ax = plt.subplot(1, 1, 1)
+
+    frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
+
+    # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
+    # Set marker='o' to see each datapoint, else leave as marker='' to hide
+    ax.plot(frequencies, abs(fourier_transform),
+            marker='', lw=2, color='red', markerfacecolor='black', markeredgecolor='black')
+    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
+           xlim=[0, 20], yscale='log')
+
+    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+              title=f'Freq. List [GHz]\nDriving - {driving_freq}', fontsize=12)
+
+    # ax.xaxis.set_major_locator(MultipleLocator(5))
+    # ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+
+    # For the minor ticks, use no labels; default NullFormatter.
+    # ax.xaxis.set_minor_locator(MultipleLocator(1))
+
+    ax.grid(color='white')
+    ax.grid(False)
+
+    if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
+        exchangeString = f"Uniform = True ({simulation_params['exchangeMinVal']}) [T]"
+    else:
+        exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} [T] | J$_{{max}}$ = " \
+                         f"{simulation_params['exchangeMaxVal']} [T]"
+    textstr = f"H$_{{0}}$ = {simulation_params['biasField']} [T] | " \
+              f"H$_{{D1}}$ = {simulation_params['biasFieldDriving']:2.2e} [T] | " \
+              f"H$_{{D2}}$ = {simulation_params['biasFieldDriving']*simulation_params['biasFieldDrivingScale']:2.2e}[T]" \
+              f" | {exchangeString} | N = {simulation_params['numSpins']}"
+
+    props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+    # place a text box in upper left in axes coords
+    ax.text(0.5, -0.15, textstr, transform=ax.transAxes, fontsize=18,
+            verticalalignment='top', bbox=props, ha='center', va='center')
+
+    if interactive:
+        # For interactive plots
+        def mouse_event(event):
+            print('x: {} and y: {}'.format(event.xdata, event.ydata))
+
+        cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
+        plt.show()
+    else:
+        fig.savefig(f"{filename}_{spin_site}.png")
+
+
 def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params, filename):
     """
     Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
@@ -531,22 +591,18 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
     # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
     temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
     x_scaling = 0.1
-    offset = 20  # Zero by default
+    offset = 5  # Zero by default
     t_shaded_xlim = temporal_xlim * x_scaling + offset
 
     plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [arb.]",
                            "xlim": (offset, temporal_xlim), "ylim": (-1.0, 1.0)},
                        1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (offset, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "yscale": 'log', "xlim": (0, 30)},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "yscale": 'log', "xlim": (0, 5)}}
+                           "xlim": (0, 50), "yscale": "log", "ylim": (1e-5, 1e3)},
+                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 20), "yscale": "log",
+                           "ylim": (1e-5, 1e3)}}
 
-    interactive = False
-    # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
-    if interactive:
-        fig = plt.figure(figsize=(24, 16))
-    else:
-        fig = plt.figure(figsize=(16, 12), constrained_layout=True)
+    fig = plt.figure(figsize=(16, 12), constrained_layout=True)
 
     fig.suptitle(f"Data from Spin Site #{spin_site}")
 
@@ -572,14 +628,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                 custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
                                 plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
 
-    if interactive:
-        # For interactive plots
-        def mouse_event(event):
-           print('x: {} and y: {}'.format(event.xdata, event.ydata))
-        cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
-        plt.show()
-    else:
-        fig.savefig(f"{filename}_{spin_site}.png")
+    fig.savefig(f"{filename}_{spin_site}.png")
 
 
 def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, offset=0, xlim_scaling=0.2, ax=None):
@@ -640,13 +689,13 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
             marker='', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
 
-    ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
+    # ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
 
     if which_subplot == 2:
-        # ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
+        ax.axvspan(0, 50, color='#DC143C', alpha=0.2, lw=0)
         # If at a node, then 3-wave generation may be occurring. This loop plots that location.
-        triple_wave_gen_freq = driving_freq_hz * 3
-        ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
+        # triple_wave_gen_freq = driving_freq_hz * 3
+        # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
         a = 5
         # By default, plots the natural frequency.
@@ -708,32 +757,35 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_t
     x = mx_data[:, spin_site]
     y = my_data[:, spin_site]
     z = mz_data[:, spin_site]
+    time = mx_data[:, 0]
 
     # 'magma' is also nice
     fig = plt.figure(figsize=(12, 12))
     ax = plt.axes(projection='3d')
-    if use_tri:
-        ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
-    else:
-        ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
-        ax.legend()
-
-    ax.set_xlabel('m$_x$', fontsize=12)
-    ax.set_ylabel('m$_y$', fontsize=12)
-    ax.set_zlabel('m$_z$', fontsize=12)
-
-    ax.xaxis.set_rotate_label(False)
-    ax.yaxis.set_rotate_label(False)
-    ax.zaxis.set_rotate_label(False)
-    plt.show()
+    ax.plot_trisurf(time, x, y, label=f'Spin Site {spin_site}', cmap='Blues', edgecolor='none', lw=0.1)
+    ax.set_xlabel('time', fontsize=12)
+    ax.set_ylabel('m$_x$', fontsize=12)
+    ax.set_zlabel('m$_y$', fontsize=12)
+    # ax = plt.axes(projection='3d')
+    # if use_tri:
+    #     ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
+    # else:
+    #     ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
+    #     ax.legend()
+#
+    # ax.set_xlabel('m$_x$', fontsize=12)
+    # ax.set_ylabel('m$_y$', fontsize=12)
+    # ax.set_zlabel('m$_z$', fontsize=12)
+#
+    # ax.xaxis.set_rotate_label(False)
+    # ax.yaxis.set_rotate_label(False)
+    # ax.zaxis.set_rotate_label(False)
     fig.savefig(f"{output_file}_contour.png")
 
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
 def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
     """
-    Plot the spin wave modes (eigenmodes) of a given system until a keyword is entered.
-
     Allows the user to plot as may eigenmodes as they would like; one per figure. This function is primarily used to
     replicate Fig. 1 from macedo2021breaking. The user of keywords within this function also allow the user to plot
     the 'generalised fourier coefficients' of a system. This is mainly used to replicate Figs 4.a & 4.d of the same
