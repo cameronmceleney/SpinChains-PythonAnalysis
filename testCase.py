@@ -154,4 +154,12 @@ def plotting():
     # ax.set(xlabel="Time [s]", ylabel="m$_x$")
     plt.show()
 
-plotting()
+# plotting()
+
+y_ = np.linspace(np.sqrt(1e-4), np.sqrt(1.0), 200)
+y_ = y_ ** 2
+x_ = range(0, 200, 1)
+fig = plt.figure()
+ax = plt.subplot(111)
+ax.plot(x_, y_)
+plt.show()

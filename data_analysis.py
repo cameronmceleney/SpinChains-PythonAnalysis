@@ -199,7 +199,7 @@ class PlotImportedData:
         # self.all_imported_data4 = self.import_data_from_file(self.full_filename4, self.input_data_path4)
         # self.all_imported_data5 = self.import_data_from_file(self.full_filename5, self.input_data_path5)
 
-        [self.header_data_params, self.header_data_sites] = self.import_headers_from_file()
+        [self.header_data_params, self.header_data_sites, self.header_sim_flags] = self.import_headers_from_file()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
@@ -231,7 +231,7 @@ class PlotImportedData:
             lg.error(f"File {filename} was not found")
             exit(1)
         else:
-            all_data_without_header = np.loadtxt(input_data_path, delimiter=",", skiprows=9)
+            all_data_without_header = np.loadtxt(input_data_path, delimiter=",", skiprows=11)
 
         lg.info(f"Data points imported!")
 
@@ -254,40 +254,64 @@ class PlotImportedData:
 
         with open(self.input_data_path) as file_header_data:
             csv_reader = csv.reader(file_header_data)
-            next(csv_reader)  # 1st line. title_line
-            next(csv_reader)  # 2nd line. Blank.
-            next(csv_reader)  # 3rd line. Column title for each key simulation parameter. data_names
-            data_values = next(csv_reader)  # 4th line. Values associated with column titles from 3rd line.
-            next(csv_reader)  # 5th line. Blank.
-            next(csv_reader)  # 6th line. Simulation notes. sim_notes
-            next(csv_reader)  # 7th line. Describes how to understand column titles from 3rd line. data_names_explained
-            next(csv_reader)  # 8th line. Blank.
-            list_of_simulated_sites = next(csv_reader)  # 9th line. Number for each spin site that was simulated
+            next(csv_reader)  # 0th line.
+            next(csv_reader)  # 1st line. Blank.
+            data_flags = next(csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
+            next(csv_reader)  # 3rd line. Blank.
+            next(csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
+            data_values = next(csv_reader)  # 5th line. Values associated with column titles from 4th line.
+            next(csv_reader)  # 6th line. Blank.
+            next(csv_reader)  # 7th line. Simulation notes.
+            next(csv_reader)  # 8th line. Describes how to understand tabular titles.
+            next(csv_reader)  # 9th line. Blank.
+            list_of_simulated_sites = next(csv_reader)  # 10th line. Array of simulated site numbers.
 
-        # Assignment to dict is done individually to improve readability.
+        sim_flags = dict()
+        if data_flags is not None:
+            # Assignment to dict is done individually to improve readability.
+            sim_flags['isLLGUsed'] = str(data_flags[1])
+            sim_flags['isShockwaveUsed'] = str(data_flags[3])
+            sim_flags['isDriveOnLHS'] = str(data_flags[5])
+
+            if 'numericalMethodUsed' not in sim_flags.keys():
+                sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
+            else:
+                sim_flags['numericalMethodUsed'] = str(data_flags[7])
+        elif 'numericalMethodUsed' not in sim_flags.keys():
+            sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
+        else:
+            sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
+
+
         key_params = dict()
-        key_params['biasField'] = float(data_values[0])
-        key_params['biasFieldDriving'] = float(data_values[1])
-        key_params['biasFieldDrivingScale'] = float(data_values[2])
-        key_params['drivingFreq'] = float(data_values[3])
-        key_params['drivingRegionLHS'] = int(data_values[4])
-        key_params['drivingRegionRHS'] = int(data_values[5])
-        key_params['drivingRegionWidth'] = int(data_values[6])
-        key_params['maxSimTime'] = float(data_values[7])
-        key_params['exchangeMaxVal'] = float(data_values[8])
-        key_params['stopIterVal'] = float(data_values[9])
-        key_params['exchangeMinVal'] = float(data_values[10])
-        key_params['numberOfDataPoints'] = int(data_values[11])
-        key_params['numSpins'] = int(data_values[12])
-        key_params['stepsize'] = float(data_values[13])
-        key_params['numGilbert'] = int(data_values[14])
+        key_params['staticBiasField'] = float(data_values[0])
+        key_params['dynamicBiasField1'] = float(data_values[1])
+        key_params['dynamicBiasFieldScaling'] = float(data_values[2])
+        key_params['dynamicBiasField2'] = float(data_values[3])
+        key_params['drivingFreq'] = float(data_values[4])
+        key_params['drivingRegionLHS'] = int(data_values[5])
+        key_params['drivingRegionRHS'] = int(data_values[6])
+        key_params['drivingRegionWidth'] = int(data_values[7])
+        key_params['maxSimTime'] = float(data_values[8])
+        key_params['exchangeMinVal'] = float(data_values[9])
+        key_params['exchangeMaxVal'] = float(data_values[10])
+        key_params['stopIterVal'] = float(data_values[11])
+        key_params['numberOfDataPoints'] = int(data_values[12])
+        key_params['chainSpins'] = int(data_values[13])
+        key_params['dampedSpins'] = int(data_values[14])
+        key_params['totalSpins'] = int(data_values[15])
+        key_params['stepsize'] = float(data_values[16])
+        key_params['gilbertFactor'] = float(data_values[17])
+        key_params['gyroMagRatio'] = float(data_values[18])
+        key_params['shockGradientTime'] = float(data_values[19])
+        key_params['shockApplyTime'] = float(data_values[20])
 
         lg.info(f"File headers imported!")
 
         if "Time" in list_of_simulated_sites:
             list_of_simulated_sites.remove("Time")
 
-        return key_params, list_of_simulated_sites
+        return key_params, list_of_simulated_sites, sim_flags
 
     def call_methods(self):
 
@@ -435,7 +459,7 @@ class PlotImportedData:
         lg.info(f"Plotting function selected: paper figure.")
 
         paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
-                                        self.header_data_params, self.header_data_sites,
+                                        self.header_data_params, self.header_sim_flags, self.header_data_sites,
                                         self.full_output_path)
 
         # paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2, self.m_spin_data3,
