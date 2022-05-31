@@ -33,11 +33,11 @@ def main():
     #                  breaking_paper=False)
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(has_custom_name=False)
+    system_setup.detect_os(has_custom_name=True)
 
     filename_base = str(input("Enter the unique identifier of the file: "))
     dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
-                                    file_component='mx')
+                                    file_prefix="rk2", file_component='mx', file_identifier="T")
     dataset1.call_methods()
 
     # inputpath = "/Users/cameronmceleney/CLionProjects/Data/29 Apr 22/Simulation_Data/"

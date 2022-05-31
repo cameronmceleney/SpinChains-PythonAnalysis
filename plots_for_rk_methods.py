@@ -11,8 +11,10 @@ import sys as sys
 from matplotlib.animation import FuncAnimation
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
+import matplotlib.transforms as mtrans
 import gif as gif
 from scipy.fft import rfft, rfftfreq
+
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 
@@ -42,25 +44,35 @@ class PaperFigures:
     change the invocation in data.analysis.py.
     """
 
-    def __init__(self, time_data, amplitude_data, key_data, array_of_sites, output_filepath):
+    def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
+        self.nm_method = sim_flags['numericalMethodUsed']
+
         # Individual attributes from key_data that are needed for the class
-        self.number_spins = key_data["numSpins"]
+        self.static_field = key_data['staticBiasField']
+        self.driving_field1 = key_data['dynamicBiasField1']
+        self.driving_field2 = key_data['dynamicBiasField2']
         self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
-        self.data_points = key_data['numberOfDataPoints']
-        self.max_time = key_data['maxSimTime'] * 1e9
-        self.driving_width = key_data['drivingRegionWidth']
-        self.numGilbert = key_data['numGilbert']
         self.drLHS = key_data['drivingRegionLHS']
+        self.drRHS = key_data['drivingRegionRHS']
+        self.driving_width = key_data['drivingRegionWidth']
+        self.max_time = key_data['maxSimTime'] * 1e9
+        self.exchange_min = key_data['exchangeMinVal']
+        self.exchange_max = key_data['exchangeMaxVal']
+        self.data_points = key_data['numberOfDataPoints']
+        self.chain_spins = key_data['chainSpins']
+        self.dampedSpins = key_data['dampedSpins']
+        self.number_spins = key_data['totalSpins']
+        self.gilbert_factor = key_data['gilbertFactor']
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
         self.fig = plt.figure(figsize=(12, 6), dpi=300)
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 1.5e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 4 * 1.5e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
                        "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
@@ -86,7 +98,7 @@ class PaperFigures:
             fig = plt.figure(figsize=(12, 6), dpi=300)  # Each frame requires a new fig to prevent stuttering.
             ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
 
-        plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
+        plt.suptitle(f"{self.nm_method}", size=24)
         plt.subplots_adjust(top=0.80)
 
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
@@ -96,20 +108,22 @@ class PaperFigures:
 
         if not has_single_figure:
             left, bottom, width, height = (
-                [0, self.number_spins - self.numGilbert],
-                ax.get_ylim()[0], self.numGilbert, 2 * ax.get_ylim()[1])
+                [0, self.number_spins - self.dampedSpins, self.drLHS+self.dampedSpins],
+                ax.get_ylim()[0],
+                (self.dampedSpins, self.driving_width),
+                2 * ax.get_ylim()[1])
 
-            rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
+            rectLHS = mpatches.Rectangle((left[0], bottom), width[0], height,
                                          # fill=False,
                                          alpha=0.1,
                                          facecolor="red")
 
-            rectRHS = mpatches.Rectangle((left[1], bottom), width, height,
+            rectRHS = mpatches.Rectangle((left[1], bottom), width[0], height,
                                          # fill=False,
                                          alpha=0.1,
                                          facecolor="red")
 
-            rectDriving = mpatches.Rectangle((self.drLHS, bottom), self.driving_width, height,
+            rectDriving = mpatches.Rectangle((left[2], bottom), width[1], height,
                                              # fill=False,
                                              alpha=0.1,
                                              facecolor="blue")
@@ -144,6 +158,22 @@ class PaperFigures:
         self._draw_figure(plot_row=row_number)
         self.axes.grid(False)
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+
+        if self.exchange_min == self.exchange_max:
+            exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
+        else:
+            exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
+                             f"{self.exchange_max} [T]"
+        textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$"\
+                  f" = {self.gilbert_factor: 2.2e}\n" \
+                  f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
+                  f"{exchangeString}"
+
+        props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+        # place a text box in upper left in axes coords
+        self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
+                       verticalalignment='top', bbox=props, ha='center', va='center')
+
         self.fig.savefig(f"{self.output_filepath}_row{row_number}.png")
         #  plt.show()
 
@@ -223,7 +253,7 @@ class PaperFigures2:
     change the invocation in data.analysis.py.
     """
 
-    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, key_data,
+    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, key_data, sim_flags,
                  array_of_sites, output_filepath):
 
         self.time_data = time_data
@@ -234,13 +264,15 @@ class PaperFigures2:
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
+        self.nm_method = sim_flags['numericalMethodUsed']
+
         # Individual attributes from key_data that are needed for the class
-        self.number_spins = key_data["numSpins"]
+        self.number_spins = key_data["chainSpins"]
         self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
         self.data_points = key_data['numberOfDataPoints']
         self.max_time = key_data['maxSimTime'] * 1e9
         self.driving_width = key_data['drivingRegionWidth']
-        self.numGilbert = key_data['numGilbert']
+        self.dampedSpins = key_data['dampedSpins']
         self.drLHS = key_data['drivingRegionLHS']
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
@@ -272,7 +304,7 @@ class PaperFigures2:
             fig = plt.figure(figsize=(12, 6), dpi=300)  # Each frame requires a new fig to prevent stuttering.
             ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
 
-        plt.suptitle("ChainSpin [RK2 - Midpoint]", size=24)
+        plt.suptitle(f"{self.nm_method}", size=24)
         plt.subplots_adjust(top=0.80)
 
         ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
@@ -286,8 +318,8 @@ class PaperFigures2:
 
         if not has_single_figure:
             left, bottom, width, height = (
-                [0, self.number_spins - self.numGilbert],
-                ax.get_ylim()[0], self.numGilbert, 2 * ax.get_ylim()[1])
+                [0, self.number_spins - self.dampedSpins],
+                ax.get_ylim()[0], self.dampedSpins, 2 * ax.get_ylim()[1])
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
                                          # fill=False,
@@ -536,7 +568,7 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     ax.plot(frequencies, abs(fourier_transform),
             marker='', lw=2, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-           xlim=[0, 20], yscale='log')
+           xlim=[0, 60])
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
               title=f'Freq. List [GHz]\nDriving - {driving_freq}', fontsize=12)
@@ -555,10 +587,10 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     else:
         exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} [T] | J$_{{max}}$ = " \
                          f"{simulation_params['exchangeMaxVal']} [T]"
-    textstr = f"H$_{{0}}$ = {simulation_params['biasField']} [T] | " \
-              f"H$_{{D1}}$ = {simulation_params['biasFieldDriving']:2.2e} [T] | " \
-              f"H$_{{D2}}$ = {simulation_params['biasFieldDriving']*simulation_params['biasFieldDrivingScale']:2.2e}[T]" \
-              f" | {exchangeString} | N = {simulation_params['numSpins']}"
+    textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} [T] | " \
+              f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} [T] | " \
+              f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}[T]" \
+              f" | {exchangeString} | N = {simulation_params['totalSpins']}"
 
     props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
     # place a text box in upper left in axes coords
@@ -591,16 +623,15 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
     # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
     temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
     x_scaling = 0.1
-    offset = 5  # Zero by default
+    offset = 0  # Zero by default
     t_shaded_xlim = temporal_xlim * x_scaling + offset
 
     plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (offset, temporal_xlim), "ylim": (-1.0, 1.0)},
+                           "xlim": (offset, temporal_xlim), "ylim": (-3e-3, 3e-3)},
                        1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (offset, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (0, 50), "yscale": "log", "ylim": (1e-5, 1e3)},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 20), "yscale": "log",
-                           "ylim": (1e-5, 1e3)}}
+                           "xlim": (0, 60), "ylim": (0, 0.5)},
+                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 5)}}
 
     fig = plt.figure(figsize=(16, 12), constrained_layout=True)
 
@@ -692,12 +723,27 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     # ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
 
     if which_subplot == 2:
-        ax.axvspan(0, 50, color='#DC143C', alpha=0.2, lw=0)
+        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
         # If at a node, then 3-wave generation may be occurring. This loop plots that location.
         # triple_wave_gen_freq = driving_freq_hz * 3
         # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
         a = 5
+        if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
+            exchangeString = f"Uniform Exc. ({simulation_params['exchangeMinVal']} [T])"
+        else:
+            exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} [T] | J$_{{max}}$ = " \
+                             f"{simulation_params['exchangeMaxVal']} [T]"
+        textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} [T] | " \
+                  f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} [T] | " \
+                  f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}[T] \n" \
+                  f"{exchangeString} | N = {simulation_params['chainSpins']} | " + r"$\alpha$" + \
+                  f" = {simulation_params['gilbertFactor']: 2.2e}"
+
+        props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
+        # place a text box in upper left in axes coords
+        ax.text(0.5, -0.2, textstr, transform=ax.transAxes, fontsize=18,
+                verticalalignment='top', bbox=props, ha='center', va='center')
         # By default, plots the natural frequency.
         # ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
 
@@ -722,7 +768,7 @@ def fft_data(amplitude_data, simulation_params):
     """
     # Simulation parameters needed for FFT computations that are always the same are saved here.
     # gamma is in [GHz/T] here.
-    core_values = {"gamma": 29.2,
+    core_values = {"gamma": simulation_params["gyroMagRatio"] / (2 * np.pi),
                    "hz_to_ghz": 1e-9}
 
     # Data in file header is in [Hz] by default.
@@ -730,7 +776,7 @@ def fft_data(amplitude_data, simulation_params):
 
     # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
     # add other markers to the plot(s)
-    natural_freq = core_values['gamma'] * simulation_params['biasField']
+    natural_freq = core_values['gamma'] * simulation_params['staticBiasField']
 
     # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
     sample_spacing = (simulation_params['maxSimTime'] / (simulation_params['numberOfDataPoints'] - 1)) \
@@ -742,13 +788,6 @@ def fft_data(amplitude_data, simulation_params):
 
     fourier_transform = rfft(normalised_data)
     frequencies = rfftfreq(n, sample_spacing)
-
-    # Old method
-    # fourier_transform = np.fft.fft(amplitude_data)  # Normalize amplitude after taking FFT
-    # n_samples = simulation_params['numberOfDataPoints'] + 1
-    # dt = time_interval / n_samples  # Or multiply the stepsize by the number of iterations between data recordings
-    # fourier_transform = fourier_transform[range(int(n_samples / 2))]  # Exclude sampling frequency, and negative values
-    # frequencies = (np.arange(int(n_samples / 2)) / (dt * n_samples)) * core_values["hz_to_ghz"]
 
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
@@ -772,11 +811,11 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_t
     # else:
     #     ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
     #     ax.legend()
-#
+    #
     # ax.set_xlabel('m$_x$', fontsize=12)
     # ax.set_ylabel('m$_y$', fontsize=12)
     # ax.set_zlabel('m$_z$', fontsize=12)
-#
+    #
     # ax.xaxis.set_rotate_label(False)
     # ax.yaxis.set_rotate_label(False)
     # ax.zaxis.set_rotate_label(False)
@@ -1030,7 +1069,7 @@ def animate_plot(key_data, amplitude_data, path_to_save_gif, file_name):
     """
     number_of_images = 100
     step = key_data['stopIterVal'] / number_of_images
-    number_of_spins = key_data['numSpins']
+    number_of_spins = key_data['chainSpins']
 
     fig = plt.figure()
     ax = plt.axes(xlim=(0, number_of_spins))
