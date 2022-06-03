@@ -282,7 +282,6 @@ class PlotImportedData:
         else:
             sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
 
-
         key_params = dict()
         key_params['staticBiasField'] = float(data_values[0])
         key_params['dynamicBiasField1'] = float(data_values[1])
@@ -308,8 +307,8 @@ class PlotImportedData:
 
         lg.info(f"File headers imported!")
 
-        if "Time" in list_of_simulated_sites:
-            list_of_simulated_sites.remove("Time")
+        if "Time [s]" in list_of_simulated_sites:
+            list_of_simulated_sites.remove("Time [s]")
 
         return key_params, list_of_simulated_sites, sim_flags
 
@@ -332,7 +331,7 @@ class PlotImportedData:
                   ''')
         print('---------------------------------------------------------------------------------------\n')
 
-        initials_of_method_to_call = input("Which function to use: ").upper()
+        initials_of_method_to_call = "3P" # input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -368,11 +367,28 @@ class PlotImportedData:
     def _invoke_three_panes(self):
         # Use this if you wish to see what ranplotter.py would output
         lg.info(f"Plotting function selected: three panes.")
-        print("Note: To select sites to compare, edit code directly.")
+
+        sites_to_compare = []
+        should_compare_sites = "Y"
+        try:
+            while should_compare_sites not in "YN":
+                should_compare_sites = input("Select sites to compare? Y/N: ").upper()
+        except ValueError:
+            raise ValueError
+        else:
+            if should_compare_sites == 'Y':
+                sites_to_compare.append([400])  # (input("Primary sites to compare: ").split())
+                sites_to_compare.append([500])  # (input("Secondary sites to compare: ").split())
+                sites_to_compare.append([600])  # (input("Tertiary sites to compare: ").split())
+
+            elif should_compare_sites == 'N':
+                    None
+
+        sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
+
         print("Generating plot...")
-        plt_rk.three_panes(self.all_imported_data, self.header_data_params, self.header_data_sites,
-                           self.full_output_path,
-                           [3, 4, 5])
+        plt_rk.three_panes(self.m_spin_data[:, :], self.header_data_params, self.header_data_sites,
+                           self.full_output_path, sites_to_compare)
         lg.info(f"Plotting 3P complete!")
 
     def _invoke_fs_functions(self):

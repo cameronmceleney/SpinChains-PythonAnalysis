@@ -108,7 +108,7 @@ class PaperFigures:
 
         if not has_single_figure:
             left, bottom, width, height = (
-                [0, self.number_spins - self.dampedSpins, self.drLHS+self.dampedSpins],
+                [0, self.number_spins - self.dampedSpins, self.drLHS + self.dampedSpins],
                 ax.get_ylim()[0],
                 (self.dampedSpins, self.driving_width),
                 2 * ax.get_ylim()[1])
@@ -164,10 +164,10 @@ class PaperFigures:
         else:
             exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
                              f"{self.exchange_max} [T]"
-        textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$"\
-                  f" = {self.gilbert_factor: 2.2e}\n" \
-                  f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
-                  f"{exchangeString}"
+        textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
+                                                                                       f" = {self.gilbert_factor: 2.2e}\n" \
+                                                                                       f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
+                                                                                       f"{exchangeString}"
 
         props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
         # place a text box in upper left in axes coords
@@ -443,16 +443,17 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
                                site.
     :param dict key_data: All key simulation parameters imported from csv file.
     :param list list_of_spin_sites: Spin sites that were simulated.
-    :param list[int] sites_to_compare: Optional. User-defined list of sites to plot.
+    :param list[list[int]] sites_to_compare: Optional. User-defined list of sites to plot.
     :param filename: data.
     """
     key_data['maxSimTime'] *= 1e9
 
-    subplot_labels = create_plot_labels(list_of_spin_sites, key_data['drivingRegionLHS'], key_data['drivingRegionRHS'])
+    flat_list = [item for sublist in sites_to_compare for item in sublist]
+    subplot_labels = create_plot_labels(flat_list, key_data['drivingRegionLHS'], key_data['drivingRegionRHS'])
 
     time_values = np.linspace(0, key_data['maxSimTime'], int(key_data['numberOfDataPoints']) + 1)
 
-    fig = plt.figure(figsize=(12, 12))
+    fig = plt.figure(figsize=(16, 12))
     plt.suptitle('Comparison of $M_x$ Values At\nDifferent Spin Sites', size=24)
 
     # Three subplots which are each a different pane
@@ -460,9 +461,11 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
     plot_pane_2 = plt.subplot2grid((4, 4), (2, 0), colspan=2, rowspan=2)  # Bottom left pane to show any single dataset
     plot_pane_3 = plt.subplot2grid((4, 4), (2, 2), colspan=2, rowspan=2)  # Bottom right pane to track final spin site
 
-    for ax in [plot_pane_1, plot_pane_2, plot_pane_3]:
-        # Convert all x-axis tick labels to scientific notation on all panes
-        ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+    # for ax in [plot_pane_1, plot_pane_2, plot_pane_3]:
+    #     # Convert all x-axis tick labels to scientific notation on all panes
+    #     ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+
+    max_value = max([max(sublist) for sublist in sites_to_compare])
 
     spin_sites_to_plot = []
     for i in range(1, len(amplitude_data[0])):
@@ -470,47 +473,57 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
         # The variable spin_sites_to_plot is useful when building the software, as sometimes not all sites are wanted.
         spin_sites_to_plot.append(amplitude_data[:, i])
 
-    for site, magnitudes in enumerate(spin_sites_to_plot):
-        if sites_to_compare:
-            # Assigns each spin site to a pane based upon either user's input (IF), or presets (ELSE)
-            if site in sites_to_compare:
-                axes = plot_pane_1
-                axes.set(title=f"Comparison of User-Selected Sites")  # Sets subplot title
-            elif site == (len(spin_sites_to_plot) - 1):
-                axes = plot_pane_3
-                axes.set(title=f'Final Simulated Site')  # Sets subplot title
-            else:
-                axes = plot_pane_2
-                axes.set(title=f'All Other Sites')  # Sets subplot title
-        else:
-            if site == 0:
-                axes = plot_pane_2
-                axes.set(title=f'First Simulated Site')  # Sets subplot title
-            elif site == (len(spin_sites_to_plot) - 1):
-                axes = plot_pane_3
-                axes.set(title=f'Final Simulated Site')  # Sets subplot title
-            else:
-                axes = plot_pane_1
-                axes.set(title=f'All Other Sites')  # Sets subplot title
+    label_counter = 0
+    line_width = 1
+    for site in range(1, len(amplitude_data[0, :]+1)):
+        magnitudes = amplitude_data[:, site]
 
-        axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.25),
-                       minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.125))
+        if site > max_value:
+            break
 
-        axes.plot(time_values, magnitudes, ls='-', lw=3, label=subplot_labels[site])
-        axes.set(xlabel='Time [ns]', ylabel="m$_x$", xlim=[0, key_data['maxSimTime']])
+        # Assigns each spin site to a pane based upon either user's input (IF), or presets (ELSE)
+        if site in sites_to_compare[0]:
+            # dt = np.pi / 100.
+            # fs = 1. / dt
+            # t = np.arange(0, 8, dt)
+            # y = 10. * np.sin(2 * np.pi * 4 * t) + 5. * np.sin(2 * np.pi * 4.25 * t)
+            # y = y + np.random.randn(*t.shape)
+            # plot_pane_1.psd(y, NFFT=len(t), pad_to=len(t), Fs=fs)
+            fs = (key_data['maxSimTime'] / (key_data['numberOfDataPoints'] - 1)) \
+                     / 1e-9
+            plot_pane_1.psd(magnitudes, NFFT=len(time_values), pad_to=len(time_values), Fs=fs)
+            #plot_pane_1.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
+            label_counter += 1
+
+        elif site in sites_to_compare[1]:
+            plot_pane_2.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
+            label_counter += 1
+
+        elif site in sites_to_compare[2]:
+            plot_pane_3.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
+            label_counter += 1
+
+    for axes in [plot_pane_1, plot_pane_2, plot_pane_3]:
+        axes.set(xlabel='Time [ns]', ylabel="m$_x$") # xlim=[0, key_data['maxSimTime']]
         axes.legend(loc=1, frameon=True)
-
+        # axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.1),
+        #                minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.05))
         # This IF statement allows the comparison pane (a1) to have different axis limits to the other panes
         if axes == plot_pane_1:
+            axes.set(title=f"Primary Sites")
             axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                            minor_locator=ticker.AutoMinorLocator())
         else:
+            if axes == plot_pane_2:
+                axes.set(title=f'Secondary Sites')
+            elif axes == plot_pane_3:
+                axes.set(title=f'Tertiary Sites')
+
             axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                            minor_locator=ticker.AutoMinorLocator())
 
     fig.tight_layout()
-    fig.savefig(f"{filename}.png")
-    plt.show()
+    fig.savefig(f"{filename}_site_comparisons.png")
 
 
 def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
@@ -524,9 +537,9 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
     :return:  List of strings. Each string provides a description of each simulated spin site, including any
               significance of the site.To be used as 'legend labels' in plots.
     """
-    for i, site in enumerate(simulated_sites):
-        # Imported data will be range of dtypes. Casting here ensures later comparisons can occur.
-        simulated_sites[i] = int(site)
+    # for i, site in enumerate(simulated_sites):
+    # Imported data will be range of dtypes. Casting here ensures later comparisons can occur.
+    simulated_sites = [int(site) for site in simulated_sites]
 
     # Save as lists; will be accessed sequentially in plotting functions
     legend_labels = []
@@ -627,11 +640,11 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
     t_shaded_xlim = temporal_xlim * x_scaling + offset
 
     plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (offset, temporal_xlim), "ylim": (-3e-3, 3e-3)},
+                           "xlim": (offset, temporal_xlim)},
                        1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (offset, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
                            "xlim": (0, 60), "ylim": (0, 0.5)},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 5)}}
+                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 10)}}
 
     fig = plt.figure(figsize=(16, 12), constrained_layout=True)
 
@@ -723,7 +736,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     # ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
 
     if which_subplot == 2:
-        ax.axvspan(0, 5, color='#DC143C', alpha=0.2, lw=0)
+        ax.axvspan(0, 10, color='#DC143C', alpha=0.2, lw=0)
         # If at a node, then 3-wave generation may be occurring. This loop plots that location.
         # triple_wave_gen_freq = driving_freq_hz * 3
         # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')

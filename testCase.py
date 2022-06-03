@@ -154,12 +154,25 @@ def plotting():
     # ax.set(xlabel="Time [s]", ylabel="m$_x$")
     plt.show()
 
-# plotting()
+from math import sin, pi, exp
+from random import randint, uniform
 
-y_ = np.linspace(np.sqrt(1e-4), np.sqrt(1.0), 200)
-y_ = y_ ** 2
-x_ = range(0, 200, 1)
-fig = plt.figure()
-ax = plt.subplot(111)
-ax.plot(x_, y_)
+def generate_sequence(f, t, decay):
+    return 3e-3 * exp(-decay * t) * (sin(2 * pi * f * t) + sin(2 * pi * 42.5E9 * t))
+
+
+# generate input and output pairs of damped sine waves
+def generate_examples(frequency, max_time, alpha):
+    time = np.linspace(0, max_time * 1e-9, 100)
+    y_ = list()
+    for t in time:
+        y = generate_sequence(frequency * 1e9, t, alpha)
+        y_.append(y)
+
+    return time, y_
+
+# test problem generation
+T,Y = generate_examples(2.92, 35, 1e-4)
+
+plt.plot(T, Y, '-o')
 plt.show()
