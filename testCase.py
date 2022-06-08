@@ -9,7 +9,8 @@ import os as os
 import sys as sys
 
 # 3rd Party Packages
-# Add here
+from math import sin, pi, exp
+from random import randint, uniform
 
 # My packages / Any header files
 # Here
@@ -139,9 +140,10 @@ def RK2Computation():
     plt.plot(np.arange(1, number_of_spins + 1), mx_output[-1, 1:number_of_spins + 1])
     plt.show()
 
+
 def plotting():
     numspins = 4000
-    filename = "/Users/cameronmceleney/CLionProjects/Data/2022-05-18/rk2_mx_"+str(numspins)+".csv"
+    filename = "/Users/cameronmceleney/CLionProjects/Data/2022-05-18/rk2_mx_" + str(numspins) + ".csv"
     data = np.loadtxt(filename, delimiter=',')
     time = data[:, 0]
     mx_spin_data = data[:, 1:]
@@ -154,8 +156,6 @@ def plotting():
     # ax.set(xlabel="Time [s]", ylabel="m$_x$")
     plt.show()
 
-from math import sin, pi, exp
-from random import randint, uniform
 
 def generate_sequence(f, t, decay):
     return 3e-3 * exp(-decay * t) * (sin(2 * pi * f * t) + sin(2 * pi * 42.5E9 * t))
@@ -171,8 +171,62 @@ def generate_examples(frequency, max_time, alpha):
 
     return time, y_
 
-# test problem generation
-T,Y = generate_examples(2.92, 35, 1e-4)
 
-plt.plot(T, Y, '-o')
-plt.show()
+def plot_psd():
+    # test problem generation
+    T, Y = generate_examples(2.92, 35, 1e-4)
+
+    plt.plot(T, Y, '-o')
+    plt.show()
+
+
+def resizing_system_test(use_gauss):
+    if use_gauss:
+        # Core parameters
+        D = 5.3E-9  # [erg / G * cm]
+        gamma = 2.9  # [GHz G**-1] # * 2 * np.pi
+        H = 1  # [kG]
+        w = 25  # [GHz]
+        um = 1e4  # how many [cm] in 1[um]
+
+        # Find wavenumber
+        k = np.sqrt(((w / gamma) - H) * 1e3 / D) * (1 / um)
+        print(f"k\t\t\t: {k}\t\t[1/um]")
+
+        # Find wavelength
+        wavelength = (2 * np.pi) / (k)
+        print(f"wavelength\t: {wavelength}\t[um]")
+
+        # Find lattice spacing
+        a = 0.002 * (1 / um)  # 0.002 [um] is what we used on the board
+        print(f"spacing\t\t: {a} [cm]")
+
+        # Find exchange integral
+        J = D / a ** 2
+        print(f"J\t\t\t: {J / 1e3}\t\t[kG]")
+
+    else:
+        # Core parameters
+        D = 5.3E-17  # [T m**2]
+        gamma = 29 * 2 * np.pi  # [GHz T**-1] # * 2 * np.pi
+        H = 0.1  # [T]
+        w = 25  # [GHz]
+
+        # Find wavenumber
+        k = np.sqrt(((w / gamma) - H) / D)
+        print(f"k\t\t\t: {k * 1e-6}\t\t[1/um]")
+
+        # Find wavelength
+        wavelength = (2 * np.pi) / k
+        print(f"wavelength\t: {wavelength * 1e6}\t[um]")
+
+        # Find lattice spacing
+        a = wavelength * 0.05  # 0.002E-6 is what we used on the board
+        print(f"spacing\t\t: {a * 1e6} [um]")
+
+        # Find exchange integral
+        J = D / a ** 2
+        print(f"J\t\t\t: {J}\t[T]")
+
+
+resizing_system_test(False)

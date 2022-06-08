@@ -331,7 +331,7 @@ class PlotImportedData:
                   ''')
         print('---------------------------------------------------------------------------------------\n')
 
-        initials_of_method_to_call = "3P" # input("Which function to use: ").upper()
+        initials_of_method_to_call = input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -377,9 +377,9 @@ class PlotImportedData:
             raise ValueError
         else:
             if should_compare_sites == 'Y':
-                sites_to_compare.append([400])  # (input("Primary sites to compare: ").split())
-                sites_to_compare.append([500])  # (input("Secondary sites to compare: ").split())
-                sites_to_compare.append([600])  # (input("Tertiary sites to compare: ").split())
+                sites_to_compare.append(input("Primary sites to compare: ").split())
+                sites_to_compare.append(input("Secondary sites to compare: ").split())
+                sites_to_compare.append(input("Tertiary sites to compare: ").split())
 
             elif should_compare_sites == 'N':
                     None

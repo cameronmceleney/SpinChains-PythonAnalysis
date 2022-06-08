@@ -491,7 +491,9 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
             # plot_pane_1.psd(y, NFFT=len(t), pad_to=len(t), Fs=fs)
             fs = (key_data['maxSimTime'] / (key_data['numberOfDataPoints'] - 1)) \
                      / 1e-9
-            plot_pane_1.psd(magnitudes, NFFT=len(time_values), pad_to=len(time_values), Fs=fs)
+            norm = np.linalg.norm(magnitudes)
+            normal_magnitudes = magnitudes / norm
+            plot_pane_1.psd(normal_magnitudes, NFFT=len(time_values), pad_to=len(time_values), Fs=fs)
             #plot_pane_1.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
             label_counter += 1
 
