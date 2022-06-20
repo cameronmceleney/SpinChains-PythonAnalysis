@@ -638,6 +638,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
     # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
     temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
     x_scaling = 0.1
+    fft_shaded_box_width = 10  # In GHz
     offset = 0  # Zero by default
     t_shaded_xlim = temporal_xlim * x_scaling + offset
 
@@ -645,8 +646,8 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
                            "xlim": (offset, temporal_xlim)},
                        1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (offset, t_shaded_xlim)},
                        2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
-                           "xlim": (0, 60), "ylim": (0, 0.5)},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, 10)}}
+                           "xlim": (0, 60)},
+                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, fft_shaded_box_width)}}
 
     fig = plt.figure(figsize=(16, 12), constrained_layout=True)
 
@@ -672,7 +673,8 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
 
             for i, ax in enumerate(axes, start=row * 2):
                 custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
-                                plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params)
+                                plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params,
+                                box_width = fft_shaded_box_width)
 
     fig.savefig(f"{filename}_{spin_site}.png")
 
@@ -710,7 +712,7 @@ def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplo
     return ax
 
 
-def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_params, ax=None):
+def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_params, box_width, ax=None):
     """
     Custom plotter for each FFT within 'fft_and_signal_four'.
 
@@ -738,7 +740,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     # ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
 
     if which_subplot == 2:
-        ax.axvspan(0, 10, color='#DC143C', alpha=0.2, lw=0)
+        ax.axvspan(0, box_width, color='#DC143C', alpha=0.2, lw=0)
         # If at a node, then 3-wave generation may be occurring. This loop plots that location.
         # triple_wave_gen_freq = driving_freq_hz * 3
         # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
@@ -794,8 +796,7 @@ def fft_data(amplitude_data, simulation_params):
     natural_freq = core_values['gamma'] * simulation_params['staticBiasField']
 
     # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
-    sample_spacing = (simulation_params['maxSimTime'] / (simulation_params['numberOfDataPoints'] - 1)) \
-                     / core_values['hz_to_ghz']
+    sample_spacing = (simulation_params["maxSimTime"] / (simulation_params["numberOfDataPoints"] - 1)) / core_values['hz_to_ghz']
 
     # Compute the FFT
     n = amplitude_data.size

@@ -252,19 +252,34 @@ class PlotImportedData:
         """
         lg.info(f"Importing file headers...")
 
-        with open(self.input_data_path) as file_header_data:
-            csv_reader = csv.reader(file_header_data)
-            next(csv_reader)  # 0th line.
-            next(csv_reader)  # 1st line. Blank.
-            data_flags = next(csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
-            next(csv_reader)  # 3rd line. Blank.
-            next(csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
-            data_values = next(csv_reader)  # 5th line. Values associated with column titles from 4th line.
-            next(csv_reader)  # 6th line. Blank.
-            next(csv_reader)  # 7th line. Simulation notes.
-            next(csv_reader)  # 8th line. Describes how to understand tabular titles.
-            next(csv_reader)  # 9th line. Blank.
-            list_of_simulated_sites = next(csv_reader)  # 10th line. Array of simulated site numbers.
+        if self.fi == "LLGTest":
+            with open(self.input_data_path) as file_header_data:
+                csv_reader = csv.reader(file_header_data)
+                next(csv_reader)  # 0th line.
+                next(csv_reader)  # 1st line. Blank.
+                next(csv_reader)  # 2nd line. Column title for each key simulation parameter. data_names
+                data_values = next(csv_reader)  # 3rd line. Values associated with column titles from 4th line.
+                next(csv_reader)  # 4th line. Blank.
+                next(csv_reader)  # 5th line. Simulation notes.
+                next(csv_reader)  # 6th line. Describes how to understand tabular titles.
+                next(csv_reader)  # 7th line. Blank.
+                list_of_simulated_sites = next(csv_reader)  # 8th line. Array of simulated site numbers.
+
+                data_flags = None
+        else:
+            with open(self.input_data_path) as file_header_data:
+                csv_reader = csv.reader(file_header_data)
+                next(csv_reader)  # 0th line.
+                next(csv_reader)  # 1st line. Blank.
+                data_flags = next(csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
+                next(csv_reader)  # 3rd line. Blank.
+                next(csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
+                data_values = next(csv_reader)  # 5th line. Values associated with column titles from 4th line.
+                next(csv_reader)  # 6th line. Blank.
+                next(csv_reader)  # 7th line. Simulation notes.
+                next(csv_reader)  # 8th line. Describes how to understand tabular titles.
+                next(csv_reader)  # 9th line. Blank.
+                list_of_simulated_sites = next(csv_reader)  # 10th line. Array of simulated site numbers.
 
         sim_flags = dict()
         if data_flags is not None:
@@ -272,6 +287,8 @@ class PlotImportedData:
             sim_flags['isLLGUsed'] = str(data_flags[1])
             sim_flags['isShockwaveUsed'] = str(data_flags[3])
             sim_flags['isDriveOnLHS'] = str(data_flags[5])
+            sim_flags['methodName'] = str(data_flags[7])
+            sim_flags['isDriveStatic'] = str(data_flags[9])
 
             if 'numericalMethodUsed' not in sim_flags.keys():
                 sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
@@ -283,27 +300,55 @@ class PlotImportedData:
             sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
 
         key_params = dict()
-        key_params['staticBiasField'] = float(data_values[0])
-        key_params['dynamicBiasField1'] = float(data_values[1])
-        key_params['dynamicBiasFieldScaling'] = float(data_values[2])
-        key_params['dynamicBiasField2'] = float(data_values[3])
-        key_params['drivingFreq'] = float(data_values[4])
-        key_params['drivingRegionLHS'] = int(data_values[5])
-        key_params['drivingRegionRHS'] = int(data_values[6])
-        key_params['drivingRegionWidth'] = int(data_values[7])
-        key_params['maxSimTime'] = float(data_values[8])
-        key_params['exchangeMinVal'] = float(data_values[9])
-        key_params['exchangeMaxVal'] = float(data_values[10])
-        key_params['stopIterVal'] = float(data_values[11])
-        key_params['numberOfDataPoints'] = int(data_values[12])
-        key_params['chainSpins'] = int(data_values[13])
-        key_params['dampedSpins'] = int(data_values[14])
-        key_params['totalSpins'] = int(data_values[15])
-        key_params['stepsize'] = float(data_values[16])
-        key_params['gilbertFactor'] = float(data_values[17])
-        key_params['gyroMagRatio'] = float(data_values[18])
-        key_params['shockGradientTime'] = float(data_values[19])
-        key_params['shockApplyTime'] = float(data_values[20])
+
+        if self.fi == "LLGTest":
+            key_params['staticBiasField'] = float(data_values[0])
+            key_params['dynamicBiasField1'] = float(data_values[1])
+            key_params['dynamicBiasFieldScaling'] = float(data_values[2])
+            key_params['drivingFreq'] = float(data_values[3])
+            key_params['drivingRegionLHS'] = int(data_values[4])
+            key_params['drivingRegionRHS'] = int(data_values[5])
+            key_params['drivingRegionWidth'] = int(data_values[6])
+            key_params['maxSimTime'] = float(data_values[7])
+            key_params['exchangeMaxVal'] = float(data_values[8])
+            key_params['stopIterVal'] = float(data_values[9])
+            key_params['exchangeMinVal'] = float(data_values[10])
+            key_params['numberOfDataPoints'] = int(data_values[11])
+            key_params['totalSpins'] = int(data_values[12])
+            key_params['stepsize'] = float(data_values[13])
+            key_params['dampedSpins'] = int(data_values[14])
+            key_params['gilbertFactor'] = 1e-5 # float(data_values[15])
+            sim_flags['isLLGUsed'] = 1 #int(data_values[6])
+
+            key_params['dynamicBiasField2'] = key_params['dynamicBiasField1'] * key_params['dynamicBiasFieldScaling']
+            key_params['chainSpins'] = round(key_params['totalSpins'], -3)
+            key_params['dampedSpins'] = key_params['totalSpins'] - key_params['chainSpins']
+            key_params['gyroMagRatio'] = 2.92E9 * 2 * np.pi
+
+        else:
+            key_params['staticBiasField'] = float(data_values[0])
+            key_params['dynamicBiasField1'] = float(data_values[1])
+            key_params['dynamicBiasFieldScaling'] = float(data_values[2])
+            key_params['dynamicBiasField2'] = float(data_values[3])
+            key_params['drivingFreq'] = float(data_values[4])
+            key_params['drivingRegionLHS'] = int(data_values[5])
+            key_params['drivingRegionRHS'] = int(data_values[6])
+            key_params['drivingRegionWidth'] = int(data_values[7])
+            key_params['maxSimTime'] = float(data_values[8])
+            key_params['exchangeMinVal'] = float(data_values[9])
+            key_params['exchangeMaxVal'] = float(data_values[10])
+            key_params['stopIterVal'] = float(data_values[11])
+            key_params['numberOfDataPoints'] = int(data_values[12])
+            key_params['chainSpins'] = int(data_values[13])
+            key_params['dampedSpins'] = int(data_values[14])
+            key_params['totalSpins'] = int(data_values[15])
+            key_params['stepsize'] = float(data_values[16])
+            key_params['gilbertFactor'] = float(data_values[17])
+            key_params['gyroMagRatio'] = float(data_values[18])
+            key_params['shockGradientTime'] = float(data_values[19])
+            key_params['shockApplyTime'] = float(data_values[20])
+
+
 
         lg.info(f"File headers imported!")
 

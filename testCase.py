@@ -207,10 +207,10 @@ def resizing_system_test(use_gauss):
 
     else:
         # Core parameters
-        D = 5.3E-17  # [T m**2]
-        gamma = 29 * 2 * np.pi  # [GHz T**-1] # * 2 * np.pi
+        D = 5.3E-17 / 2  # [T m**2]
+        gamma = 29.3 * 2 * np.pi  # [GHz T**-1] # * 2 * np.pi
         H = 0.1  # [T]
-        w = 25  # [GHz]
+        w = (2 * np.pi) * 42.5  # [GHz]
 
         # Find wavenumber
         k = np.sqrt(((w / gamma) - H) / D)
@@ -229,4 +229,23 @@ def resizing_system_test(use_gauss):
         print(f"J\t\t\t: {J}\t[T]")
 
 
-resizing_system_test(False)
+def dispersion_relation():
+    a = 2E-9
+    k = (2 * np.pi) / np.linspace(0, 100e-9, 1000000)
+    w = np.linspace(0, 25E9, 1000000)
+    J = 13.25
+    S = 1
+    hbar = 1.05457182E-34
+
+    x_ = k
+    y_ = (hbar * w) / (4 * S * J)
+
+    plt.plot(x_, 1 - np.cos(k * a))
+    plt.xlim(0, np.pi/a)
+    plt.xlabel("k [rad/um]")
+    plt.ylabel("$\hbar$$\omega$ / 4SJ")
+    plt.show()
+
+
+# dispersion_relation()
+resizing_system_test(True)
