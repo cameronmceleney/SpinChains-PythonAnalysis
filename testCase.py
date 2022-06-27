@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os as os
 import sys as sys
+import seaborn as sns
 
 # 3rd Party Packages
 from math import sin, pi, exp
 from random import randint, uniform
 
 # My packages / Any header files
-# Here
+plt.style.use('fivethirtyeight')
 
 """
     Description of what testCase does
@@ -230,9 +231,9 @@ def resizing_system_test(use_gauss):
 
 
 def dispersion_relation():
-    a = 2E-9
-    k = (2 * np.pi) / np.linspace(0, 100e-9, 1000000)
-    w = np.linspace(0, 25E9, 1000000)
+    a = 2
+    k = (2 * np.pi) / np.linspace(0, 100, 10000)
+    w = np.linspace(0, 25, 10000)
     J = 13.25
     S = 1
     hbar = 1.05457182E-34
@@ -240,12 +241,38 @@ def dispersion_relation():
     x_ = k
     y_ = (hbar * w) / (4 * S * J)
 
-    plt.plot(x_, 1 - np.cos(k * a))
-    plt.xlim(0, np.pi/a)
-    plt.xlabel("k [rad/um]")
-    plt.ylabel("$\hbar$$\omega$ / 4SJ")
+    fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(6, 4))
+    ax1.plot(x_, 1 - np.cos(k * a))
+    ax1.set_title("Dispersion Relation")
+    ax1.set_xlim(0, np.pi/a)
+    ax1.set_xlabel("k [rad/um]")
+    ax1.set_ylabel("$\hbar$$\omega$ / 4SJ")
+    fig.tight_layout()
+    ax1.grid(False)
+    plt.show()
+
+def propagating_modes():
+    g = 29.2
+    H = np.linspace(0, 1.0, 1000)
+    Ms = 0.1
+    fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(6, 4))
+
+    perpendicular = g*np.sqrt(H*(H+4*np.pi*Ms))
+    parallel = g*H
+    surface = g*(H+2*np.pi*Ms)
+
+    combined = np.vstack((parallel, perpendicular)).T
+    plt.plot(H, combined)
+    plt.xlabel("Applied Magnetic Field [T]")
+    plt.ylabel("Angular Frequency [GHz]")
+    plt.title("Bulk Propagating Modes")
+
+    ax1.fill_between(H, parallel, perpendicular, alpha=0.1)
+    ax1.grid(False)
+    fig.tight_layout()
     plt.show()
 
 
-# dispersion_relation()
-resizing_system_test(True)
+dispersion_relation()
+# resizing_system_test(True)
+#propagating_modes()
