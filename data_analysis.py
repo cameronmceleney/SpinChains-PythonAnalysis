@@ -539,7 +539,7 @@ class PlotImportedData:
             site_num = int(input("Plot which site: "))
             paper_fig.plot_site_variation(site_num)
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.01)
+            paper_fig.create_gif(number_of_frames=0.001)
             # paper_fig2.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")
