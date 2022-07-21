@@ -9,6 +9,8 @@ import sys as sys
 
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, inset_axes
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 import matplotlib.transforms as mtrans
@@ -70,14 +72,14 @@ class PaperFigures:
         self.gilbert_factor = key_data['gilbertFactor']
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
-        self.fig = plt.figure(figsize=(12, 6), dpi=300)
+        self.fig = plt.figure(figsize=(4, 2))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 3.5e-2  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 3e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
-                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
+                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [m/M$_S$]",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
-    def _draw_figure(self, plot_row=-1, has_single_figure=True):
+    def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
         Private method to plot the given row of data, and create a single figure.
 
@@ -106,7 +108,7 @@ class PaperFigures:
 
         ax.set(**self.kwargs)
 
-        if not has_single_figure:
+        if draw_regions_of_interest:
             left, bottom, width, height = (
                 [0, self.number_spins - self.dampedSpins, self.drLHS + self.dampedSpins],
                 ax.get_ylim()[0],
@@ -133,8 +135,8 @@ class PaperFigures:
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
-                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125))
+        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.125),
+                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125/28))
         ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
                      minor_locator=ticker.AutoMinorLocator())
 
@@ -156,9 +158,10 @@ class PaperFigures:
         """
         self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
         self._draw_figure(plot_row=row_number)
-        self.axes.grid(False)
+        self.axes.grid(True, which='both', lw=0.5)
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
+        # Add text to figure with simulation parameters
         if self.exchange_min == self.exchange_max:
             exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
         else:
@@ -170,12 +173,12 @@ class PaperFigures:
                                                                                        f"{exchangeString}"
 
         props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
-        # place a text box in upper left in axes coords
+        # Place text box in upper left in axes coords
         self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
                        verticalalignment='top', bbox=props, ha='center', va='center')
 
+        # Figure outputs
         self.fig.savefig(f"{self.output_filepath}_row{row_number}.png")
-        #  plt.show()
 
     @gif.frame
     def _plot_paper_gif(self, index):
@@ -186,7 +189,7 @@ class PaperFigures:
 
         :param int index: The row to be plotted.
         """
-        self._draw_figure(index, False)
+        self._draw_figure(index, False, True)
 
     def create_gif(self, number_of_frames=0.05):
         """
@@ -211,7 +214,7 @@ class PaperFigures:
 
         gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
 
-    def plot_site_variation(self, spin_site):
+    def plot_site_variation(self, spin_site, add_zoomed_region=True, add_info_box=True):
         """
         Plot the magnetisation of a site against time.
 
@@ -222,27 +225,94 @@ class PaperFigures:
         :return: Saves a .png image to the designated output folder.
         """
 
+        self.axes.clear()
+        self.axes.set_aspect('auto')
         self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=1,
                        label=f"{self.sites_array[spin_site]}")  # Easier to have time-stamp as label than textbox.
 
-        self.axes.set(title=f"Mx Values for {self.driving_freq:2.2f} [GHz]",
-                      xlabel=f"Time [ns]", ylabel=f"m$_x$ [arb.]",
-                      xlim=[0, self.max_time])
+        xlim_in = 14 # int(input("Enter xlim: "))
+        # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
+        self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
+                      xlim=[0, xlim_in], ylim=[-1 * self.amplitude_data[:, spin_site].max(), self.amplitude_data[:, spin_site].max()])
 
         # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.2),
-                            minor_locator=ticker.MultipleLocator(self.max_time * 0.1))
-        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=9, prune='lower'),
-                            minor_locator=ticker.AutoMinorLocator())
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.1),
+                            minor_locator=ticker.MultipleLocator(self.max_time * 0.05))
+        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
+                            minor_locator=ticker.AutoMinorLocator(4))
 
-        self.axes.legend(title="Spin Site [#]", loc=1,
-                         frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+        formatter = ticker.ScalarFormatter(useMathText=True)
+        self.axes.yaxis.set_major_formatter(formatter)
+        # self.axes.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.1f'))
+        self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+        self.axes.yaxis.get_offset_text().set_fontsize(8)
 
-        self.axes.grid(visible=True, axis='y', which='major')
+        # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+
+        # Add zoomed in region if needed.
+        if add_zoomed_region:
+            # Select datasets to use
+            x = self.time_data
+            y = self.amplitude_data[:, spin_site]
+
+            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS
+            bbox_xpos = 0.24# float(input("Enter bbox: "))
+            ax2_inset = inset_axes(self.axes, width=1.0, height=0.5, loc="center", bbox_to_anchor=[bbox_xpos, 0.7],
+                                   bbox_transform=self.axes.figure.transFigure)
+            ax2_inset.plot(x, y, lw=0.75)
+
+            # Select data (of original) to show in inset through changing axis limits
+            x2_in = 5.75 # float(input("Enter x2: "))
+            x1, x2 = 0, x2_in  # self.max_time*0.1, self.max_time*0.2
+            ylim_in = 1.25e-3 # float(input("Enter ylim: "))
+            custom_ylim = ylim_in
+            y1, y2 = -custom_ylim, custom_ylim  # -self.y_axis_limit * 0.075, self.y_axis_limit * 0.075
+            ax2_inset.set_xlim(x1, x2)
+            ax2_inset.set_ylim(y1, y2)
+
+            # Remove tick labels
+            ax2_inset.set_xticks([])
+            ax2_inset.set_yticks([])
+            ax2_inset.patch.set_color("#f0a3a9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
+            # ax2_inset.patch.set_alpha(0.3)
+
+            # ax2_inset.set(facecolor='red', alpha=0.3)
+
+            # Add spines to all plots (to override any rcParams elsewhere in the code
+            for spine in ['top', 'bottom', 'left', 'right']:
+                ax2_inset.spines[spine].set_visible(True)
+                self.axes.spines[spine].set_visible(True)
+
+            # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
+
+            # Add box to indicate the region which is being zoomed into on the main figure
+            self.axes.indicate_inset_zoom(ax2_inset, facecolor='red', edgecolor=None, alpha=0.3)
+
+        if add_info_box:
+            if self.exchange_min == self.exchange_max:
+                exchangeString = f"Uniform Exc. ({self.exchange_min} [T])"
+            else:
+                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
+                                 f"{self.exchange_max} [T]"
+            textstr = f"H$_{{0}}$ = {self.static_field} [T] | " \
+                      f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
+                      f"H$_{{D2}}$ = {self.driving_field2:2.2e}[T] \n" \
+                      f"f = {self.driving_freq} [GHz] |" \
+                      f"{exchangeString} | N = {self.chain_spins} | " + r"$\alpha$" + \
+                      f" = {self.gilbert_factor: 2.2e}"
+
+            props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
+
+            # place a text box in upper left in axes coords
+            self.axes.text(0.35, -0.22, textstr, transform=self.axes.transAxes, fontsize=6,
+                           verticalalignment='top', bbox=props, ha='center', va='center')
+            self.axes.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center', transform=self.axes.transAxes)
+
+
+        self.axes.grid(visible=False, axis='y', which='both')
         self.axes.grid(visible=False, axis='x', which='both')
-        self.fig.tight_layout()
-        self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
-        plt.show()
+        # self.fig.tight_layout()
+        self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 
 
 class PaperFigures2:
