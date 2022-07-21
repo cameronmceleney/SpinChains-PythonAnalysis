@@ -271,7 +271,8 @@ class PlotImportedData:
                 csv_reader = csv.reader(file_header_data)
                 next(csv_reader)  # 0th line.
                 next(csv_reader)  # 1st line. Blank.
-                data_flags = next(csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
+                data_flags = next(
+                    csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
                 next(csv_reader)  # 3rd line. Blank.
                 next(csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
                 data_values = next(csv_reader)  # 5th line. Values associated with column titles from 4th line.
@@ -317,8 +318,8 @@ class PlotImportedData:
             key_params['totalSpins'] = int(data_values[12])
             key_params['stepsize'] = float(data_values[13])
             key_params['dampedSpins'] = int(data_values[14])
-            key_params['gilbertFactor'] = 1e-5 # float(data_values[15])
-            sim_flags['isLLGUsed'] = 1 #int(data_values[6])
+            key_params['gilbertFactor'] = 1e-5  # float(data_values[15])
+            sim_flags['isLLGUsed'] = 1  # int(data_values[6])
 
             key_params['dynamicBiasField2'] = key_params['dynamicBiasField1'] * key_params['dynamicBiasFieldScaling']
             key_params['chainSpins'] = round(key_params['totalSpins'], -3)
@@ -347,8 +348,6 @@ class PlotImportedData:
             key_params['gyroMagRatio'] = float(data_values[18])
             key_params['shockGradientTime'] = float(data_values[19])
             key_params['shockApplyTime'] = float(data_values[20])
-
-
 
         lg.info(f"File headers imported!")
 
@@ -427,7 +426,7 @@ class PlotImportedData:
                 sites_to_compare.append(input("Tertiary sites to compare: ").split())
 
             elif should_compare_sites == 'N':
-                    None
+                None
 
         sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
 
@@ -453,7 +452,8 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk.fft_and_signal_four(self.m_time_data, self.m_spin_data[:, target_spin_in_data], target_spin,
+                    plt_rk.fft_and_signal_four(self.m_time_data[2888:4512], self.m_spin_data[2888:4512, target_spin_in_data],
+                                               target_spin,
                                                self.header_data_params,
                                                self.full_output_path)
                     lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
@@ -536,10 +536,23 @@ class PlotImportedData:
             row_num = int(input("Plot which row of data: "))
             paper_fig.create_png(row_num)
         elif pf_selection == "SV":
-            site_num = int(input("Plot which site: "))
-            paper_fig.plot_site_variation(site_num)
+            has_more_to_plot = True
+            while has_more_to_plot:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+                for target_site in sites_to_plot:
+                    target_site = int(target_site)
+                    if target_site >= 1:
+                        print(f"Generating plot for [#{target_site}]...")
+                        lg.info(f"Generating SV plot for Spin Site [#{target_site}]")
+                        paper_fig.plot_site_variation(target_site, True, False)
+                        lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+                    else:
+                        print("Exiting PF-SV plotting.")
+                        lg.info(f"Exiting PF-SV based upon user input of [{target_site}]")
+                        has_more_to_plot = False
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.001)
+            paper_fig.create_gif(number_of_frames=0.01)
             # paper_fig2.create_gif(number_of_frames=0.01)
 
         lg.info(f"Plotting PF complete!")
@@ -558,23 +571,26 @@ def rc_params_update():
     ##############################################################################
     # Sets global conditions including font sizes, ticks and sheet style
     # Sets various font size. fsize: general text. lsize: legend. tsize: title. ticksize: numbers next to ticks
-    fsize = 18
-    lsize = 12
-    tsize = 24
-    ticksize = 14
+    medium_size = 14
+    small_size = 12
+    large_size = 16
+    smaller_size = 10
+    tiny_size = 8
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
-    t_dir = 'out'
+    t_dir = 'in'
     # sets the tick size(s) and tick width(w) for the major and minor axes of all plots
-    t_maj_s = 10
-    t_min_s = 5
-    t_maj_w = 1.2
-    t_min_w = 1
+    t_maj_s = 4
+    t_min_s = t_maj_s / 2
+    t_maj_w = 0.8
+    t_min_w = t_maj_w / 2
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'axes.titlesize': tsize, 'axes.labelsize': fsize, 'font.size': fsize, 'legend.fontsize': lsize,
-                         'xtick.labelsize': ticksize, 'ytick.labelsize': ticksize,
-                         'axes.edgecolor': 'black', 'axes.linewidth': 1.2,
+    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': small_size, 'font.size': small_size,
+                         'legend.fontsize': small_size,
+                         'figure.titlesize': large_size,
+                         'xtick.labelsize': small_size, 'ytick.labelsize': small_size,
+                         'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
                          "xtick.bottom": True, "ytick.left": True,
                          'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
                          'text.color': 'black',
@@ -585,5 +601,4 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'figure.titlesize': 24,
-                         'figure.dpi': 300})
+                         'savefig.dpi': 1000, "figure.dpi": 1000})
