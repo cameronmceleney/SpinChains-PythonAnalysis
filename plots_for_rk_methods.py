@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import sys as sys
+import types as typ
 
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
@@ -14,6 +15,8 @@ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 import matplotlib.transforms as mtrans
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
 import gif as gif
 from scipy.fft import rfft, rfftfreq
 
@@ -63,20 +66,23 @@ class PaperFigures:
         self.drRHS = key_data['drivingRegionRHS']
         self.driving_width = key_data['drivingRegionWidth']
         self.max_time = key_data['maxSimTime'] * 1e9
+        self.stop_itervals = key_data['stopIterVal']
         self.exchange_min = key_data['exchangeMinVal']
         self.exchange_max = key_data['exchangeMaxVal']
         self.data_points = key_data['numberOfDataPoints']
         self.chain_spins = key_data['chainSpins']
         self.dampedSpins = key_data['dampedSpins']
         self.number_spins = key_data['totalSpins']
+        self.stepsize = key_data['stepsize'] * 1e9
         self.gilbert_factor = key_data['gilbertFactor']
+        self.gyro_mag_ratio = key_data['gyroMagRatio']
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
+        cm = 1/2.54
         self.fig = plt.figure(figsize=(4, 2))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 3e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
-        self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
-                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [m/M$_S$]",
+        self.y_axis_limit = 6.4e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.kwargs = {"xlabel": f"Spin Sites", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
@@ -93,57 +99,63 @@ class PaperFigures:
         """
         if has_single_figure:
             # For images, may want to further alter plot outside this method. Hence, the use of attribute.
-            fig = self.fig
-            ax = self.axes
+            cm = 1 / 2.54
+            self.fig = plt.figure(figsize=(11.12 * cm, 6.15 * cm))  # Strange dimensions are to give a 4x2 inch image
+            self.axes = self.fig.add_subplot(111)
         else:
             # For GIFs
-            fig = plt.figure(figsize=(12, 6), dpi=300)  # Each frame requires a new fig to prevent stuttering.
-            ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
+            cm = 1 / 2.54
+            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2), dpi=450)  # Each frame requires a new fig to prevent stuttering.
+            self.axes = self.fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
 
-        plt.suptitle(f"{self.nm_method}", size=24)
-        plt.subplots_adjust(top=0.80)
+        self.axes.set_aspect("auto")
+        #  plt.suptitle(f"{self.nm_method}")
+        #  plt.subplots_adjust(top=0.80)
 
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"{self.time_data[plot_row]:2.2f}")  # Easier to have time-stamp as label than textbox.
+        self.axes.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
+                label=f"{self.time_data[plot_row]:2.2f} [ns]", color='#64bb6a')  # Easier to have time-stamp as label than textbox.
 
-        ax.set(**self.kwargs)
+        self.axes.set(**self.kwargs)
 
         if draw_regions_of_interest:
             left, bottom, width, height = (
                 [0, self.number_spins - self.dampedSpins, self.drLHS + self.dampedSpins],
-                ax.get_ylim()[0],
+                self.axes.get_ylim()[0] * 2,
                 (self.dampedSpins, self.driving_width),
-                2 * ax.get_ylim()[1])
+                4 * self.axes.get_ylim()[1])
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width[0], height,
                                          # fill=False,
-                                         alpha=0.1,
-                                         facecolor="red")
+                                         alpha=0.4,
+                                         facecolor="grey",
+                                         edgecolor=None,
+                                         lw=0)
 
             rectRHS = mpatches.Rectangle((left[1], bottom), width[0], height,
                                          # fill=False,
-                                         alpha=0.1,
-                                         facecolor="red")
+                                         alpha=0.4,
+                                         facecolor="grey",
+                                         edgecolor=None,
+                                         lw=0)
 
             rectDriving = mpatches.Rectangle((left[2], bottom), width[1], height,
                                              # fill=False,
-                                             alpha=0.1,
-                                             facecolor="blue")
+                                             alpha=0.2,
+                                             facecolor="grey",
+                                             edgecolor=None,
+                                             lw=0)
 
             plt.gca().add_patch(rectLHS)
             plt.gca().add_patch(rectRHS)
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.125),
-                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125/28))
-        ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                     minor_locator=ticker.AutoMinorLocator())
+        self._tick_setter(self.axes, 2500, 500, 3, 4)
 
-        ax.legend(title="Real time [ns]", loc=1,
-                  frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+        self.axes.legend(loc=1, ncol=1, fontsize=6,
+                  frameon=False, fancybox=True, facecolor=None, edgecolor=None)
 
-        fig.tight_layout()
+        self.fig.tight_layout()
 
     def create_png(self, row_number=-1):
         """
@@ -158,27 +170,34 @@ class PaperFigures:
         """
         self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
         self._draw_figure(plot_row=row_number)
-        self.axes.grid(True, which='both', lw=0.5)
+
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
         # Add text to figure with simulation parameters
-        if self.exchange_min == self.exchange_max:
-            exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
-        else:
-            exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-                             f"{self.exchange_max} [T]"
-        textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
-                                                                                       f" = {self.gilbert_factor: 2.2e}\n" \
-                                                                                       f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
-                                                                                       f"{exchangeString}"
-
-        props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
-        # Place text box in upper left in axes coords
-        self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
-                       verticalalignment='top', bbox=props, ha='center', va='center')
+        #if self.exchange_min == self.exchange_max:
+        #    exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
+        #else:
+        #    exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
+        #                     f"{self.exchange_max} [T]"
+        #textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
+        #                                                                               f" = {self.gilbert_factor: 2.2e}\n" \
+        #                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
+        #                                                                               f"{exchangeString}"
+#
+        #props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+        ## Place text box in upper left in axes coords
+        #self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
+        #               verticalalignment='top', bbox=props, ha='center', va='center')
 
         # Figure outputs
-        self.fig.savefig(f"{self.output_filepath}_row{row_number}.png")
+
+        # Add spines to all plots (to override any rcParams elsewhere in the code
+        for spine in ['top', 'bottom', 'left', 'right']:
+            self.axes.spines[spine].set_visible(True)
+
+        self.axes.grid(visible=False, axis='both', which='both')
+
+        self.fig.savefig(f"{self.output_filepath}_row{row_number}.png", bbox_inches="tight")
 
     @gif.frame
     def _plot_paper_gif(self, index):
@@ -214,7 +233,7 @@ class PaperFigures:
 
         gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
 
-    def plot_site_variation(self, spin_site, add_zoomed_region=True, add_info_box=True):
+    def plot_site_variation(self, spin_site, add_zoomed_region=True, add_info_box=True, add_colored_regions=True):
         """
         Plot the magnetisation of a site against time.
 
@@ -227,17 +246,26 @@ class PaperFigures:
 
         self.axes.clear()
         self.axes.set_aspect('auto')
-        self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=1,
-                       label=f"{self.sites_array[spin_site]}")  # Easier to have time-stamp as label than textbox.
+        #self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
+        #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
+        self.axes.plot(self.time_data[12:1857], self.amplitude_data[12:1857, spin_site], marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
+        self.axes.plot(self.time_data[1858:2929], self.amplitude_data[1858:2929, spin_site], marker='', lw=1, color='#64bb6a',
+                 markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
+        self.axes.plot(self.time_data[2930:], self.amplitude_data[2930:, spin_site], marker='', lw=1, color='#9fd983',
+                 markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
 
-        xlim_in = 14 # int(input("Enter xlim: "))
+        ymax_plot = self.amplitude_data[:, spin_site].max()
+        xlim_in = 7.5  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0, xlim_in], ylim=[-1 * self.amplitude_data[:, spin_site].max(), self.amplitude_data[:, spin_site].max()])
+                      xlim=[0, xlim_in],
+                      ylim=[-1 * self.amplitude_data[:, spin_site].max(),
+                            ymax_plot])
 
         # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.1),
-                            minor_locator=ticker.MultipleLocator(self.max_time * 0.05))
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(2.5),
+                            minor_locator=ticker.MultipleLocator(0.5))
         self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
                             minor_locator=ticker.AutoMinorLocator(4))
 
@@ -246,6 +274,7 @@ class PaperFigures:
         # self.axes.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.1f'))
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
         self.axes.yaxis.get_offset_text().set_fontsize(8)
+        self.axes.yaxis.get_offset_text().set_visible(False)
 
         # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
 
@@ -255,25 +284,20 @@ class PaperFigures:
             x = self.time_data
             y = self.amplitude_data[:, spin_site]
 
-            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS
-            bbox_xpos = 0.24# float(input("Enter bbox: "))
-            ax2_inset = inset_axes(self.axes, width=1.0, height=0.5, loc="center", bbox_to_anchor=[bbox_xpos, 0.7],
+            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
+            ax2_inset = inset_axes(self.axes, width=1.2, height=0.6, loc="center", bbox_to_anchor=[0.2525, 0.255],
                                    bbox_transform=self.axes.figure.transFigure)
-            ax2_inset.plot(x, y, lw=0.75)
+            ax2_inset.plot(x, y, lw=0.75, color='#37782c')
 
             # Select data (of original) to show in inset through changing axis limits
-            x2_in = 5.75 # float(input("Enter x2: "))
-            x1, x2 = 0, x2_in  # self.max_time*0.1, self.max_time*0.2
-            ylim_in = 1.25e-3 # float(input("Enter ylim: "))
-            custom_ylim = ylim_in
-            y1, y2 = -custom_ylim, custom_ylim  # -self.y_axis_limit * 0.075, self.y_axis_limit * 0.075
-            ax2_inset.set_xlim(x1, x2)
-            ax2_inset.set_ylim(y1, y2)
+            ylim_in = 5.5e-4  # float(input("Enter ylim: "))
+            ax2_inset.set_xlim(1.25, 2.6)
+            ax2_inset.set_ylim(-ylim_in, ylim_in)
 
             # Remove tick labels
             ax2_inset.set_xticks([])
             ax2_inset.set_yticks([])
-            ax2_inset.patch.set_color("#f0a3a9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
+            ax2_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
             # ax2_inset.patch.set_alpha(0.3)
 
             # ax2_inset.set(facecolor='red', alpha=0.3)
@@ -286,7 +310,7 @@ class PaperFigures:
             # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
 
             # Add box to indicate the region which is being zoomed into on the main figure
-            self.axes.indicate_inset_zoom(ax2_inset, facecolor='red', edgecolor=None, alpha=0.3)
+            self.axes.indicate_inset_zoom(ax2_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
 
         if add_info_box:
             if self.exchange_min == self.exchange_max:
@@ -306,202 +330,222 @@ class PaperFigures:
             # place a text box in upper left in axes coords
             self.axes.text(0.35, -0.22, textstr, transform=self.axes.transAxes, fontsize=6,
                            verticalalignment='top', bbox=props, ha='center', va='center')
-            self.axes.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center', transform=self.axes.transAxes)
+            self.axes.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
+                           transform=self.axes.transAxes)
 
+        if add_colored_regions:
+            rectLHS = mpatches.Rectangle((0, -1 * self.amplitude_data[:, spin_site].max()), 5.75,
+                                         2 * self.amplitude_data[:, spin_site].max() + + 0.375e-2,
+                                         # fill=False,
+                                         alpha=0.05,
+                                         facecolor="grey",
+                                         edgecolor=None,
+                                         lw=0)
+            rectMID = mpatches.Rectangle((5.751, -1 * self.amplitude_data[:, spin_site].max()), 3.249,
+                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2,
+                                         # fill=False,
+                                         alpha=0.25,
+                                         facecolor="grey",
+                                         edgecolor=None,
+                                         lw=0)
+            rectRHS = mpatches.Rectangle((9.0, -1 * self.amplitude_data[:, spin_site].max()), 6,
+                                         2 * self.amplitude_data[:, spin_site].max() + + 0.375e-2,
+                                         # fill=False,
+                                         alpha=0.5,
+                                         facecolor="grey",
+                                         edgecolor=None,
+                                         lw=0)
 
+            self.axes.add_patch(rectLHS)
+            self.axes.add_patch(rectMID)
+            self.axes.add_patch(rectRHS)
         self.axes.grid(visible=False, axis='y', which='both')
         self.axes.grid(visible=False, axis='x', which='both')
         # self.fig.tight_layout()
+
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 
-
-class PaperFigures2:
-    """
-    Generates a single subplot that can either be a PNG or GIF.
-
-    Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
-    change the invocation in data.analysis.py.
-    """
-
-    def __init__(self, time_data, amplitude_data, amplitude_data2, amplitude_data3, key_data, sim_flags,
-                 array_of_sites, output_filepath):
-
-        self.time_data = time_data
-        self.amplitude_data = amplitude_data
-        self.amplitude_data2 = amplitude_data2
-        self.amplitude_data3 = amplitude_data3
-
-        self.sites_array = array_of_sites
-        self.output_filepath = output_filepath
-
-        self.nm_method = sim_flags['numericalMethodUsed']
-
-        # Individual attributes from key_data that are needed for the class
-        self.number_spins = key_data["chainSpins"]
-        self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
-        self.data_points = key_data['numberOfDataPoints']
-        self.max_time = key_data['maxSimTime'] * 1e9
-        self.driving_width = key_data['drivingRegionWidth']
-        self.dampedSpins = key_data['dampedSpins']
-        self.drLHS = key_data['drivingRegionLHS']
-
-        # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
-        self.fig = plt.figure(figsize=(12, 6), dpi=300)
-        self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 0.2  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
-        self.kwargs = {"title": f"Mx Values for {self.driving_freq:2.2f} [GHz]",
-                       "xlabel": f"Spin Sites", "ylabel": f"m$_x$ [arb.]",
-                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
-
-    def _draw_figure(self, plot_row=-1, has_single_figure=True):
+    def plot_fft(self, spin_site, add_zoomed_region=True):
         """
-        Private method to plot the given row of data, and create a single figure.
+        Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
 
-        If no figure param is passed, then the method will use the class' __init__ attributes.
+        :param int spin_site: The spin site being plotted.
 
-        :param int plot_row: Given row in dataset to plot.
-        :param bool has_single_figure: Flag to ensure that class
-        attribute is used for single figure case, to allow for the saving of the figure out with this method.
-
-        :return: No return statement. Method will output a figure to wherever the method was invoked.
+        :return: A figure containing four sub-plots.
         """
-        if has_single_figure:
-            # For images, may want to further alter plot outside this method. Hence, the use of attribute.
-            fig = self.fig
-            ax = self.axes
-        else:
-            # For GIFs
-            fig = plt.figure(figsize=(12, 6), dpi=300)  # Each frame requires a new fig to prevent stuttering.
-            ax = fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
+        # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
+        x_scaling = 0.1
+        fft_shaded_box_width = 10  # In GHz
 
-        plt.suptitle(f"{self.nm_method}", size=24)
-        plt.subplots_adjust(top=0.80)
+        plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$", "xlim": (0, 15)},
+                           1: {"xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 40)},
+                           2: {"xlabel": "Frequency [GHz]", "xlim": (0, 10)}}
+        fig = plt.figure()
 
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"Linear (0.00024T)", zorder=3)  # Easier to have time-stamp as label than textbox.
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data2[plot_row, :], ls='-', lw=0.5,
-                label=f"Non-linear (0.0024T)", zorder=2)  # Easier to have time-stamp as label than textbox.
-        ax.plot(np.arange(1, self.number_spins + 1), self.amplitude_data3[plot_row, :], ls='--', lw=0.5,
-                label=f"Non-linear (0.024T)", zorder=1)  # Easier to have time-stamp as label than textbox.
+        # Signal that varies in time
+        ax1 = plt.subplot2grid((4, 8), (0, 0), rowspan=2, colspan=8)
+        # ax1.plot(self.time_data, self.amplitude_data[:, 3000], ls='-', lw=1)
+        ax1.plot(self.time_data[12:1449], self.amplitude_data[12:1449, 3000], color='#37782c')
+        ax1.plot(self.time_data[1450:1700], self.amplitude_data[1450:1700, 3000], color='#37782c')
+        ax1.plot(self.time_data[1701:2199], self.amplitude_data[1701:2199, 3000], color='#37782c')
+        ax1.plot(self.time_data[2200:2887], self.amplitude_data[2200:2887, 3000], color='#37782c')
+        ax1.plot(self.time_data[2888:4512], self.amplitude_data[2888:4512, 3000], color='#64bb6a')
+        ax1.plot(self.time_data[4513:7512], self.amplitude_data[4513:7512, 3000], color='#9fd983')
+        ax1.set(**plot_set_params[0])
+        ax1.set_facecolor('#f4f4f5')
+        self._tick_setter(ax1, 2.5, 0.5, 3, 4)
 
-        ax.set(**self.kwargs)
+        # FFT stuff
+        frequencies_blob1, fourier_transform_blob1 = self._fft_data(self.amplitude_data[2200:2887, 3000])
+        frequencies_blob2, fourier_transform_blob2 = self._fft_data(self.amplitude_data[1450:1700, 3000])
+        frequencies_blob3, fourier_transform_blob3 = self._fft_data(self.amplitude_data[1100:1250, 3000])
+        frequencies_precursors, fourier_transform_precursors = self._fft_data(self.amplitude_data[12:2887, 3000])
+        frequencies_dsw, fourier_transform_dsw = self._fft_data(self.amplitude_data[2888:4512, 3000])
+        frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[4513:7512, 3000])
 
-        if not has_single_figure:
-            left, bottom, width, height = (
-                [0, self.number_spins - self.dampedSpins],
-                ax.get_ylim()[0], self.dampedSpins, 2 * ax.get_ylim()[1])
+        # FFT for blobs
+        ax2 = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
+        ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', ls=':')
+        ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', ls='--')
+        ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', ls='-.')
+        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
+        ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
+                 markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
+        ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
+                 markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
+        ax2.set(**plot_set_params[1], yscale='log')
+        arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+        ax2.annotate('P1', xy=(8.12, 0.168), xytext=(10.3, 1), va='center', ha='center',
+                           arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P2', xy=(15, 0.027), xytext=(17.7, 0.35), va='center', ha='center',
+                           arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P3', xy=(24.6, 0.009), xytext=(27.1, 0.2), va='center', ha='center',
+                           arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.legend(ncol=1, fontsize=6, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
+                   bbox_to_anchor=[0.82, 0.68])
+        self._tick_setter(ax2, 10, 2, 3, 4, is_fft_plot=True)
 
-            rectLHS = mpatches.Rectangle((left[0], bottom), width, height,
-                                         # fill=False,
-                                         alpha=0.1,
-                                         facecolor="red")
+        for ax in [ax1, ax2]:
+            ax.xaxis.grid(False)
+            ax.yaxis.grid(False)
+            ax.set_facecolor('#f4f4f5')
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
-            rectRHS = mpatches.Rectangle((left[1], bottom), width, height,
-                                         # fill=False,
-                                         alpha=0.1,
-                                         facecolor="red")
+        # Add zoomed in region if needed.
+        if add_zoomed_region:
+            # Select datasets to use
+            x = self.time_data[:]
+            y = self.amplitude_data[:, spin_site]
 
-            rectDriving = mpatches.Rectangle((self.drLHS, bottom), self.driving_width, height,
-                                             # fill=False,
-                                             alpha=0.1,
-                                             facecolor="blue")
+            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
+            ax1_inset = inset_axes(ax1, width=1.8, height=0.625, loc="center", bbox_to_anchor=[0.28, 0.7],
+                                   bbox_transform=ax1.figure.transFigure)
+            ax1_inset.plot(x, y, lw=0.75, color='#37782c')
 
-            plt.gca().add_patch(rectLHS)
-            plt.gca().add_patch(rectRHS)
-            plt.gca().add_patch(rectDriving)
+            # Select data (of original) to show in inset through changing axis limits
+            ax1_inset.set_xlim(1.5, 5.75)
+            ax1_inset.set_ylim(-1.25e-3, 1.25e-3)
 
-        # Change tick markers as needed.
-        ax.xaxis.set(major_locator=ticker.MultipleLocator(self.number_spins * 0.25),
-                     minor_locator=ticker.MultipleLocator(self.number_spins * 0.125))
-        ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                     minor_locator=ticker.AutoMinorLocator())
+            # Remove tick labels
+            ax1_inset.set_xticks([])
+            ax1_inset.set_yticks([])
+            ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3' fbe3e5
+            # ax2_inset.patch.set_alpha(0.3)
+            # ax2_inset.set(facecolor='red', alpha=0.3)
+            # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
 
-        ax.legend(title=f"Real time [ns]\n{self.time_data[plot_row]:2.2f}\n Scaling compared to\ninitial drive", loc=1,
-                  frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
+            # Add box to indicate the region which is being zoomed into on the main figure
+            ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+            arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+            ax1_inset.annotate('P1', xy=(4.7, -0.75e-3), xytext=(3.2, -0.75e-3), va='center', ha='center',
+                    arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P2', xy=(3.2, 0.2e-3), xytext=(1.8, 0.75e-3), va='center', ha='center',
+                    arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P3', xy=(2.34, -1.5e-4), xytext=(1.8, -0.75e-3), va='center', ha='center',
+                    arrowprops=arrow_inset_props, fontsize=6)
+        # Add spines to all plots (to override any rcParams elsewhere in the code
+        for spine in ['top', 'bottom', 'left', 'right']:
+            ax1_inset.spines[spine].set_visible(True)
+            ax1.spines[spine].set_visible(True)
+            ax2.spines[spine].set_visible(True)
 
+        fig.subplots_adjust(wspace=1.0, hspace=0.5)
         fig.tight_layout()
+        #def mouse_event(event):
+        #    print('x: {} and y: {}'.format(event.xdata, event.ydata))
 
-    def create_png(self, row_number=-1):
+        #cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
+        # plt.show()
+        fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
+
+    def _fft_data(self, amplitude_data):
         """
-        Generate a PNG for a single row of the given dataset.
+        Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
 
-        A row corresponds to an instant in time, so this can be particularly useful for investigating the final 'state'
-        of a system.
+        :param dict simulation_params: Imported key simulation parameters.
+        :param amplitude_data: Magnitudes of magnetic moments for a spin site
 
-        :param int row_number: Which row of data to be plotted. Defaults to plotting the final row.
-
-        :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
+        :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
+        (1st eigenvalue) [2], and driving frequency [3] for the system.
         """
-        self._draw_figure(plot_row=row_number)
-        self.fig.savefig(f"{self.output_filepath}.png")
-        plt.show()
+        # Simulation parameters needed for FFT computations that are always the same are saved here.
+        # gamma is in [GHz/T] here.
+        core_values = {"gamma": self.gyro_mag_ratio / (2 * np.pi),
+                       "hz_to_ghz": 1e-9}
 
-    @gif.frame
-    def _plot_paper_gif(self, index):
-        """
-        Private method to save a given row of a data as a frame suitable for use with the git library.
+        # Data in file header is in [Hz] by default.
+        # driving_freq_ghz = self.driving_freq # * core_values["hz_to_ghz"]
 
-        Require decorator so use method as an inner class instead of creating child class.
+        # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
+        # add other markers to the plot(s)
+        # natural_freq = core_values['gamma'] * self.static_field
 
-        :param int index: The row to be plotted.
-        """
-        self._draw_figure(index, False)
+        # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
+        sample_spacing = (self.max_time / (self.data_points - 1))
 
-    def create_gif(self, number_of_frames=0.05):
-        """
-        Generate a GIF from the imported data.
+        # Compute the FFT
+        n = amplitude_data.size
+        normalised_data = amplitude_data
 
-        Uses the data that is imported in data_analysis.py, and turns each row in to a single figure. Multiple figures
-        are then combined to form a GIF. This method does not accept *args or **kwargs, so to make any changes to
-        gif.save() one must access this method directly. For more guidance see
-        `this article
-        <https://towardsdatascience.com/a-simple-way-to-turn-your-plots-into-gifs-in-python-f6ea4435ed3c>`_.
+        fourier_transform = rfft(normalised_data)
+        frequencies = rfftfreq(n, sample_spacing)
 
-        :param float number_of_frames: How many frames the GIF should have (values between [0.01, 1.0]).
+        return frequencies, fourier_transform  # , natural_freq, driving_freq_ghz
 
-        :return: Will give a .gif file to the 'Outputs' folder of the given folder (selected earlier in the program).
-        """
+    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
 
-        frames = []
+        if ax is None:
+            ax = plt.gca()
 
-        for index in range(0, int(self.data_points + 1), int(self.data_points * number_of_frames)):
-            frame = self._plot_paper_gif(index)
-            frames.append(frame)
+        if is_fft_plot:
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         minor_locator=ticker.MultipleLocator(x_minor))
+            ax.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=y_major))
+            locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10)*0.1, numticks=y_minor)
+            ax.yaxis.set_minor_locator(locmin)
+            ax.yaxis.set_minor_formatter(ticker.NullFormatter())
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
+            # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
+        else:
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         minor_locator=ticker.MultipleLocator(x_minor))
+            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         minor_locator=ticker.AutoMinorLocator(y_minor))
 
-    def plot_site_variation(self, spin_site):
-        """
-        Plot the magnetisation of a site against time.
+            formatter = ticker.ScalarFormatter(useMathText=True)
+            ax.yaxis.set_major_formatter(formatter)
 
-        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+            ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax.yaxis.get_offset_text().set_visible(False)
+            ax.yaxis.get_offset_text().set_fontsize(8)
+            t = ax.yaxis.get_offset_text()
+            t.set_x(-0.045)
 
-        :param int spin_site: The number of the spin site to be plotted.
-
-        :return: Saves a .png image to the designated output folder.
-        """
-
-        self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=1,
-                       label=f"{self.sites_array[spin_site]}")  # Easier to have time-stamp as label than textbox.
-
-        self.axes.set(title=f"Mx Values for {self.driving_freq:2.2f} [GHz]",
-                      xlabel=f"Time [ns]", ylabel=f"m$_x$ [arb.]",
-                      xlim=[0, self.max_time])
-
-        # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time * 0.2),
-                            minor_locator=ticker.MultipleLocator(self.max_time * 0.1))
-        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=9, prune='lower'),
-                            minor_locator=ticker.AutoMinorLocator())
-
-        self.axes.legend(title="Spin Site [#]", loc=1,
-                         frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
-
-        self.axes.grid(visible=True, axis='y', which='major')
-        self.axes.grid(visible=False, axis='x', which='both')
-        self.fig.tight_layout()
-        self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png")
-        plt.show()
+        return ax
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
@@ -545,7 +589,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
 
     label_counter = 0
     line_width = 1
-    for site in range(1, len(amplitude_data[0, :]+1)):
+    for site in range(1, len(amplitude_data[0, :] + 1)):
         magnitudes = amplitude_data[:, site]
 
         if site > max_value:
@@ -560,11 +604,11 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
             # y = y + np.random.randn(*t.shape)
             # plot_pane_1.psd(y, NFFT=len(t), pad_to=len(t), Fs=fs)
             fs = (key_data['maxSimTime'] / (key_data['numberOfDataPoints'] - 1)) \
-                     / 1e-9
+                 / 1e-9
             norm = np.linalg.norm(magnitudes)
             normal_magnitudes = magnitudes / norm
             plot_pane_1.psd(normal_magnitudes, NFFT=len(time_values), pad_to=len(time_values), Fs=fs)
-            #plot_pane_1.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
+            # plot_pane_1.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
             label_counter += 1
 
         elif site in sites_to_compare[1]:
@@ -576,7 +620,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
             label_counter += 1
 
     for axes in [plot_pane_1, plot_pane_2, plot_pane_3]:
-        axes.set(xlabel='Time [ns]', ylabel="m$_x$") # xlim=[0, key_data['maxSimTime']]
+        axes.set(xlabel='Time [ns]', ylabel="m$_x$")  # xlim=[0, key_data['maxSimTime']]
         axes.legend(loc=1, frameon=True)
         # axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.1),
         #                minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.05))
@@ -744,7 +788,7 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
             for i, ax in enumerate(axes, start=row * 2):
                 custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
                                 plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params,
-                                box_width = fft_shaded_box_width)
+                                box_width=fft_shaded_box_width)
 
     fig.savefig(f"{filename}_{spin_site}.png")
 
@@ -866,7 +910,8 @@ def fft_data(amplitude_data, simulation_params):
     natural_freq = core_values['gamma'] * simulation_params['staticBiasField']
 
     # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
-    sample_spacing = (simulation_params["maxSimTime"] / (simulation_params["numberOfDataPoints"] - 1)) / core_values['hz_to_ghz']
+    sample_spacing = (simulation_params["maxSimTime"] / (simulation_params["numberOfDataPoints"] - 1)) / core_values[
+        'hz_to_ghz']
 
     # Compute the FFT
     n = amplitude_data.size
