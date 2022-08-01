@@ -181,32 +181,16 @@ class PlotImportedData:
         rc_params_update()
 
         self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
-        # self.full_filename2 = f"{file_prefix}_{file_component}_{file_identifier}{1553}"
-        # self.full_filename3 = f"{file_prefix}_{file_component}_{file_identifier}{1547}"
-        # self.full_filename4 = f"{file_prefix}_{file_component}_{file_identifier}{1846}"
-        # self.full_filename5 = f"{file_prefix}_{file_component}_{file_identifier}{1742}"
 
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
-        # self.input_data_path2 = f"{self.in_path}{self.full_filename2}.csv"
-        # self.input_data_path3 = f"{self.in_path}{self.full_filename3}.csv"
-        # self.input_data_path4 = f"{self.in_path}{self.full_filename4}.csv"
-        # self.input_data_path5 = f"{self.in_path}{self.full_filename5}.csv"
 
         self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
-        # self.all_imported_data2 = self.import_data_from_file(self.full_filename2, self.input_data_path2)
-        # self.all_imported_data3 = self.import_data_from_file(self.full_filename3, self.input_data_path3)
-        # self.all_imported_data4 = self.import_data_from_file(self.full_filename4, self.input_data_path4)
-        # self.all_imported_data5 = self.import_data_from_file(self.full_filename5, self.input_data_path5)
 
         [self.header_data_params, self.header_data_sites, self.header_sim_flags] = self.import_headers_from_file()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
-        # self.m_spin_data2 = self.all_imported_data2[:, 1:]
-        # self.m_spin_data3 = self.all_imported_data3[:, 1:]
-        # self.m_spin_data4 = self.all_imported_data4[:, 1:]
-        # self.m_spin_data5 = self.all_imported_data5[:, 1:]
 
         self.accepted_keywords = ["3P", "FS", "FT", "EXIT", "PF", "CP"]
 
@@ -375,7 +359,7 @@ class PlotImportedData:
                   ''')
         print('---------------------------------------------------------------------------------------\n')
 
-        initials_of_method_to_call = input("Which function to use: ").upper()
+        initials_of_method_to_call = "PF"  # input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -452,7 +436,7 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk.fft_and_signal_four(self.m_time_data[2888:4512], self.m_spin_data[2888:4512, target_spin_in_data],
+                    plt_rk.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
                                                target_spin,
                                                self.header_data_params,
                                                self.full_output_path)
@@ -523,18 +507,28 @@ class PlotImportedData:
                                         self.header_data_params, self.header_sim_flags, self.header_data_sites,
                                         self.full_output_path)
 
-        # paper_fig2 = plt_rk.PaperFigures2(self.m_time_data, self.m_spin_data, self.m_spin_data2, self.m_spin_data3,
-        #                                   self.header_data_params, self.header_data_sites,
-        #                                   self.full_output_path)
-
         if has_override:
             pf_selection = override_name
         else:
-            pf_selection = str(input("Which figure (PNG/SV/GIF) should be created: ")).upper()
+            pf_selection = "SV"  # str(input("Which figure (PNG/SV/GIF/FFT) should be created: ")).upper()
 
         if pf_selection == "PNG":
-            row_num = int(input("Plot which row of data: "))
-            paper_fig.create_png(row_num)
+            has_more_to_plot = True
+            while has_more_to_plot:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
+                for row_num in rows_to_plot:
+                    row_num = int(row_num)
+                    if row_num >= 1:
+                        print(f"Generating plot for [#{row_num}]...")
+                        lg.info(f"Generating PNG plot for row [#{row_num}]")
+                        paper_fig.create_png(row_num)
+                        lg.info(f"Finished plotting PNG of row [#{row_num}]. Continuing...")
+                    else:
+                        print("Exiting PF-SV plotting.")
+                        lg.info(f"Exiting PF-PNG based upon user input of [{row_num}]")
+                        has_more_to_plot = False
+
         elif pf_selection == "SV":
             has_more_to_plot = True
             while has_more_to_plot:
@@ -545,15 +539,34 @@ class PlotImportedData:
                     if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating SV plot for Spin Site [#{target_site}]")
-                        paper_fig.plot_site_variation(target_site, True, False)
+                        paper_fig.plot_site_variation(target_site, True, False, False)
                         lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
                     else:
                         print("Exiting PF-SV plotting.")
                         lg.info(f"Exiting PF-SV based upon user input of [{target_site}]")
                         has_more_to_plot = False
+
         elif pf_selection == "GIF":
             paper_fig.create_gif(number_of_frames=0.01)
             # paper_fig2.create_gif(number_of_frames=0.01)
+
+        elif pf_selection == "FFT":
+            has_more_to_plot = True
+            while has_more_to_plot:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                sites_to_plot = [3000]  # (input("Plot which site (-ve to exit): ")).split()
+                for target_site in sites_to_plot:
+                    target_site = int(target_site)
+                    if target_site >= 1:
+                        print(f"Generating plot for [#{target_site}]...")
+                        lg.info(f"Generating SV plot for Spin Site [#{target_site}]")
+                        paper_fig.plot_fft(target_site)
+                        lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+                        exit(0)
+                    else:
+                        print("Exiting PF-SV plotting.")
+                        lg.info(f"Exiting PF-SV based upon user input of [{target_site}]")
+                        has_more_to_plot = False
 
         lg.info(f"Plotting PF complete!")
 
@@ -587,7 +600,7 @@ def rc_params_update():
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
     plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': small_size, 'font.size': small_size,
-                         'legend.fontsize': small_size,
+                         'legend.fontsize': tiny_size,
                          'figure.titlesize': large_size,
                          'xtick.labelsize': small_size, 'ytick.labelsize': small_size,
                          'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
