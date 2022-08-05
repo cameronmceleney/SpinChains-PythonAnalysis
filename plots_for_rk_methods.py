@@ -250,18 +250,20 @@ class PaperFigures:
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
         self.axes.plot(self.time_data[12:1857], self.amplitude_data[12:1857, spin_site], marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        self.axes.plot(self.time_data[1858:2929], self.amplitude_data[1858:2929, spin_site], marker='', lw=1, color='#64bb6a',
+        self.axes.plot(self.time_data[1858:2929], self.amplitude_data[1858:2929, spin_site], marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
-        self.axes.plot(self.time_data[2930:], self.amplitude_data[2930:, spin_site], marker='', lw=1, color='#9fd983',
+        self.axes.plot(self.time_data[2930:], self.amplitude_data[2930:, spin_site], marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
 
+        self.axes.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+                       verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+
         ymax_plot = self.amplitude_data[:, spin_site].max()
-        xlim_in = 7.5  # int(input("Enter xlim: "))
+        xlim_in = 20  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
                       xlim=[0, xlim_in],
-                      ylim=[-1 * self.amplitude_data[:, spin_site].max(),
-                            ymax_plot])
+                      ylim=[-1 * self.amplitude_data[:, spin_site].max(), ymax_plot])
 
         # Change tick markers as needed.
         self.axes.xaxis.set(major_locator=ticker.MultipleLocator(2.5),
@@ -273,7 +275,7 @@ class PaperFigures:
         self.axes.yaxis.set_major_formatter(formatter)
         # self.axes.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.1f'))
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-        self.axes.yaxis.get_offset_text().set_fontsize(8)
+        self.axes.yaxis.get_offset_text().set_fontsize(6)
         self.axes.yaxis.get_offset_text().set_visible(False)
 
         # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
@@ -285,13 +287,12 @@ class PaperFigures:
             y = self.amplitude_data[:, spin_site]
 
             # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
-            ax2_inset = inset_axes(self.axes, width=1.2, height=0.6, loc="center", bbox_to_anchor=[0.2525, 0.255],
-                                   bbox_transform=self.axes.figure.transFigure)
+            ax2_inset = inset_axes(self.axes, width=1.2, height=0.6, loc="upper left", bbox_to_anchor=[0.24, 0.65], bbox_transform=self.axes.figure.transFigure)
             ax2_inset.plot(x, y, lw=0.75, color='#37782c')
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 5.5e-4  # float(input("Enter ylim: "))
-            ax2_inset.set_xlim(1.25, 2.6)
+            ylim_in = 0.3e-3  # float(input("Enter ylim: "))
+            ax2_inset.set_xlim(3, 12)
             ax2_inset.set_ylim(-ylim_in, ylim_in)
 
             # Remove tick labels

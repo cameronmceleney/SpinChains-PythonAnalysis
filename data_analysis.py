@@ -359,7 +359,7 @@ class PlotImportedData:
                   ''')
         print('---------------------------------------------------------------------------------------\n')
 
-        initials_of_method_to_call = "PF"  # input("Which function to use: ").upper()
+        initials_of_method_to_call = input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -510,7 +510,7 @@ class PlotImportedData:
         if has_override:
             pf_selection = override_name
         else:
-            pf_selection = "SV"  # str(input("Which figure (PNG/SV/GIF/FFT) should be created: ")).upper()
+            pf_selection = str(input("Which figure (PNG/SV/GIF/FFT) should be created: ")).upper()
 
         if pf_selection == "PNG":
             has_more_to_plot = True
