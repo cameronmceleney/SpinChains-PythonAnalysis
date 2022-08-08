@@ -62,8 +62,8 @@ class SystemSetup:
          """
 
         if has_custom_name:
-            # parent_name = str(input("Enter the name of the parent directory: "))
-            parent_name = "2022-07-27"
+            parent_name = str(input("Enter the name of the parent directory: "))
+            # parent_name = "2022-07-27"
         else:
             parent_name = self._date_of_today()
 
