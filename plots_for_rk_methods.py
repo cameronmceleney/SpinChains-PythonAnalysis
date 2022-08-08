@@ -78,7 +78,7 @@ class PaperFigures:
         self.gyro_mag_ratio = key_data['gyroMagRatio']
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
-        cm = 1/2.54
+        cm = 1 / 2.54
         self.fig = plt.figure(figsize=(4, 2))
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 6.4e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
@@ -105,15 +105,18 @@ class PaperFigures:
         else:
             # For GIFs
             cm = 1 / 2.54
-            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2), dpi=450)  # Each frame requires a new fig to prevent stuttering.
-            self.axes = self.fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
+            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2),
+                                  dpi=450)  # Each frame requires a new fig to prevent stuttering.
+            self.axes = self.fig.add_subplot(
+                111)  # Each subplot will be the same so no need to access ax outside of method.
 
         self.axes.set_aspect("auto")
         #  plt.suptitle(f"{self.nm_method}")
         #  plt.subplots_adjust(top=0.80)
 
-        self.axes.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
-                label=f"{self.time_data[plot_row]:2.2f} [ns]", color='#64bb6a')  # Easier to have time-stamp as label than textbox.
+        self.axes.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.75,
+                       label=f"{self.time_data[plot_row]:2.2f} [ns]",
+                       color='#64bb6a')  # Easier to have time-stamp as label than textbox.
 
         self.axes.set(**self.kwargs)
 
@@ -126,22 +129,22 @@ class PaperFigures:
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width[0], height,
                                          # fill=False,
-                                         alpha=0.4,
-                                         facecolor="grey",
+                                         alpha=0.6,
+                                         facecolor="#BB64B5",
                                          edgecolor=None,
                                          lw=0)
 
             rectRHS = mpatches.Rectangle((left[1], bottom), width[0], height,
                                          # fill=False,
-                                         alpha=0.4,
-                                         facecolor="grey",
+                                         alpha=0.6,
+                                         facecolor="#BB64B5",
                                          edgecolor=None,
                                          lw=0)
 
             rectDriving = mpatches.Rectangle((left[2], bottom), width[1], height,
                                              # fill=False,
-                                             alpha=0.2,
-                                             facecolor="grey",
+                                             alpha=0.3,
+                                             facecolor="#BB64B5",
                                              edgecolor=None,
                                              lw=0)
 
@@ -153,7 +156,7 @@ class PaperFigures:
         self._tick_setter(self.axes, 2500, 500, 3, 4)
 
         self.axes.legend(loc=1, ncol=1, fontsize=6,
-                  frameon=False, fancybox=True, facecolor=None, edgecolor=None)
+                         frameon=False, fancybox=True, facecolor=None, edgecolor=None)
 
         self.fig.tight_layout()
 
@@ -174,19 +177,19 @@ class PaperFigures:
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
         # Add text to figure with simulation parameters
-        #if self.exchange_min == self.exchange_max:
+        # if self.exchange_min == self.exchange_max:
         #    exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
-        #else:
+        # else:
         #    exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
         #                     f"{self.exchange_max} [T]"
-        #textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
+        # textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
         #                                                                               f" = {self.gilbert_factor: 2.2e}\n" \
         #                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
         #                                                                               f"{exchangeString}"
-#
-        #props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+        #
+        # props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
         ## Place text box in upper left in axes coords
-        #self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
+        # self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
         #               verticalalignment='top', bbox=props, ha='center', va='center')
 
         # Figure outputs
@@ -196,6 +199,9 @@ class PaperFigures:
             self.axes.spines[spine].set_visible(True)
 
         self.axes.grid(visible=False, axis='both', which='both')
+
+        self.axes.text(-0.045, 0.97, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', horizontalalignment='center',
+                       verticalalignment='center', transform=self.axes.transAxes, fontsize=6)
 
         self.fig.savefig(f"{self.output_filepath}_row{row_number}.png", bbox_inches="tight")
 
@@ -246,35 +252,46 @@ class PaperFigures:
 
         self.axes.clear()
         self.axes.set_aspect('auto')
-        #self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
+        # self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
-        self.axes.plot(self.time_data[12:1857], self.amplitude_data[12:1857, spin_site], marker='', lw=1, color='#37782c',
-                 markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        self.axes.plot(self.time_data[1858:2929], self.amplitude_data[1858:2929, spin_site], marker='', lw=1, color='#64bb6a',
-                 markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
-        self.axes.plot(self.time_data[2930:], self.amplitude_data[2930:, spin_site], marker='', lw=1, color='#9fd983',
-                 markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
+        self.axes.plot(self.time_data[12:1072], self.amplitude_data[12:1072, spin_site], marker='', lw=1,
+                       color='#37782c',
+                       markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
+        self.axes.plot(self.time_data[1072:1727], self.amplitude_data[1072:1727, spin_site], marker='', lw=1,
+                       color='#64bb6a',
+                       markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
+        self.axes.plot(self.time_data[1727:], self.amplitude_data[1727:, spin_site], marker='', lw=1, color='#9fd983',
+                       markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
+
+        self.axes.text(-0.045, 0.97, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', horizontalalignment='center',
+                       verticalalignment='center', transform=self.axes.transAxes, fontsize=6)
 
         ymax_plot = self.amplitude_data[:, spin_site].max()
-        xlim_in = 7.5  # int(input("Enter xlim: "))
+        xlim_in = 4.0  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
                       xlim=[0, xlim_in],
                       ylim=[-1 * self.amplitude_data[:, spin_site].max(),
                             ymax_plot])
 
-        # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(2.5),
-                            minor_locator=ticker.MultipleLocator(0.5))
-        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
-                            minor_locator=ticker.AutoMinorLocator(4))
+        self._tick_setter(self.axes, 2.5, 0.5, 3, 4)
 
-        formatter = ticker.ScalarFormatter(useMathText=True)
-        self.axes.yaxis.set_major_formatter(formatter)
-        # self.axes.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.1f'))
-        self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-        self.axes.yaxis.get_offset_text().set_fontsize(8)
-        self.axes.yaxis.get_offset_text().set_visible(False)
+        # Change tick markers as needed.
+        # self.axes.xaxis.set(major_locator=ticker.MultipleLocator(2.5),
+        #                     minor_locator=ticker.MultipleLocator(0.5))
+        # self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
+        #                     minor_locator=ticker.AutoMinorLocator(4),
+        #                     major_formatter=ticker.FormatStrFormatter("%.1f"))
+        #
+        # formatter = ticker.ScalarFormatter(useMathText=True)
+        # self.axes.yaxis.set_major_formatter(formatter)
+        # self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+        # # self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+        # # formatter = ticker.ScalarFormatter(useMathText=True)
+        # # self.axes.yaxis.set_major_formatter(formatter)
+        # # self.axes.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.1f'))
+        # # self.axes.yaxis.get_offset_text().set_fontsize(6)
+        # self.axes.yaxis.get_offset_text().set_visible(False)
 
         # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
 
@@ -290,8 +307,8 @@ class PaperFigures:
             ax2_inset.plot(x, y, lw=0.75, color='#37782c')
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 5.5e-4  # float(input("Enter ylim: "))
-            ax2_inset.set_xlim(1.25, 2.6)
+            ylim_in = 4e-4  # float(input("Enter ylim: "))
+            ax2_inset.set_xlim(0.6, 1.52)
             ax2_inset.set_ylim(-ylim_in, ylim_in)
 
             # Remove tick labels
@@ -310,7 +327,8 @@ class PaperFigures:
             # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
 
             # Add box to indicate the region which is being zoomed into on the main figure
-            self.axes.indicate_inset_zoom(ax2_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+            self.axes.indicate_inset_zoom(ax2_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
+                                          zorder=1)
 
         if add_info_box:
             if self.exchange_min == self.exchange_max:
@@ -374,36 +392,48 @@ class PaperFigures:
         :return: A figure containing four sub-plots.
         """
         # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
-        x_scaling = 0.1
-        fft_shaded_box_width = 10  # In GHz
 
-        plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$", "xlim": (0, 15)},
-                           1: {"xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 40)},
+        plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$", "xlim": (0, 5.5)},
+                           1: {"xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
+                               "xlim": (0, 50), "ylim": (1E-4, 1E1)},
                            2: {"xlabel": "Frequency [GHz]", "xlim": (0, 10)}}
         fig = plt.figure()
 
+        blob1_lower, blob1_uppper = 1250, 1325
+        blob2_lower, blob2_upper = 1455, 1555
+        blob3_lower, blob3_upper = 1727, 1941
+        precursor_lower, precursor_upper = 12, 1941
+        shock_lower, shock_upper = 1941, 2888
+        equil_lower, equil_upper = 2888, 9999
+
         # Signal that varies in time
         ax1 = plt.subplot2grid((4, 8), (0, 0), rowspan=2, colspan=8)
-        # ax1.plot(self.time_data, self.amplitude_data[:, 3000], ls='-', lw=1)
-        ax1.plot(self.time_data[12:1449], self.amplitude_data[12:1449, 3000], color='#37782c')
-        ax1.plot(self.time_data[1450:1700], self.amplitude_data[1450:1700, 3000], color='#37782c')
-        ax1.plot(self.time_data[1701:2199], self.amplitude_data[1701:2199, 3000], color='#37782c')
-        ax1.plot(self.time_data[2200:2887], self.amplitude_data[2200:2887, 3000], color='#37782c')
-        ax1.plot(self.time_data[2888:4512], self.amplitude_data[2888:4512, 3000], color='#64bb6a')
-        ax1.plot(self.time_data[4513:7512], self.amplitude_data[4513:7512, 3000], color='#9fd983')
+        ax1.plot(self.time_data[precursor_lower:precursor_upper],
+                 self.amplitude_data[precursor_lower:precursor_upper, spin_site],
+                 color='#37782c')  # precursor
+        ax1.plot(self.time_data[shock_lower:shock_upper],
+                 self.amplitude_data[shock_lower:shock_upper, spin_site],
+                 color='#64bb6a')  # shockwave
+        ax1.plot(self.time_data[equil_lower:equil_upper],
+                 self.amplitude_data[equil_lower:equil_upper, spin_site], color='#9fd983')  # equilibrium
+
         ax1.set(**plot_set_params[0])
         ax1.set_facecolor('#f4f4f5')
         self._tick_setter(ax1, 2.5, 0.5, 3, 4)
 
         # FFT stuff
-        frequencies_blob1, fourier_transform_blob1 = self._fft_data(self.amplitude_data[2200:2887, 3000])
-        frequencies_blob2, fourier_transform_blob2 = self._fft_data(self.amplitude_data[1450:1700, 3000])
-        frequencies_blob3, fourier_transform_blob3 = self._fft_data(self.amplitude_data[1100:1250, 3000])
-        frequencies_precursors, fourier_transform_precursors = self._fft_data(self.amplitude_data[12:2887, 3000])
-        frequencies_dsw, fourier_transform_dsw = self._fft_data(self.amplitude_data[2888:4512, 3000])
-        frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[4513:7512, 3000])
+        frequencies_blob1, fourier_transform_blob1 = self._fft_data(
+            self.amplitude_data[blob1_lower:blob1_uppper, spin_site])
+        frequencies_blob2, fourier_transform_blob2 = self._fft_data(
+            self.amplitude_data[blob2_lower:blob2_upper, spin_site])
+        frequencies_blob3, fourier_transform_blob3 = self._fft_data(
+            self.amplitude_data[blob3_lower:blob3_upper, spin_site])
+        frequencies_precursors, fourier_transform_precursors = self._fft_data(
+            self.amplitude_data[12:precursor_upper, spin_site])
+        frequencies_dsw, fourier_transform_dsw = self._fft_data(self.amplitude_data[shock_lower:shock_upper, spin_site])
+        frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[equil_lower:equil_upper, spin_site])
 
-        # FFT for blobs
+        # FFT for blobs #37782c
         ax2 = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
         ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', ls=':')
@@ -411,23 +441,23 @@ class PaperFigures:
                  markerfacecolor='black', markeredgecolor='black', ls='--')
         ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', ls='-.')
-        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
+        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=0.75, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
-                 markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
-        ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
-                 markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
+        ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=0.75, color='#64bb6a',
+                 markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
+        ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=0.75, color='#9fd983',
+                 markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
         ax2.set(**plot_set_params[1], yscale='log')
         arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-        ax2.annotate('P1', xy=(8.12, 0.168), xytext=(10.3, 1), va='center', ha='center',
-                           arrowprops=arrow_ax2_props, fontsize=8)
-        ax2.annotate('P2', xy=(15, 0.027), xytext=(17.7, 0.35), va='center', ha='center',
-                           arrowprops=arrow_ax2_props, fontsize=8)
-        ax2.annotate('P3', xy=(24.6, 0.009), xytext=(27.1, 0.2), va='center', ha='center',
-                           arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P1', xy=(20.23, 0.0401), xytext=(22.94, 0.143), va='center', ha='center',
+                     arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P2', xy=(28.87, 0.0145), xytext=(31.07, 0.0704), va='center', ha='center',
+                     arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P3', xy=(38.18, 0.0073), xytext=(40.73, 0.0474), va='center', ha='center',
+                     arrowprops=arrow_ax2_props, fontsize=8)
         ax2.legend(ncol=1, fontsize=6, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
                    bbox_to_anchor=[0.82, 0.68])
-        self._tick_setter(ax2, 10, 2, 3, 4, is_fft_plot=True)
+        self._tick_setter(ax2, 10, 2.5, 4, 6, is_fft_plot=True)
 
         for ax in [ax1, ax2]:
             ax.xaxis.grid(False)
@@ -442,13 +472,13 @@ class PaperFigures:
             y = self.amplitude_data[:, spin_site]
 
             # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
-            ax1_inset = inset_axes(ax1, width=1.8, height=0.625, loc="center", bbox_to_anchor=[0.28, 0.7],
+            ax1_inset = inset_axes(ax1, width=2.2, height=0.55, loc="center", bbox_to_anchor=[0.32, 0.6875],
                                    bbox_transform=ax1.figure.transFigure)
             ax1_inset.plot(x, y, lw=0.75, color='#37782c')
 
             # Select data (of original) to show in inset through changing axis limits
-            ax1_inset.set_xlim(1.5, 5.75)
-            ax1_inset.set_ylim(-1.25e-3, 1.25e-3)
+            ax1_inset.set_xlim(1.5, 2.7)
+            ax1_inset.set_ylim(-0.6e-3, 0.6e-3)
 
             # Remove tick labels
             ax1_inset.set_xticks([])
@@ -460,13 +490,14 @@ class PaperFigures:
 
             # Add box to indicate the region which is being zoomed into on the main figure
             ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
-            arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-            ax1_inset.annotate('P1', xy=(4.7, -0.75e-3), xytext=(3.2, -0.75e-3), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
-            ax1_inset.annotate('P2', xy=(3.2, 0.2e-3), xytext=(1.8, 0.75e-3), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
-            ax1_inset.annotate('P3', xy=(2.34, -1.5e-4), xytext=(1.8, -0.75e-3), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
+            arrow_inset_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+            ax1_inset.annotate('P1', xy=(2.476, -4.84E-4), xytext=(2.2, -4.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P2', xy=(2.113, 2.5E-4), xytext=(1.6, 4.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P3', xy=(1.822, -2E-4), xytext=(1.6, -4.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+
         # Add spines to all plots (to override any rcParams elsewhere in the code
         for spine in ['top', 'bottom', 'left', 'right']:
             ax1_inset.spines[spine].set_visible(True)
@@ -475,11 +506,13 @@ class PaperFigures:
 
         fig.subplots_adjust(wspace=1.0, hspace=0.5)
         fig.tight_layout()
+
         #def mouse_event(event):
         #    print('x: {} and y: {}'.format(event.xdata, event.ydata))
-
+        #
         #cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
-        # plt.show()
+        #
+        #plt.show()
         fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
 
     def _fft_data(self, amplitude_data):
@@ -516,34 +549,54 @@ class PaperFigures:
 
         return frequencies, fourier_transform  # , natural_freq, driving_freq_ghz
 
-    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
+    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, set_power=-3, is_fft_plot=False):
+
+        class OOMFormatter(ticker.ScalarFormatter):
+            def __init__(self, order=0, fformat="%1.1f", offset=True, mathText=True):
+                self.oom = order
+                self.fformat = fformat
+                ticker.ScalarFormatter.__init__(self, useOffset=offset, useMathText=mathText)
+
+            def _set_order_of_magnitude(self):
+                self.orderOfMagnitude = self.oom
+
+            def _set_format(self, vmin=None, vmax=None):
+                self.format = self.fformat
+                if self._useMathText:
+                    self.format = r'$\mathdefault{%s}$' % self.format
 
         if ax is None:
             ax = plt.gca()
 
         if is_fft_plot:
-            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
+                         major_formatter=ticker.FormatStrFormatter("%.1f"),
                          minor_locator=ticker.MultipleLocator(x_minor))
             ax.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=y_major))
-            locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10)*0.1, numticks=y_minor)
+            locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=y_minor)
             ax.yaxis.set_minor_locator(locmin)
             ax.yaxis.set_minor_formatter(ticker.NullFormatter())
 
             # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
         else:
-            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
+                         major_formatter=ticker.FormatStrFormatter("%.1f"),
                          minor_locator=ticker.MultipleLocator(x_minor))
-            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'), major_formatter=ticker.FormatStrFormatter("%.1f"),
+            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'),
                          minor_locator=ticker.AutoMinorLocator(y_minor))
 
-            formatter = ticker.ScalarFormatter(useMathText=True)
-            ax.yaxis.set_major_formatter(formatter)
-
-            ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax.yaxis.set_major_formatter(OOMFormatter(set_power, "%1.1f"))
+            ax.ticklabel_format(axis='y', style='sci', scilimits=(set_power, set_power))
             ax.yaxis.get_offset_text().set_visible(False)
-            ax.yaxis.get_offset_text().set_fontsize(8)
-            t = ax.yaxis.get_offset_text()
-            t.set_x(-0.045)
+
+            # formatter = ticker.ScalarFormatter(useMathText=True)
+            # ax.yaxis.set_major_formatter(formatter)
+            # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+            # ax.yaxis.set(major_formatter=ticker.FormatStrFormatter("%1.1f"),
+            #              minor_formatter=ticker.FormatStrFormatter("%1.1f"))
+            # ax.yaxis.get_offset_text().set_fontsize(6)
+            # t = ax.yaxis.get_offset_text()
+            # t.set_x(-0.045)
 
         return ax
 

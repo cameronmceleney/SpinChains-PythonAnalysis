@@ -510,7 +510,7 @@ class PlotImportedData:
         if has_override:
             pf_selection = override_name
         else:
-            pf_selection = "SV"  # str(input("Which figure (PNG/SV/GIF/FFT) should be created: ")).upper()
+            pf_selection = "FFT"  # str(input("Which figure (PNG/SV/GIF/FFT) should be created: ")).upper()
 
         if pf_selection == "PNG":
             has_more_to_plot = True
@@ -614,4 +614,4 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 1000})
+                         'savefig.dpi': 1000, 'figure.dpi': 120})
