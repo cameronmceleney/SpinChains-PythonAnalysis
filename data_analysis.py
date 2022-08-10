@@ -510,9 +510,9 @@ class PlotImportedData:
         if has_override:
             pf_selection = override_name
         else:
-            pf_selection = str(input("Which figure (PNG/SV/GIF/FFT) should be created: ")).upper()
+            pf_selection = str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
 
-        if pf_selection == "PNG":
+        if pf_selection == "PV":
             has_more_to_plot = True
             while has_more_to_plot:
                 # User will plot one spin site at a time, as plotting can take a long time.
@@ -521,15 +521,15 @@ class PlotImportedData:
                     row_num = int(row_num)
                     if row_num >= 1:
                         print(f"Generating plot for [#{row_num}]...")
-                        lg.info(f"Generating PNG plot for row [#{row_num}]")
+                        lg.info(f"Generating PV plot for row [#{row_num}]")
                         paper_fig.create_png(row_num)
-                        lg.info(f"Finished plotting PNG of row [#{row_num}]. Continuing...")
+                        lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
                     else:
-                        print("Exiting PF-SV plotting.")
-                        lg.info(f"Exiting PF-PNG based upon user input of [{row_num}]")
+                        print("Exiting PF-PV plotting.")
+                        lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
                         has_more_to_plot = False
 
-        elif pf_selection == "SV":
+        elif pf_selection == "TV":
             has_more_to_plot = True
             while has_more_to_plot:
                 # User will plot one spin site at a time, as plotting can take a long time.
@@ -538,12 +538,12 @@ class PlotImportedData:
                     target_site = int(target_site)
                     if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
-                        lg.info(f"Generating SV plot for Spin Site [#{target_site}]")
+                        lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
                         paper_fig.plot_site_variation(target_site, True, False, False)
-                        lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+                        lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                     else:
-                        print("Exiting PF-SV plotting.")
-                        lg.info(f"Exiting PF-SV based upon user input of [{target_site}]")
+                        print("Exiting PF-TV plotting.")
+                        lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
                         has_more_to_plot = False
 
         elif pf_selection == "GIF":
@@ -614,4 +614,4 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 1000})
+                         'savefig.dpi': 1000, "figure.dpi": 120})

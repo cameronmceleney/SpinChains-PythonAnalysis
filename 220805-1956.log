@@ -1,4 +1,0 @@
-2022-08-05 19:56:50 | testABS::main | INFO | foo.py start
-2022-08-05 19:57:47 | font_manager::_findfont_cached | WARNING | findfont: Font family ['Kohinoor Devanagari'] not found. Falling back to DejaVu Sans.
-2022-08-05 19:57:47 | font_manager::_findfont_cached | WARNING | findfont: Font family ['Kohinoor Devanagari'] not found. Falling back to DejaVu Sans.
-2022-08-05 19:57:48 | testABS::main | INFO | foo.py end
