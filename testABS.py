@@ -87,6 +87,37 @@ def rc_params_update():
                          'axes.spines.right': False,
                          'savefig.dpi': 1500, "figure.dpi": 1000})
 
+def tick_setter(ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
+
+        if ax is None:
+            ax = plt.gca()
+
+        if is_fft_plot:
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         minor_locator=ticker.MultipleLocator(x_minor))
+            ax.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=y_major))
+            locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10)*0.1, numticks=y_minor)
+            ax.yaxis.set_minor_locator(locmin)
+            ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
+            # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
+        else:
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         minor_locator=ticker.MultipleLocator(x_minor))
+            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         minor_locator=ticker.AutoMinorLocator(y_minor))
+
+            formatter = ticker.ScalarFormatter(useMathText=True)
+            ax.yaxis.set_major_formatter(formatter)
+
+            ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax.yaxis.get_offset_text().set_visible(False)
+            ax.yaxis.get_offset_text().set_fontsize(8)
+            t = ax.yaxis.get_offset_text()
+            t.set_x(-0.045)
+
+        return ax
+
 
 def compare_dataset_plots():
     spin_site = 3000
@@ -95,13 +126,13 @@ def compare_dataset_plots():
                           delimiter=",", skiprows=11)
     dataset2 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1006.csv",
                           delimiter=",", skiprows=11)
-    dataset3 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0955.csv",
+    dataset3 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1550.csv",
                           delimiter=",", skiprows=11)
-    dataset4 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0929.csv",
+    dataset4 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1602.csv",
                           delimiter=",", skiprows=11)
-    dataset5 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1550.csv",
+    dataset5 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0955.csv",
                           delimiter=",", skiprows=11)
-    dataset6 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1602.csv",
+    dataset6 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0929.csv",
                           delimiter=",", skiprows=11)
 
     time = dataset1[:, 0] * 1e9
@@ -113,98 +144,107 @@ def compare_dataset_plots():
     data_to_plot6 = dataset6[:, spin_site]
 
     fig = plt.figure(figsize=(4, 3))
-    ax1 = fig.add_subplot(111)  #
-    #ax1.plot(time, abs(data_to_plot1), lw=1.00, marker='o', markersize=1, label="Instant", color='#64BB6A', zorder=1)
-    #ax1.plot(time, abs(data_to_plot2), lw=0.75, marker='o', markersize=1, label="0.05 ns", color='#648ABB', zorder=2)
-    #ax1.plot(time, abs(data_to_plot5), lw=1.00, marker='o', markersize=1, label="0.1 ns", color='#BB64B5', zorder=3)
-    #ax1.plot(time, abs(data_to_plot6), lw=1.00, marker='o', markersize=1, label="0.25 ns", color='red', zorder=4)
-    #ax1.plot(time, abs(data_to_plot3), lw=1.00, marker='o', markersize=1, label="0.5 ns", color='blue', zorder=5)
-    #ax1.plot(time, abs(data_to_plot4), lw=1.00, marker='o', markersize=1, label="1.0 ns", color='#BB9664', zorder=6)
-    ax1.set(xlim=[0.5, 5], ylim=[1e-10, 1e-2],
-            xlabel="Time [ns]", ylabel="abs(m$_x$/M$_S$)",
+    ax1 = fig.add_subplot(111)  #64BB6A, #648ABB, #BB64B5, #BB9664
+    ax1.plot(time, abs(data_to_plot1), lw=0.5, marker='o', markersize=0, label="Instant", color='#fd7f6f', zorder=1)
+    ax1.plot(time, abs(data_to_plot2), lw=0.5, marker='o', markersize=0, label="0.05", color='#7eb0d5', zorder=2)
+    ax1.plot(time, abs(data_to_plot3), lw=0.5, marker='o', markersize=0, label="0.1", color='#b2e061', zorder=3)
+    ax1.plot(time, abs(data_to_plot4), lw=0.5, marker='o', markersize=0, label="0.25", color='#bd7ebe', zorder=4)
+    ax1.plot(time, abs(data_to_plot5), lw=0.5, marker='o', markersize=0, label="0.5", color='#ffb55a', zorder=5)
+    ax1.plot(time, abs(data_to_plot6), lw=0.5, marker='o', markersize=0, label="1.0", color='#beb9db', zorder=6)
+
+    ax1.fill_between(time, abs(data_to_plot1), color='#fd7f6f', zorder=1)
+    ax1.fill_between(time, abs(data_to_plot2), color='#7eb0d5', zorder=2)
+    ax1.fill_between(time, abs(data_to_plot3), color='#b2e061', zorder=3)
+    ax1.fill_between(time, abs(data_to_plot4), color='#bd7ebe', zorder=4)
+    ax1.fill_between(time, abs(data_to_plot5), color='#ffb55a', zorder=5)
+    ax1.fill_between(time, abs(data_to_plot6), color='#beb9db', zorder=6)
+
+    #x_maximums1 = []
+    #y_maximums1 = []
+
+    # for i in range(2, len(data_to_plot1) - 2):
+    #     if data_to_plot1[i - 2] < data_to_plot1[i - 1] and data_to_plot1[i - 1] < data_to_plot1[i] and data_to_plot1[i + 2] < data_to_plot1[i + 1] and \
+    #             data_to_plot1[i + 1] < data_to_plot1[i]:
+    #         y_maximums1.append(data_to_plot1[i])
+    #         x_maximums1.append(time[i])
+    # ax1.plot(x_maximums1, y_maximums1, lw=1, zorder=10, label="Instant")
+#
+    #x_maximums2 = []
+    #y_maximums2 = []
+#
+    #for i in range(2, len(data_to_plot2) - 2):
+    #    if data_to_plot2[i - 2] < data_to_plot2[i - 1] and data_to_plot2[i - 1] < data_to_plot2[i] and data_to_plot2[i + 2] < data_to_plot2[i + 1] and \
+    #            data_to_plot2[i + 1] < data_to_plot2[i]:
+    #        y_maximums2.append(data_to_plot2[i])
+    #        x_maximums2.append(time[i])
+    #ax1.plot(x_maximums2, y_maximums2, lw=1, zorder=2, color='#648ABB')
+    #ax1.fill_between(x_maximums2, y_maximums2, color='#648ABB', zorder=2)
+#
+    # x_maximums3 = []
+    # y_maximums3 = []
+#
+    # for i in range(2, len(data_to_plot3) - 2):
+    #     if data_to_plot3[i - 2] < data_to_plot3[i - 1] and data_to_plot3[i - 1] < data_to_plot3[i] and data_to_plot3[i + 2] < data_to_plot3[i + 1] and \
+    #             data_to_plot3[i + 1] < data_to_plot3[i]:
+    #         y_maximums3.append(data_to_plot3[i])
+    #         x_maximums3.append(time[i])
+    # ax1.plot(x_maximums3, y_maximums3, lw=1, zorder=10, label="0.5 ns")
+#
+    #x_maximums4 = []
+    #y_maximums4 = []
+
+    #for i in range(2, len(data_to_plot4) - 2):
+    #    if data_to_plot4[i - 2] < data_to_plot4[i - 1] and data_to_plot4[i - 1] < data_to_plot4[i] and data_to_plot4[i + 2] < data_to_plot4[i + 1] and \
+    #            data_to_plot4[i + 1] < data_to_plot4[i]:
+    #        y_maximums4.append(data_to_plot4[i])
+    #        x_maximums4.append(time[i])
+    #ax1.plot(x_maximums4, y_maximums4, lw=0, zorder=10, label="1.0 ns", color='red')
+#
+    # x_maximums5 = []
+    # y_maximums5 = []
+#
+    # for i in range(2, len(data_to_plot5) - 2):
+    #     if data_to_plot5[i - 2] < data_to_plot5[i - 1] and data_to_plot5[i - 1] < data_to_plot5[i] and data_to_plot5[i + 2] < data_to_plot5[i + 1] and \
+    #             data_to_plot5[i + 1] < data_to_plot5[i]:
+    #         y_maximums5.append(data_to_plot5[i])
+    #         x_maximums5.append(time[i])
+    # ax1.plot(x_maximums5, y_maximums5, lw=1, zorder=10, label="0.1 ns")
+#
+    #x_maximums6 = []
+    #y_maximums6 = []
+#
+    #for i in range(2, len(data_to_plot6) - 2):
+    #    if data_to_plot6[i - 2] < data_to_plot6[i - 1] and data_to_plot6[i - 1] < data_to_plot6[i] and data_to_plot6[i + 2] < data_to_plot6[i + 1] and \
+    #            data_to_plot6[i + 1] < data_to_plot6[i]:
+    #        y_maximums6.append(data_to_plot6[i])
+    #        x_maximums6.append(time[i])
+    # ax1.plot(x_maximums6, y_maximums6, lw=1, zorder=6, label="1.0 ns")
+    #ax1.fill_between(x_maximums6, y_maximums6, color='#BB9664', zorder=6)
+
+    ax1.set(xlim=[0.5, 5], ylim=[1e-9, 1e-2],
+            xlabel="Time [ns]", ylabel="|m$_x$|/M$_S$",
             yscale="log")
-    ax1.legend(loc="lower right", frameon=False, facecolor=None, edgecolor=None)
 
-    x_maximums1 = []
-    y_maximums1 = []
-
-    for i in range(2, len(data_to_plot1) - 2):
-        if data_to_plot1[i - 2] < data_to_plot1[i - 1] and data_to_plot1[i - 1] < data_to_plot1[i] and data_to_plot1[i + 2] < data_to_plot1[i + 1] and \
-                data_to_plot1[i + 1] < data_to_plot1[i]:
-            y_maximums1.append(data_to_plot1[i])
-            x_maximums1.append(time[i])
-    ax1.plot(x_maximums1, y_maximums1, lw=1, zorder=10)
-
-    x_maximums2 = []
-    y_maximums2 = []
-
-    for i in range(2, len(data_to_plot2) - 2):
-        if data_to_plot2[i - 2] < data_to_plot2[i - 1] and data_to_plot2[i - 1] < data_to_plot2[i] and data_to_plot2[i + 2] < data_to_plot2[i + 2] and \
-                data_to_plot2[i + 1] < data_to_plot2[i]:
-            y_maximums2.append(data_to_plot2[i])
-            x_maximums2.append(time[i])
-    ax1.plot(x_maximums2, y_maximums2, lw=1, zorder=10)
-
-    x_maximums3 = []
-    y_maximums3 = []
-
-    for i in range(2, len(data_to_plot3) - 2):
-        if data_to_plot3[i - 2] < data_to_plot3[i - 1] and data_to_plot3[i - 1] < data_to_plot3[i] and data_to_plot3[i + 2] < data_to_plot3[i + 1] and \
-                data_to_plot3[i + 1] < data_to_plot3[i]:
-            y_maximums3.append(data_to_plot3[i])
-            x_maximums3.append(time[i])
-    ax1.plot(x_maximums3, y_maximums3, lw=1, zorder=10)
-
-    x_maximums4 = []
-    y_maximums4 = []
-
-    for i in range(2, len(data_to_plot4) - 2):
-        if data_to_plot4[i - 2] < data_to_plot4[i - 1] and data_to_plot4[i - 1] < data_to_plot4[i] and data_to_plot4[i + 2] < data_to_plot4[i + 1] and \
-                data_to_plot4[i + 1] < data_to_plot4[i]:
-            y_maximums4.append(data_to_plot4[i])
-            x_maximums4.append(time[i])
-    ax1.plot(x_maximums4, y_maximums4, lw=1, zorder=10)
-
-    x_maximums5 = []
-    y_maximums5 = []
-
-    for i in range(2, len(data_to_plot5) - 2):
-        if data_to_plot5[i - 2] < data_to_plot5[i - 1] and data_to_plot5[i - 1] < data_to_plot5[i] and data_to_plot5[i + 2] < data_to_plot5[i + 1] and \
-                data_to_plot5[i + 1] < data_to_plot5[i]:
-            y_maximums5.append(data_to_plot5[i])
-            x_maximums5.append(time[i])
-    ax1.plot(x_maximums5, y_maximums5, lw=1, zorder=10)
-
-    x_maximums6 = []
-    y_maximums6 = []
-
-    for i in range(2, len(data_to_plot6) - 2):
-        if data_to_plot6[i - 2] < data_to_plot6[i - 1] and data_to_plot6[i - 1] < data_to_plot6[i] and data_to_plot6[i + 2] < data_to_plot6[i + 1] and \
-                data_to_plot6[i + 1] < data_to_plot6[i]:
-            y_maximums6.append(data_to_plot6[i])
-            x_maximums6.append(time[i])
-    ax1.plot(x_maximums6, y_maximums6, lw=1, zorder=10)
-
-    # ax1.xaxis.set(major_locator=ticker.MultipleLocator(2.5),
-    #               major_formatter=ticker.FormatStrFormatter("%.1f"),
-    #               minor_locator=ticker.MultipleLocator(0.5))
-    # ax1.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
-    #               major_formatter=ticker.FormatStrFormatter("%.1f"),
-    #               minor_locator=ticker.AutoMinorLocator(4))
-
-    # ax1.xaxis.set(major_locator=ticker.MultipleLocator(2.5), major_formatter=ticker.FormatStrFormatter("%.1f"),
-    #              minor_locator=ticker.MultipleLocator(0.5))
-    # ax1.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=6),
-    #               minor_locator=ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=12))
+    #ax1.xaxis.set(major_locator=ticker.MultipleLocator(1.0), major_formatter=ticker.FormatStrFormatter("%.1f"),
+    #             minor_locator=ticker.MultipleLocator(0.2))
+    #ax1.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=3))
+    #locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=4)
+    #ax1.yaxis.set_minor_locator(locmin)
+    #ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
 
     # formatter = ticker.ScalarFormatter(useMathText=True)
     # ax1.yaxis.set_major_formatter(formatter)
-    ax1.yaxis.get_offset_text().set_visible(True)
-    # ax1.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-    #         verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
-
-    # ax1.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
     ax1.grid(False)
+
+    for spine in ['top', 'bottom', 'left', 'right']:
+        ax1.spines[spine].set_visible(True)
+    for k, spine in ax1.spines.items():  # ax.spines is a dictionary
+        spine.set_zorder(10)
+    ax1.margins(0.1)
+    ax1.tick_params(axis="both", which="both", zorder=10, bottom=True, top=True, left=True, right=True)
+    ax1.legend(title="t$_g$ [ns]", ncol=2, loc="lower right",
+               frameon=True, fancybox=True, facecolor='white', edgecolor='black',
+               fontsize=6, title_fontsize=8).set_zorder(20)
 
     fig.savefig("D:\\Data\\2022-08-10\\Outputs\\comparison.png", bbox_inches="tight")
 
