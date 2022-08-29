@@ -79,11 +79,11 @@ class PaperFigures:
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
         cm = 1/2.54
-        self.fig = plt.figure(figsize=(4, 2))
+        self.fig = plt.figure(figsize=(3.2, 1.4))
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 4e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Spin Sites", "ylabel": f"m$_x$ / M$_S$",
-                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+                       "xlim": [0, self.number_spins/1000], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
@@ -100,28 +100,33 @@ class PaperFigures:
         if has_single_figure:
             # For images, may want to further alter plot outside this method. Hence, the use of attribute.
             cm = 1 / 2.54
-            self.fig = plt.figure(figsize=(11.12 * cm, 6.15 * cm))  # Strange dimensions are to give a 4x2 inch image
+            self.fig = plt.figure(figsize=(3.2, 1.8))  # Strange dimensions are to give a 4x2 inch image
             self.axes = self.fig.add_subplot(111)
         else:
             # For GIFs
             cm = 1 / 2.54
-            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2), dpi=450)  # Each frame requires a new fig to prevent stuttering.
+            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Each frame requires a new fig to prevent stuttering.
             self.axes = self.fig.add_subplot(111)  # Each subplot will be the same so no need to access ax outside of method.
 
         self.axes.set_aspect("auto")
         #  plt.suptitle(f"{self.nm_method}")
         #  plt.subplots_adjust(top=0.80)
 
-        self.axes.plot(np.arange(1, self.number_spins + 1), self.amplitude_data[plot_row, :], ls='-', lw=0.5,
+        self.axes.plot(np.linspace(0, 5.6, 5600), self.amplitude_data[plot_row, :], ls='-', lw=0.75,
                 label=f"{self.time_data[plot_row]:2.2f} [ns]", color='#64bb6a')  # Easier to have time-stamp as label than textbox.
 
         self.axes.set(**self.kwargs)
 
+        self.axes.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+                       verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+        self.axes.xaxis.labelpad = -2
+        self.axes.yaxis.labelpad = -5
+
         if draw_regions_of_interest:
             left, bottom, width, height = (
-                [0, self.number_spins - self.dampedSpins, self.drLHS + self.dampedSpins],
+                [0, (self.number_spins - self.dampedSpins)/1000, (self.drLHS + self.dampedSpins)/1000],
                 self.axes.get_ylim()[0] * 2,
-                (self.dampedSpins, self.driving_width),
+                (self.dampedSpins/1000, self.driving_width/1000),
                 4 * self.axes.get_ylim()[1])
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width[0], height,
@@ -150,10 +155,10 @@ class PaperFigures:
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        self._tick_setter(self.axes, 2500, 500, 3, 4)
+        self._tick_setter(self.axes, 2.5, 0.5, 3, 4)
 
-        self.axes.legend(loc=1, ncol=1, fontsize=6,
-                  frameon=False, fancybox=True, facecolor=None, edgecolor=None)
+        #self.axes.legend(loc=1, ncol=1, fontsize=6,
+        #          frameon=False, fancybox=True, facecolor=None, edgecolor=None)
 
         self.fig.tight_layout()
 
@@ -169,7 +174,7 @@ class PaperFigures:
         :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
         """
         self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
-        self._draw_figure(plot_row=row_number)
+        self._draw_figure(row_number)
 
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
@@ -246,16 +251,17 @@ class PaperFigures:
 
         self.axes.clear()
         self.axes.set_aspect('auto')
+
         #self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
-        self.axes.plot(self.time_data[12:3800], self.amplitude_data[12:3800, spin_site], marker='', lw=1, color='#37782c',
+        self.axes.plot(self.time_data[12:3345], self.amplitude_data[12:3345, spin_site], marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        self.axes.plot(self.time_data[3800:6300], self.amplitude_data[3800:6300, spin_site], marker='', lw=1, color='#64bb6a',
+        self.axes.plot(self.time_data[3345:5079], self.amplitude_data[3345:5079, spin_site], marker='', lw=1, color='#64bb6a',
                  markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
-        self.axes.plot(self.time_data[6300:], self.amplitude_data[6300:, spin_site], marker='', lw=1, color='#9fd983',
+        self.axes.plot(self.time_data[5079:], self.amplitude_data[5079:, spin_site], marker='', lw=1, color='#9fd983',
                  markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
 
-        self.axes.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+        self.axes.text(-0.05, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
                        verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
 
         ymax_plot = 3.5e-3  # self.amplitude_data[:, spin_site].max()
@@ -277,6 +283,7 @@ class PaperFigures:
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
         self.axes.yaxis.get_offset_text().set_fontsize(6)
         self.axes.yaxis.get_offset_text().set_visible(False)
+        self.axes.yaxis.labelpad = -3
 
         # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
 
@@ -287,12 +294,12 @@ class PaperFigures:
             y = self.amplitude_data[:, spin_site]
 
             # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
-            ax2_inset = inset_axes(self.axes, width=1.6, height=0.6, loc="upper left", bbox_to_anchor=[0.085, 0.875], bbox_transform=self.axes.figure.transFigure)
+            ax2_inset = inset_axes(self.axes, width=1.5, height=0.525, loc="upper left", bbox_to_anchor=[0.095, 0.1+0.875], bbox_transform=self.axes.figure.transFigure)
             ax2_inset.plot(x, y, lw=0.75, color='#37782c')
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 1e-4  # float(input("Enter ylim: "))
-            ax2_inset.set_xlim(1.25, 3.0)
+            ylim_in = 2e-4  # float(input("Enter ylim: "))
+            ax2_inset.set_xlim(1.0, 2.5)
             ax2_inset.set_ylim(-ylim_in, ylim_in)
 
             # Remove tick labels
@@ -362,9 +369,12 @@ class PaperFigures:
             self.axes.add_patch(rectRHS)
         self.axes.grid(visible=False, axis='y', which='both')
         self.axes.grid(visible=False, axis='x', which='both')
+        self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+
         # self.fig.tight_layout()
 
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
+        exit(0)
 
     def plot_fft(self, spin_site, add_zoomed_region=True):
         """
@@ -379,22 +389,22 @@ class PaperFigures:
         fft_shaded_box_width = 10  # In GHz
 
         plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$", "xlim": (0, 5)},
-                           1: {"xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]", "xlim": (0, 60), "ylim": (1e-5, 1e1)},
+                           1: {"xlim": (0, 60), "ylim": (1e-5, 1e1)},
                            2: {"xlabel": "Frequency [GHz]", "xlim": (0, 10)}}
         fig = plt.figure()
 
         # Signal that varies in time #37782c
-        ax1 = plt.subplot2grid((4, 8), (0, 0), rowspan=2, colspan=8)
+        #ax1 = plt.subplot2grid((4, 8), (0, 0), rowspan=2, colspan=8)
         #ax1.plot(self.time_data, self.amplitude_data[:, 3000], ls='-', lw=1, color="#37782c")
         #ax1.plot(self.time_data[1100:1250], self.amplitude_data[1100:1250, 3000], color='red')
         #ax1.plot(self.time_data[1450:1700], self.amplitude_data[1450:1700, 3000], color='green')
         #ax1.plot(self.time_data[2933:3346], self.amplitude_data[2933:3346, 3000], color='blue')
-        ax1.plot(self.time_data[12:3346], self.amplitude_data[12:3346, 3000], color='#37782c')
-        ax1.plot(self.time_data[3346:5079], self.amplitude_data[3346:5079, 3000], color='#64bb6a')
-        ax1.plot(self.time_data[5079:6666], self.amplitude_data[5079:6666, 3000], color='#9fd983')
-        ax1.set(**plot_set_params[0])
-        ax1.set_facecolor('#f4f4f5')
-        self._tick_setter(ax1, 2.5, 0.5, 3, 4)
+        #ax1.plot(self.time_data[12:3346], self.amplitude_data[12:3346, 3000], color='#37782c')
+        #ax1.plot(self.time_data[3346:5079], self.amplitude_data[3346:5079, 3000], color='#64bb6a')
+        #ax1.plot(self.time_data[5079:6666], self.amplitude_data[5079:6666, 3000], color='#9fd983')
+        #ax1.set(**plot_set_params[0])
+        #ax1.set_facecolor('#f4f4f5')
+        #self._tick_setter(ax1, 2.5, 0.5, 3, 4)
 
         # FFT stuff
         frequencies_blob1, fourier_transform_blob1 = self._fft_data(self.amplitude_data[2930:3340, 3000])
@@ -405,7 +415,7 @@ class PaperFigures:
         frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[5079:6666, 3000])
 
         # FFT for blobs
-        ax2 = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
+        ax2 = plt.subplot2grid((4, 8), (0, 0), rowspan=2, colspan=8)
         ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', ls=':')
         ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
@@ -427,54 +437,112 @@ class PaperFigures:
         ax2.annotate('P3', xy=(52.00, 0.0045), xytext=(56.25, 0.075), va='center', ha='center',
                            arrowprops=arrow_ax2_props, fontsize=8)
         ax2.legend(ncol=1, fontsize=6, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
-                   bbox_to_anchor=[0.82, 0.68])
+                   bbox_to_anchor=[0.825, 0.7])
         self._tick_setter(ax2, 10, 2, 3, 4, is_fft_plot=True)
 
-        for ax in [ax1, ax2]:
+        for ax in [ax2]:
             ax.xaxis.grid(False)
             ax.yaxis.grid(False)
-            ax.set_facecolor('#f4f4f5')
+            #ax.set_facecolor('#f4f4f5')
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
         # Add zoomed in region if needed. 2933:3346
-        if add_zoomed_region:
-            # Select datasets to use
-            x = self.time_data[:]
-            y = self.amplitude_data[:, spin_site]
-
-            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
-            ax1_inset = inset_axes(ax1, width=2.4, height=0.625, loc="lower left", bbox_to_anchor=[0.14, 0.625],
-                                   bbox_transform=ax1.figure.transFigure)
-            ax1_inset.plot(x, y, lw=0.75, color='#37782c')
-
-
-            # Select data (of original) to show in inset through changing axis limits
-            ax1_inset.set_xlim(1.25, 2.5)
-            ax1_inset.set_ylim(-0.2e-3, 0.2e-3)
-
-            # Remove tick labels
-            ax1_inset.set_xticks([])
-            ax1_inset.set_yticks([])
-            ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3' fbe3e5
-            # ax2_inset.patch.set_alpha(0.3)
-            # ax2_inset.set(facecolor='red', alpha=0.3)
-            # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
-
-            # Add box to indicate the region which is being zoomed into on the main figure
-            ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
-            arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-            ax1_inset.annotate('P1', xy=(2.228, -1.5e-4), xytext=(1.954, -1.5e-4), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
-            ax1_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407,  -1.5e-4), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
-            ax1_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407,  1.5e-4), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
+        #if add_zoomed_region:
+        #    # Select datasets to use
+        #    x = self.time_data[:]
+        #    y = self.amplitude_data[:, spin_site]
+#
+        #    # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
+        #    ax1_inset = inset_axes(ax1, width=2.4, height=0.625, loc="lower left", bbox_to_anchor=[0.14, 0.625],
+        #                           bbox_transform=ax1.figure.transFigure)
+        #    ax1_inset.plot(x, y, lw=0.75, color='#37782c')
+#
+#
+        #    # Select data (of original) to show in inset through changing axis limits
+        #    ax1_inset.set_xlim(1.25, 2.5)
+        #    ax1_inset.set_ylim(-0.2e-3, 0.2e-3)
+#
+        #    # Remove tick labels
+        #    ax1_inset.set_xticks([])
+        #    ax1_inset.set_yticks([])
+        #    ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3' fbe3e5
+        #    # ax2_inset.patch.set_alpha(0.3)
+        #    # ax2_inset.set(facecolor='red', alpha=0.3)
+        #    # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
+#
+        #    # Add box to indicate the region which is being zoomed into on the main figure
+        #    ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+        #    arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+        #    ax1_inset.annotate('P1', xy=(2.228, -1.5e-4), xytext=(1.954, -1.5e-4), va='center', ha='center',
+        #            arrowprops=arrow_inset_props, fontsize=6)
+        #    ax1_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407,  -1.5e-4), va='center', ha='center',
+        #            arrowprops=arrow_inset_props, fontsize=6)
+        #    ax1_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407,  1.5e-4), va='center', ha='center',
+        #            arrowprops=arrow_inset_props, fontsize=6)
         # Add spines to all plots (to override any rcParams elsewhere in the code
         for spine in ['top', 'bottom', 'left', 'right']:
-            ax1_inset.spines[spine].set_visible(True)
-            ax1.spines[spine].set_visible(True)
+            # ax1_inset.spines[spine].set_visible(True)
+            # ax1.spines[spine].set_visible(True)
             ax2.spines[spine].set_visible(True)
 
+        ax = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
+        SAMPLE_RATE = int(1000)  # Number of samples per nanosecond
+        DURATION = int(4)  # Nanoseconds
+
+        def generate_sine_wave(freq, sample_rate, duration):
+            delay = int(sample_rate * 2)
+            t = np.linspace(0, duration, sample_rate * duration, endpoint=False)
+            y_1 = np.zeros(delay)
+            y_2 = np.sin((2 * np.pi * freq) * t[delay:])
+            y = np.concatenate((y_1, y_2))
+            return t, y
+
+        # Generate a 15 GHz sine wave that lasts for 5 seconds
+        x, y = generate_sine_wave(15, SAMPLE_RATE, DURATION)
+        # plt.plot(x, y)
+        # plt.show()
+
+        from scipy.fft import rfft, rfftfreq
+        # Number of samples in normalized_tone
+        N = int(SAMPLE_RATE * DURATION)
+
+        yf = rfft(y)
+        xf = rfftfreq(N, 1 / SAMPLE_RATE)
+
+        ax.plot(xf, np.abs(yf), marker='', lw=1, color='#64bb6a', markerfacecolor='black', markeredgecolor='black',
+                label="Shockwave", zorder=2)
+        ax.set(xlim=(0, 30),
+               xlabel="Frequency [GHz]")
+        ax.grid(visible=False, axis='both', which='both')
+        ax.tick_params(top="on", right="on", which="both")
+
+        from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, inset_axes
+        ax2_inset = inset_axes(ax, width=2.25, height=0.9, loc="upper left", bbox_to_anchor=[0.14, 0.475],
+                               bbox_transform=ax.figure.transFigure)
+        ax2_inset.plot(x, y, lw=0.75, color='#64bb6a', zorder=1)
+        ax2_inset.grid(visible=False, axis='both', which='both')
+        # ax2_inset.yaxis.tick_right()
+        ax2_inset.set_xlabel('Time [ns]', fontsize=10)
+        ax2.set_ylabel('Amplitude [arb.]', x=2.5, y=-0.1)
+        ax2_inset.tick_params(axis='both', labelsize=8)
+        ax2_inset.set_yticks([])
+        ax2_inset.patch.set_color("#f9f2e9")
+
+        for spine in ['top', 'bottom', 'left', 'right']:
+            ax.spines[spine].set_visible(True)
+            ax2_inset.spines[spine].set_visible(True)
+
+        ax.xaxis.set(major_locator=ticker.MultipleLocator(5),
+                     minor_locator=ticker.MultipleLocator(1))
+        ax2_inset.xaxis.set(major_locator=ticker.MultipleLocator(2),
+                            minor_locator=ticker.MultipleLocator(0.5))
+        ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
+                     minor_locator=ticker.AutoMinorLocator(4))
+
+        formatter = ticker.ScalarFormatter(useMathText=True)
+        ax.yaxis.set_major_formatter(formatter)
+        ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+        ax.yaxis.get_offset_text().set_visible(False)
         fig.subplots_adjust(wspace=1.0, hspace=0.5)
         fig.tight_layout()
         #def mouse_event(event):
@@ -535,15 +603,16 @@ class PaperFigures:
         else:
             ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major), major_formatter=ticker.FormatStrFormatter("%.1f"),
                          minor_locator=ticker.MultipleLocator(x_minor))
-            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'), major_formatter=ticker.FormatStrFormatter("%.1f"),
+            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'),
+                         major_formatter=ticker.FormatStrFormatter("%1.1f"),
                          minor_locator=ticker.AutoMinorLocator(y_minor))
 
             formatter = ticker.ScalarFormatter(useMathText=True)
             ax.yaxis.set_major_formatter(formatter)
 
-            ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            #ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
             ax.yaxis.get_offset_text().set_visible(False)
-            ax.yaxis.get_offset_text().set_fontsize(8)
+            #ax.yaxis.get_offset_text().set_fontsize(8)
             t = ax.yaxis.get_offset_text()
             t.set_x(-0.045)
 
