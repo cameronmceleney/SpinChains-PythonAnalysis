@@ -599,10 +599,10 @@ def rc_params_update():
     t_min_w = t_maj_w / 2
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': small_size, 'font.size': small_size,
+    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': smaller_size, 'font.size': small_size,
                          'legend.fontsize': tiny_size,
                          'figure.titlesize': large_size,
-                         'xtick.labelsize': small_size, 'ytick.labelsize': small_size,
+                         'xtick.labelsize': tiny_size, 'ytick.labelsize': tiny_size,
                          'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
                          "xtick.bottom": True, "ytick.left": True,
                          'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
@@ -614,4 +614,5 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 120})
+                         'savefig.dpi': 1000, "figure.dpi": 300,
+                         'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
