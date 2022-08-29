@@ -82,7 +82,7 @@ class PaperFigures:
         self.fig = plt.figure(figsize=(3.2, 1.4))
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 4e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
-        self.kwargs = {"xlabel": f"Spin Sites", "ylabel": f"m$_x$ / M$_S$",
+        self.kwargs = {"xlabel": f"Distance [$\mu$m]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins/1000], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
@@ -117,10 +117,12 @@ class PaperFigures:
 
         self.axes.set(**self.kwargs)
 
-        self.axes.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+        self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
                        verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
-        self.axes.xaxis.labelpad = -2
+        self.axes.xaxis.labelpad = -1.5
         self.axes.yaxis.labelpad = -5
+        self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+
 
         if draw_regions_of_interest:
             left, bottom, width, height = (
@@ -131,21 +133,21 @@ class PaperFigures:
 
             rectLHS = mpatches.Rectangle((left[0], bottom), width[0], height,
                                          # fill=False,
-                                         alpha=0.4,
+                                         alpha=0.5,
                                          facecolor="grey",
                                          edgecolor=None,
                                          lw=0)
 
             rectRHS = mpatches.Rectangle((left[1], bottom), width[0], height,
                                          # fill=False,
-                                         alpha=0.4,
+                                         alpha=0.5,
                                          facecolor="grey",
                                          edgecolor=None,
                                          lw=0)
 
             rectDriving = mpatches.Rectangle((left[2], bottom), width[1], height,
                                              # fill=False,
-                                             alpha=0.2,
+                                             alpha=0.25,
                                              facecolor="grey",
                                              edgecolor=None,
                                              lw=0)
