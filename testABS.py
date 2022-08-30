@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.ticker as ticker
 
 # My packages/Header files
-# Here
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, inset_axes
 
 # ----------------------------- Program Information ----------------------------
 
@@ -50,7 +50,7 @@ def loggingSetup():
 
 def rc_params_update():
     """Container for program's custom rc params, as well as Seaborn (library) selections."""
-    #plt.style.use('fivethirtyeight')
+    plt.style.use('fivethirtyeight')
     sns.set(context='notebook', font='Kohinoor Devanagari', palette='muted', color_codes=True)
     ##############################################################################
     # Sets global conditions including font sizes, ticks and sheet style
@@ -59,7 +59,7 @@ def rc_params_update():
     small_size = 12
     large_size = 16
     smaller_size = 10
-    tiny_size = 8
+    tiny_size = 10
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
     t_dir = 'in'
@@ -70,10 +70,10 @@ def rc_params_update():
     t_min_w = t_maj_w / 2
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': small_size, 'font.size': small_size,
+    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': smaller_size, 'font.size': small_size,
                          'legend.fontsize': tiny_size,
                          'figure.titlesize': large_size,
-                         'xtick.labelsize': small_size, 'ytick.labelsize': small_size,
+                         'xtick.labelsize': tiny_size, 'ytick.labelsize': tiny_size,
                          'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
                          "xtick.bottom": True, "ytick.left": True,
                          'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
@@ -85,7 +85,8 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1500, "figure.dpi": 1000})
+                         'savefig.dpi': 1000, "figure.dpi": 300,
+                         'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
 
 
 def tick_setter(ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
@@ -144,21 +145,29 @@ def compare_dataset_plots():
     data_to_plot5 = dataset5[:, spin_site]
     data_to_plot6 = dataset6[:, spin_site]
 
+    colour1 = '#64bb6a'
+    colour2 = '#fd7f6f'
+    colour3 = '#7eb0d5'
+    colour4 = '#b2e061'
+    colour5 = '#bd7ebe'
+    colour6 = '#ffb55a'
+    colour7 = '#beb9db'
+
     fig = plt.figure(figsize=(4, 3))
     ax1 = fig.add_subplot(111)  # 64BB6A, #648ABB, #BB64B5, #BB9664
-    ax1.plot(time, abs(data_to_plot1), lw=0.5, marker='o', markersize=0, label="Instant", color='#fd7f6f', zorder=1)
-    ax1.plot(time, abs(data_to_plot2), lw=0.5, marker='o', markersize=0, label="0.05", color='#7eb0d5', zorder=2)
-    ax1.plot(time, abs(data_to_plot3), lw=0.5, marker='o', markersize=0, label="0.1", color='#b2e061', zorder=3)
-    ax1.plot(time, abs(data_to_plot4), lw=0.5, marker='o', markersize=0, label="0.25", color='#bd7ebe', zorder=4)
-    ax1.plot(time, abs(data_to_plot5), lw=0.5, marker='o', markersize=0, label="0.5", color='#ffb55a', zorder=5)
-    ax1.plot(time, abs(data_to_plot6), lw=0.5, marker='o', markersize=0, label="1.0", color='#beb9db', zorder=6)
+    ax1.plot(time, abs(data_to_plot1), lw=0.5, marker='o', markersize=0, label="Instant", color=colour1, zorder=1.1)
+    ax1.plot(time, abs(data_to_plot2), lw=0.5, marker='o', markersize=0, label="0.05", color=colour2, zorder=1.2)
+    ax1.plot(time, abs(data_to_plot3), lw=0.5, marker='o', markersize=0, label="0.1", color=colour3, zorder=1.3)
+    ax1.plot(time, abs(data_to_plot4), lw=0.5, marker='o', markersize=0, label="0.25", color=colour4, zorder=1.4)
+    ax1.plot(time, abs(data_to_plot5), lw=0.5, marker='o', markersize=0, label="0.5", color=colour5, zorder=1.5)
+    ax1.plot(time, abs(data_to_plot6), lw=0.5, marker='o', markersize=0, label="1.0", color=colour6, zorder=1.6)
 
-    ax1.fill_between(time, abs(data_to_plot1), color='#fd7f6f', zorder=1)
-    ax1.fill_between(time, abs(data_to_plot2), color='#7eb0d5', zorder=2)
-    ax1.fill_between(time, abs(data_to_plot3), color='#b2e061', zorder=3)
-    ax1.fill_between(time, abs(data_to_plot4), color='#bd7ebe', zorder=4)
-    ax1.fill_between(time, abs(data_to_plot5), color='#ffb55a', zorder=5)
-    ax1.fill_between(time, abs(data_to_plot6), color='#beb9db', zorder=6)
+    ax1.fill_between(time, abs(data_to_plot1), color=colour1, zorder=1.1)
+    ax1.fill_between(time, abs(data_to_plot2), color=colour2, zorder=1.2)
+    ax1.fill_between(time, abs(data_to_plot3), color=colour3, zorder=1.3)
+    ax1.fill_between(time, abs(data_to_plot4), color=colour4, zorder=1.4)
+    ax1.fill_between(time, abs(data_to_plot5), color=colour5, zorder=1.5)
+    ax1.fill_between(time, abs(data_to_plot6), color=colour6, zorder=1.6)
 
     # x_maximums1 = []
     # y_maximums1 = []
@@ -222,30 +231,95 @@ def compare_dataset_plots():
     # ax1.plot(x_maximums6, y_maximums6, lw=1, zorder=6, label="1.0 ns")
     # ax1.fill_between(x_maximums6, y_maximums6, color='#BB9664', zorder=6)
 
-    ax1.set(xlim=[0.5, 5], ylim=[1e-9, 1e-2],
-            xlabel="Time [ns]", ylabel="|m$_x$|/M$_S$",
-            yscale="log")
+    # Inset
+    ax1_inset = inset_axes(ax1, width=1.55
+                           , height=1.55, loc="upper left", bbox_to_anchor=[0.0875, 0.875],
+                           bbox_transform=ax1.figure.transFigure)
+    ax1_inset.plot(time, abs(data_to_plot1), lw=0.5, marker='o', markersize=0, label="Instant", color=colour1,
+                   zorder=1.1)
+    ax1_inset.plot(time, abs(data_to_plot2), lw=0.5, marker='o', markersize=0, label="0.05", color=colour2,
+                   zorder=1.2)
+    ax1_inset.plot(time, abs(data_to_plot3), lw=0.5, marker='o', markersize=0, label="0.1", color=colour3, zorder=1.3)
+    ax1_inset.plot(time, abs(data_to_plot4), lw=0.5, marker='o', markersize=0, label="0.25", color=colour4,
+                   zorder=1.4)
+    ax1_inset.plot(time, abs(data_to_plot5), lw=0.5, marker='o', markersize=0, label="0.5", color=colour5, zorder=1.5)
+    ax1_inset.plot(time, abs(data_to_plot6), lw=0.5, marker='o', markersize=0, label="1.0", color=colour6, zorder=1.6)
 
-    # ax1.xaxis.set(major_locator=ticker.MultipleLocator(1.0), major_formatter=ticker.FormatStrFormatter("%.1f"),
-    #             minor_locator=ticker.MultipleLocator(0.2))
-    # ax1.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=3))
-    # locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=4)
+    ax1_inset.fill_between(time, abs(data_to_plot1), color=colour1, zorder=1.1)
+    ax1_inset.fill_between(time, abs(data_to_plot2), color=colour2, zorder=1.2)
+    ax1_inset.fill_between(time, abs(data_to_plot3), color=colour3, zorder=1.3)
+    ax1_inset.fill_between(time, abs(data_to_plot4), color=colour4, zorder=1.4)
+    ax1_inset.fill_between(time, abs(data_to_plot5), color=colour5, zorder=1.5)
+    ax1_inset.fill_between(time, abs(data_to_plot6), color=colour6, zorder=1.6)
+
+    # Main
+    ax1.set(xlim=[0.5, 5], ylim=[1e-9, 3.5e-3],
+            xlabel="Time [ns]", ylabel="|m$_x$|/M$_S$")
+
+    ax1.xaxis.set(major_locator=ticker.MultipleLocator(1.0), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                  minor_locator=ticker.MultipleLocator(0.2))
+    #ax1.locator_params(axis='y', nbins=3)
+    locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.01, numticks=15)
+    ax1.yaxis.set_minor_locator(locmin)
+    ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
+    ax1.set_yticks([1e-4, 1e-3, 2e-3, 3e-3])
+    #ax1.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=15))
+    #locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=15)
+    #ax1.yaxis.set_minor_locator(locmin)
+    #ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
+    # locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=20)
     # ax1.yaxis.set_minor_locator(locmin)
     # ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
-
+    #
     # formatter = ticker.ScalarFormatter(useMathText=True)
     # ax1.yaxis.set_major_formatter(formatter)
     ax1.grid(False)
+    ax1_inset.grid(False)
+
+    # Inset
+    ax1_inset.set(xlim=[0.5001, 1.4999], ylim=[1e-7, 5e-5],
+                  yscale="log")
+    # ax1.set_xticks([])
+    # ax1.set_yticks([])
+
+    ax1_inset.yaxis.tick_right()
+    ax1_inset.tick_params(axis='x', labelsize=8)
+    ax1_inset.tick_params(axis='y', labelsize=8)
+
+    ax1_inset.xaxis.set(major_locator=ticker.MultipleLocator(0.25), major_formatter=ticker.FormatStrFormatter("%.1f"),
+                        minor_locator=ticker.MultipleLocator(0.05))
+    ax1_inset.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=15))
+    locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=15)
+    ax1_inset.yaxis.set_minor_locator(locmin)
+    ax1_inset.yaxis.set_minor_formatter(ticker.NullFormatter())
+    #
+    # formatter = ticker.ScalarFormatter(useMathText=True)
+    # ax1_inset.yaxis.set_major_formatter(formatter)
 
     for spine in ['top', 'bottom', 'left', 'right']:
         ax1.spines[spine].set_visible(True)
+        ax1_inset.spines[spine].set_visible(True)
     for k, spine in ax1.spines.items():  # ax.spines is a dictionary
         spine.set_zorder(10)
-    ax1.margins(0.1)
-    ax1.tick_params(axis="both", which="both", zorder=10, bottom=True, top=True, left=True, right=True)
-    ax1.legend(title="t$_g$ [ns]", ncol=2, loc="lower right",
-               frameon=True, fancybox=True, facecolor='white', edgecolor='black',
-               fontsize=6, title_fontsize=8).set_zorder(20)
+
+    ax1.yaxis.get_offset_text().set_visible(False)
+    ax1.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+                   verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
+
+    # ax1.margins(x=0.5, y=0.1e-3)
+    ax1_inset.set_axisbelow(False)
+    ax1.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+    ax1.tick_params(axis="both", which="both", zorder=10, bottom=True, top=False, left=True, right=False)
+    ax1_inset.tick_params(axis="both", which="both", zorder=10, bottom=True, top=False, left=False, right=True)
+
+    ax1.legend(title="t$_g$ [ns]", ncol=1, loc="lower right",
+               frameon=True, fancybox=False, facecolor='white', edgecolor='black',
+               fontsize=6, title_fontsize=7,
+               bbox_to_anchor=(0.925, 0.1), bbox_transform=ax1.figure.transFigure
+               ).set_zorder(20)
+
+    ax1.set_axisbelow(False)
+    ax1_inset.set_axisbelow(False)
 
     fig.savefig("D:\\Data\\2022-08-10\\Outputs\\comparison.png", bbox_inches="tight")
 
@@ -254,8 +328,6 @@ def compare_dataset_plots():
 
 def main():
     lg.info(f"{PROGRAM_NAME} start")
-
-    # compare_dataset_plots()
 
     # t = np.linspace(0, 5, 2000)
     #
@@ -266,8 +338,8 @@ def main():
     SAMPLE_RATE = int(1000)  # Number of samples per nanosecond
     DURATION = int(4)  # Nanoseconds
 
-    def generate_sine_wave(freq, sample_rate, duration):
-        delay = int(sample_rate * 2)
+    def generate_sine_wave(freq, sample_rate, duration, delay_num):
+        delay = int(sample_rate * delay_num)
         t = np.linspace(0, duration, sample_rate * duration, endpoint=False)
         y_1 = np.zeros(delay)
         y_2 = np.sin((2 * np.pi * freq) * t[delay:])
@@ -275,7 +347,8 @@ def main():
         return t, y
 
     # Generate a 15 GHz sine wave that lasts for 5 seconds
-    x, y = generate_sine_wave(15, SAMPLE_RATE, DURATION)
+    x, y = generate_sine_wave(15, SAMPLE_RATE, DURATION, 2)
+    x2, y2 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 0)
     # plt.plot(x, y)
     # plt.show()
 
@@ -284,11 +357,14 @@ def main():
     N = int(SAMPLE_RATE * DURATION)
 
     yf = rfft(y)
+    y2f = rfft(y2)
     xf = rfftfreq(N, 1 / SAMPLE_RATE)
 
     fig = plt.figure(figsize=(18.73 / 2.54, 4.94 / 2.54))
     ax = fig.add_subplot(111)
-    ax.plot(xf, np.abs(yf), marker='', lw=1, color='#64bb6a', markerfacecolor='black', markeredgecolor='black',
+    ax.plot(xf, np.abs(y2f), marker='', lw=1, color='#64bb6a', markerfacecolor='black', markeredgecolor='black',
+            label="Shockwave", zorder=2)
+    ax.plot(xf, np.abs(yf), marker='', lw=1, color='red', markerfacecolor='black', markeredgecolor='black',
             label="Shockwave", zorder=2)
     ax.set(xlim=(0, 30),
            xlabel="Frequency [GHz]", ylabel="\n\nAmplitude [arb.]")
@@ -322,7 +398,7 @@ def main():
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
     ax.yaxis.get_offset_text().set_visible(False)
 
-    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\image2.png", bbox_inches="tight", dpi=1000)
+    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\image3.png", bbox_inches="tight", dpi=1000)
 
     lg.info(f"{PROGRAM_NAME} end")
     exit()
@@ -333,4 +409,6 @@ def main():
 if __name__ == '__main__':
     # loggingSetup()
     rc_params_update()
+    #compare_dataset_plots()
+    #exit()
     main()

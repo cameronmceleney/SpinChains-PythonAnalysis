@@ -79,7 +79,7 @@ class PaperFigures:
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
         cm = 1/2.54
-        self.fig = plt.figure(figsize=(3.2, 1.4))
+        self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 4e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Distance [$\mu$m]", "ylabel": f"m$_x$ / M$_S$",
@@ -100,7 +100,7 @@ class PaperFigures:
         if has_single_figure:
             # For images, may want to further alter plot outside this method. Hence, the use of attribute.
             cm = 1 / 2.54
-            self.fig = plt.figure(figsize=(3.2, 1.8))  # Strange dimensions are to give a 4x2 inch image
+            self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
             self.axes = self.fig.add_subplot(111)
         else:
             # For GIFs
@@ -252,18 +252,20 @@ class PaperFigures:
         """
 
         self.axes.clear()
-        self.axes.set_aspect('auto')
-
+        #self.axes.set_aspect('auto')
+        lower1 = 12
+        lower2 = 3345
+        lower3 = 5079
         #self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
-        self.axes.plot(self.time_data[12:3345], self.amplitude_data[12:3345, spin_site], marker='', lw=1, color='#37782c',
+        self.axes.plot(self.time_data[lower1:lower2], self.amplitude_data[lower1:lower2, spin_site], marker='', lw=0.75, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        self.axes.plot(self.time_data[3345:5079], self.amplitude_data[3345:5079, spin_site], marker='', lw=1, color='#64bb6a',
+        self.axes.plot(self.time_data[lower2:lower3], self.amplitude_data[lower2:lower3, spin_site], marker='', lw=0.75, color='#64bb6a',
                  markerfacecolor='black', markeredgecolor='black',label="Shockwave", zorder=2)
-        self.axes.plot(self.time_data[5079:], self.amplitude_data[5079:, spin_site], marker='', lw=1, color='#9fd983',
+        self.axes.plot(self.time_data[lower3:], self.amplitude_data[lower3:, spin_site], marker='', lw=0.75, color='#9fd983',
                  markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
 
-        self.axes.text(-0.05, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+        self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
                        verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
 
         ymax_plot = 3.5e-3  # self.amplitude_data[:, spin_site].max()
@@ -296,7 +298,7 @@ class PaperFigures:
             y = self.amplitude_data[:, spin_site]
 
             # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
-            ax2_inset = inset_axes(self.axes, width=1.5, height=0.525, loc="upper left", bbox_to_anchor=[0.095, 0.1+0.875], bbox_transform=self.axes.figure.transFigure)
+            ax2_inset = inset_axes(self.axes, width=1.7, height=0.45, loc="upper left", bbox_to_anchor=[0.085, 0.105+0.875], bbox_transform=self.axes.figure.transFigure)
             ax2_inset.plot(x, y, lw=0.75, color='#37782c')
 
             # Select data (of original) to show in inset through changing axis limits
@@ -374,7 +376,7 @@ class PaperFigures:
         self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
         # self.fig.tight_layout()
-
+        self.axes.set_axisbelow(False)
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
         exit(0)
 

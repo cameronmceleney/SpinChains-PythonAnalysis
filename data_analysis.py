@@ -588,7 +588,7 @@ def rc_params_update():
     small_size = 12
     large_size = 16
     smaller_size = 10
-    tiny_size = 8
+    tiny_size = 10
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
     t_dir = 'in'
