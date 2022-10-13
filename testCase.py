@@ -273,6 +273,23 @@ def propagating_modes():
     plt.show()
 
 
-dispersion_relation()
+# dispersion_relation()
 # resizing_system_test(True)
-#propagating_modes()
+# propagating_modes()
+
+def afm():
+
+    h0 = np.arange(-3, 3, 0.1)
+    gamma = 28.8
+    he = 53
+    ha = 0.787
+    omega_pos = gamma * np.sqrt(2 * he * ha + ha**2) + h0
+    omega_neg = gamma * np.sqrt(2 * he * ha + ha ** 2) - h0
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.plot(h0, omega_pos)
+    ax.plot(h0, omega_neg)
+    fig.tight_layout()
+    plt.show()
+
+afm()
