@@ -31,7 +31,7 @@ PROGRAM_NAME = "data_analysis.py"
 class PlotEigenmodes:
 
     def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
-                 file_identifier="4000spins"):
+                 file_identifier="T"):
         self.fd = file_descriptor
         self.input_dir_path = input_dir_path
         self.output_dir_path = output_dir_path
@@ -39,7 +39,7 @@ class PlotEigenmodes:
         self.fc = file_component
         self.fi = file_identifier
 
-        self.full_filename = f"{self.fp}_{self.fc}_{self.fi}-{self.fd}"
+        self.full_filename = "T1352"#f"{self.fp}{self.fc}_{self.fi}{self.fd}"
 
         rc_params_update()
 
@@ -74,7 +74,7 @@ class PlotEigenmodes:
 
         for i, does_exist in enumerate(self._does_data_exist_in_dir):
             # Tests existence of each filtered array until either False is returned, or all are present (all True).
-
+            #self._generate_file_that_is_missing(i)
             try:
                 does_exist is True
             except ValueError:
@@ -93,8 +93,7 @@ class PlotEigenmodes:
 
         return self._arrays_to_output[0], self._arrays_to_output[1], self._arrays_to_output[2]
 
-    @staticmethod
-    def _generate_file_that_is_missing(index):
+    def _generate_file_that_is_missing(self, index):
 
         # Instance of missing file has been found, and will need to generate all filtered files that are needed.
         # Before doing so, allow user to opt-out.
@@ -108,10 +107,10 @@ class PlotEigenmodes:
             else:
                 if generate_file_query == 'Y':
                     if index in [0, 1]:
-                        print('self._generate_missing_eigenvectors()')
+                        self._generate_missing_eigenvectors()
                         return
                     elif index == 2:
-                        print('self._generate_missing_eigenvalues()')
+                        self._generate_missing_eigenvalues()
                         return
                     else:
                         lg.error(f"Index of value {index} was called")
@@ -539,7 +538,7 @@ class PlotImportedData:
                     if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                        paper_fig.plot_site_variation(target_site, True, False, False)
+                        paper_fig.plot_site_variation(target_site, False, False, False)
                         lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                     else:
                         print("Exiting PF-TV plotting.")
@@ -547,7 +546,7 @@ class PlotImportedData:
                         has_more_to_plot = False
 
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.01)
+            paper_fig.create_gif(number_of_frames=0.02)
             # paper_fig2.create_gif(number_of_frames=0.01)
 
         elif pf_selection == "FFT":
@@ -614,5 +613,5 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 300,
+                         'savefig.dpi': 1000, "figure.dpi": 1000,
                          'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
