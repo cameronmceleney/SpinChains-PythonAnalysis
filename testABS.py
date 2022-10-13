@@ -29,6 +29,17 @@ Created on (date) by (author)
 
 
 # ---------------------------- Function Declarations ---------------------------
+def square_number():
+    """
+    User-inputs a number to square
+
+    :return: Squared number
+    """
+
+    number_to_square = int(input("Enter a number to square: "))
+    squared_number = number_to_square ** number_to_square
+
+    return squared_number
 
 def loggingSetup():
     """
@@ -85,7 +96,7 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 300,
+                         'savefig.dpi': 1000, "figure.dpi": 1000,
                          'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
 
 
@@ -169,72 +180,13 @@ def compare_dataset_plots():
     ax1.fill_between(time, abs(data_to_plot5), color=colour5, zorder=1.5)
     ax1.fill_between(time, abs(data_to_plot6), color=colour6, zorder=1.6)
 
-    # x_maximums1 = []
-    # y_maximums1 = []
-
-    # for i in range(2, len(data_to_plot1) - 2):
-    #     if data_to_plot1[i - 2] < data_to_plot1[i - 1] and data_to_plot1[i - 1] < data_to_plot1[i] and data_to_plot1[i + 2] < data_to_plot1[i + 1] and \
-    #             data_to_plot1[i + 1] < data_to_plot1[i]:
-    #         y_maximums1.append(data_to_plot1[i])
-    #         x_maximums1.append(time[i])
-    # ax1.plot(x_maximums1, y_maximums1, lw=1, zorder=10, label="Instant")
-    #
-    # x_maximums2 = []
-    # y_maximums2 = []
-    #
-    # for i in range(2, len(data_to_plot2) - 2):
-    #    if data_to_plot2[i - 2] < data_to_plot2[i - 1] and data_to_plot2[i - 1] < data_to_plot2[i] and data_to_plot2[i + 2] < data_to_plot2[i + 1] and \
-    #            data_to_plot2[i + 1] < data_to_plot2[i]:
-    #        y_maximums2.append(data_to_plot2[i])
-    #        x_maximums2.append(time[i])
-    # ax1.plot(x_maximums2, y_maximums2, lw=1, zorder=2, color='#648ABB')
-    # ax1.fill_between(x_maximums2, y_maximums2, color='#648ABB', zorder=2)
-    #
-    # x_maximums3 = []
-    # y_maximums3 = []
-    #
-    # for i in range(2, len(data_to_plot3) - 2):
-    #     if data_to_plot3[i - 2] < data_to_plot3[i - 1] and data_to_plot3[i - 1] < data_to_plot3[i] and data_to_plot3[i + 2] < data_to_plot3[i + 1] and \
-    #             data_to_plot3[i + 1] < data_to_plot3[i]:
-    #         y_maximums3.append(data_to_plot3[i])
-    #         x_maximums3.append(time[i])
-    # ax1.plot(x_maximums3, y_maximums3, lw=1, zorder=10, label="0.5 ns")
-    #
-    # x_maximums4 = []
-    # y_maximums4 = []
-
-    # for i in range(2, len(data_to_plot4) - 2):
-    #    if data_to_plot4[i - 2] < data_to_plot4[i - 1] and data_to_plot4[i - 1] < data_to_plot4[i] and data_to_plot4[i + 2] < data_to_plot4[i + 1] and \
-    #            data_to_plot4[i + 1] < data_to_plot4[i]:
-    #        y_maximums4.append(data_to_plot4[i])
-    #        x_maximums4.append(time[i])
-    # ax1.plot(x_maximums4, y_maximums4, lw=0, zorder=10, label="1.0 ns", color='red')
-    #
-    # x_maximums5 = []
-    # y_maximums5 = []
-    #
-    # for i in range(2, len(data_to_plot5) - 2):
-    #     if data_to_plot5[i - 2] < data_to_plot5[i - 1] and data_to_plot5[i - 1] < data_to_plot5[i] and data_to_plot5[i + 2] < data_to_plot5[i + 1] and \
-    #             data_to_plot5[i + 1] < data_to_plot5[i]:
-    #         y_maximums5.append(data_to_plot5[i])
-    #         x_maximums5.append(time[i])
-    # ax1.plot(x_maximums5, y_maximums5, lw=1, zorder=10, label="0.1 ns")
-    #
-    # x_maximums6 = []
-    # y_maximums6 = []
-    #
-    # for i in range(2, len(data_to_plot6) - 2):
-    #    if data_to_plot6[i - 2] < data_to_plot6[i - 1] and data_to_plot6[i - 1] < data_to_plot6[i] and data_to_plot6[i + 2] < data_to_plot6[i + 1] and \
-    #            data_to_plot6[i + 1] < data_to_plot6[i]:
-    #        y_maximums6.append(data_to_plot6[i])
-    #        x_maximums6.append(time[i])
-    # ax1.plot(x_maximums6, y_maximums6, lw=1, zorder=6, label="1.0 ns")
-    # ax1.fill_between(x_maximums6, y_maximums6, color='#BB9664', zorder=6)
-
     # Inset
     ax1_inset = inset_axes(ax1, width=1.55
                            , height=1.55, loc="upper left", bbox_to_anchor=[0.0875, 0.875],
                            bbox_transform=ax1.figure.transFigure)
+    mark_inset(ax1, ax1_inset, loc1=3, loc2=4, facecolor="none", edgecolor="black", lw=0.75, alpha=1.0, zorder=1.9)
+    #ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+
     ax1_inset.plot(time, abs(data_to_plot1), lw=0.5, marker='o', markersize=0, label="Instant", color=colour1,
                    zorder=1.1)
     ax1_inset.plot(time, abs(data_to_plot2), lw=0.5, marker='o', markersize=0, label="0.05", color=colour2,
@@ -303,7 +255,7 @@ def compare_dataset_plots():
         spine.set_zorder(10)
 
     ax1.yaxis.get_offset_text().set_visible(False)
-    ax1.text(-0.05, 0.98, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+    ax1.text(-0.05, 0.97, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
                    verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
 
     # ax1.margins(x=0.5, y=0.1e-3)
@@ -315,14 +267,49 @@ def compare_dataset_plots():
     ax1.legend(title="t$_g$ [ns]", ncol=1, loc="lower right",
                frameon=True, fancybox=False, facecolor='white', edgecolor='black',
                fontsize=6, title_fontsize=7,
-               bbox_to_anchor=(0.925, 0.1), bbox_transform=ax1.figure.transFigure
-               ).set_zorder(20)
+               bbox_to_anchor=(0.94, 0.08), bbox_transform=ax1.figure.transFigure
+               ).set_zorder(1.9)
 
     ax1.set_axisbelow(False)
     ax1_inset.set_axisbelow(False)
 
-    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\comparison.png", bbox_inches="tight")
+    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\comparison_220928_1.png", bbox_inches="tight")
 
+
+def afm_test():
+    # omega = np.linspace(0, 300, 1000)  # Angular frequency is in rad*GHz
+    t_range = 0.5
+    h_0 = np.linspace(-t_range, t_range, 1000)
+    gamma = 28.8
+    h_e = 53  # In tesla
+    h_a = 0.787 #  In tesla
+
+    omega_pos = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) + h_0)
+    omega_neg = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) - h_0)
+
+    fig = plt.figure(figsize=(4, 2))
+    ax = fig.add_subplot(1, 1, 1)
+
+    # # Move left y-axis and bottim x-axis to centre, passing through (0,0)
+    # ax.spines['left'].set_position('center')
+    # ax.spines['bottom'].set_position('center')
+#
+    # # Eliminate upper and right axes
+    # ax.spines['right'].set_color('none')
+    # ax.spines['top'].set_color('none')
+#
+    # # Show ticks in the left and lower axes only
+    # ax.xaxis.set_ticks_position('bottom')
+    # ax.yaxis.set_ticks_position('left')
+
+    ax.plot(h_0, omega_pos, label="$\omega_{pos}$")
+    ax.plot(h_0, omega_neg, label="$\omega_{neg}$")
+
+    ax.set(xlabel="$H_0$[T]", ylabel="$\omega$ [GHz]")
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig("D:\\Data\\2022-10-03\\Outputs\\test.png", bbox_inches="tight")
 
 # --------------------------- main() implementation ---------------------------
 
@@ -335,8 +322,8 @@ def main():
     # y_2 = 3e-3 * np.sin(2*np.pi*15 * t[200:])
     # y = np.concatenate((y_1, y_2))
 
-    SAMPLE_RATE = int(1000)  # Number of samples per nanosecond
-    DURATION = int(4)  # Nanoseconds
+    SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
+    DURATION = int(15)  # Nanoseconds
 
     def generate_sine_wave(freq, sample_rate, duration, delay_num):
         delay = int(sample_rate * delay_num)
@@ -347,39 +334,45 @@ def main():
         return t, y
 
     # Generate a 15 GHz sine wave that lasts for 5 seconds
-    x, y = generate_sine_wave(15, SAMPLE_RATE, DURATION, 2)
+    x1, y1 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 1)
     x2, y2 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 0)
-    # plt.plot(x, y)
-    # plt.show()
-
     from scipy.fft import rfft, rfftfreq
     # Number of samples in normalized_tone
-    N = int(SAMPLE_RATE * DURATION)
+    N1 = int(SAMPLE_RATE * DURATION)
+    N2 = int(SAMPLE_RATE * DURATION)
 
-    yf = rfft(y)
+    y1f = rfft(y1)
     y2f = rfft(y2)
-    xf = rfftfreq(N, 1 / SAMPLE_RATE)
+    x1f = rfftfreq(N1, 1 / SAMPLE_RATE)
+    x2f = rfftfreq(N2, 1 / SAMPLE_RATE)
 
     fig = plt.figure(figsize=(18.73 / 2.54, 4.94 / 2.54))
     ax = fig.add_subplot(111)
-    ax.plot(xf, np.abs(y2f), marker='', lw=1, color='#64bb6a', markerfacecolor='black', markeredgecolor='black',
-            label="Shockwave", zorder=2)
-    ax.plot(xf, np.abs(yf), marker='', lw=1, color='red', markerfacecolor='black', markeredgecolor='black',
-            label="Shockwave", zorder=2)
-    ax.set(xlim=(0, 30),
-           xlabel="Frequency [GHz]", ylabel="\n\nAmplitude [arb.]")
+
+    ax.plot(x1f, np.abs(y1f), marker='', lw=1.0, color='#ffb55a', markerfacecolor='black', markeredgecolor='black',
+            label="1", zorder=1.2)
+    ax.plot(x2f, np.abs(y2f), marker='', lw=1.0, ls='-', color='#64bb6a', markerfacecolor='black', markeredgecolor='black',
+            label="0", zorder=1.3)
+
+    ax.set(xlim=(5, 25), ylim=(1e0, 1e4),
+           xlabel="Frequency [GHz]", ylabel="\n\nAmplitude [arb.]",yscale='log')
     ax.grid(visible=False, axis='both', which='both')
     ax.tick_params(top="on", right="on", which="both")
 
     from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, inset_axes
-    ax2_inset = inset_axes(ax, width=2.75, height=0.9, loc="upper left", bbox_to_anchor=[0.1, 0.85],
+    ax2_inset = inset_axes(ax, width=1.75, height=0.75, loc="upper right", bbox_to_anchor=[0.88, 0.85],
                            bbox_transform=ax.figure.transFigure)
-    ax2_inset.plot(x, y, lw=0.75, color='#64bb6a', zorder=1)
+    ax2_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1)
     ax2_inset.grid(visible=False, axis='both', which='both')
-    # ax2_inset.yaxis.tick_right()
-    ax2_inset.set_xlabel('Time [ns]', fontsize=10)
+    ax2_inset.yaxis.tick_right()
+    ax2_inset.set_xlabel('Time [ns]', fontsize=8)
+    ax2_inset.yaxis.set_label_position("right")
+    ax2_inset.set_ylabel('Amplitude\n[arb.]', fontsize=8, rotation=-90, labelpad=10)
     ax2_inset.tick_params(axis='both', labelsize=8)
-    ax2_inset.set_yticks([])
+    #ax2_inset.set(xlim=[0, 20], ylim=[-1, 1],
+    #              yscale="linear")
+    #ax2_inset.set_yticks([])
+
     ax2_inset.patch.set_color("#f9f2e9")
 
     for spine in ['top', 'bottom', 'left', 'right']:
@@ -388,27 +381,41 @@ def main():
 
     ax.xaxis.set(major_locator=ticker.MultipleLocator(5),
                  minor_locator=ticker.MultipleLocator(1))
-    ax2_inset.xaxis.set(major_locator=ticker.MultipleLocator(2),
-                        minor_locator=ticker.MultipleLocator(0.5))
-    ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
-                 minor_locator=ticker.AutoMinorLocator(4))
+    ax2_inset.xaxis.set(major_locator=ticker.MultipleLocator(4),
+                        minor_locator=ticker.MultipleLocator(1))
+    ax2_inset.xaxis.labelpad = -0.5
 
-    formatter = ticker.ScalarFormatter(useMathText=True)
-    ax.yaxis.set_major_formatter(formatter)
-    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-    ax.yaxis.get_offset_text().set_visible(False)
+    ax.set_axisbelow(False)
+    ax2_inset.set_axisbelow(False)
 
-    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\image3.png", bbox_inches="tight", dpi=1000)
+    ax.legend(title="$\Delta t$ [ns]", ncol=1, loc="upper left",
+              frameon=False, fancybox=False, facecolor='white', edgecolor='black',
+              fontsize=8, title_fontsize=10,
+              bbox_to_anchor=(0.0875, 0.85), bbox_transform=ax.figure.transFigure
+              ).set_zorder(4)
+
+    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\image4.png", bbox_inches="tight")
 
     lg.info(f"{PROGRAM_NAME} end")
     exit()
 
+def test():
 
+    omega = 20e9
+    t = np.linspace(0, 1e-9, 10000)
+    drive = np.cos(omega * t)
+    fig = plt.figure(figsize=(4,4))
+    ax = fig.add_subplot(1,1,1)
+    ax.plot(t, drive)
+    plt.show()
 # ------------------------------ Implementations ------------------------------
 
 if __name__ == '__main__':
     # loggingSetup()
-    rc_params_update()
+    #rc_params_update()
+    #square_number()
     #compare_dataset_plots()
-    #exit()
-    main()
+    test()
+    #afm_test()
+    exit()
+    #main()
