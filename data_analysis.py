@@ -179,7 +179,7 @@ class PlotImportedData:
 
         rc_params_update()
 
-        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
+        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
 
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
@@ -558,13 +558,13 @@ class PlotImportedData:
                     target_site = int(target_site)
                     if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
-                        lg.info(f"Generating SV plot for Spin Site [#{target_site}]")
+                        lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
                         paper_fig.plot_fft(target_site)
                         lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
                         exit(0)
                     else:
-                        print("Exiting PF-SV plotting.")
-                        lg.info(f"Exiting PF-SV based upon user input of [{target_site}]")
+                        print("Exiting PF-FFT plotting.")
+                        lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
                         has_more_to_plot = False
 
         lg.info(f"Plotting PF complete!")
