@@ -39,13 +39,9 @@ def main():
     dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                    file_prefix="rk2", file_component='mx', file_identifier="T")
     dataset1.call_methods()
-    #inputpath = "D:\\Data\\2022-10-06\\Simulation_Data\\"
-    #outputpath = "D:\\Data\\2022-10-06\\Outputs\\"
-    #inputpath = "/Users/cameronmceleney/CLionProjects/Data/2022-10-06/Simulation_Data/"
-    #outputpath = "/Users/cameronmceleney/CLionProjects/Data/2022-10-06/Outputs/"
-    #dataset2 = das.PlotEigenmodes(filename_base, inputpath, outputpath,
-    #                              file_prefix="", file_component='eigenvalues', file_identifier="T")
-    #dataset2._import_eigenmodes()
+
+    #dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
+    #dataset2.import_eigenmodes()
     #dataset2.plot_eigenmodes()
 
     exit(0)

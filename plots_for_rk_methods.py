@@ -95,7 +95,7 @@ class PaperFigures:
         :param bool has_single_figure: Flag to ensure that class
         attribute is used for single figure case, to allow for the saving of the figure out with this method.
 
-        :return: No return statement. Method will output a figure to wherever the method was invoked.
+        :return: No return statement. Method will outpfut a figure to wherever the method was invoked.
         """
         if has_single_figure:
             # For images, may want to further alter plot outside this method. Hence, the use of attribute.
