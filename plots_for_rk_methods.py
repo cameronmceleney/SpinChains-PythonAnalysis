@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import matplotlib
+matplotlib.use('macosx')
 # Standard modules (common)
 import matplotlib.pyplot as plt
 import numpy as np
@@ -78,7 +79,7 @@ class PaperFigures:
         self.gyro_mag_ratio = key_data['gyroMagRatio']
 
         # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
-        cm = 1/2.54
+        cm = 1 / 2.54
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 6e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
@@ -95,7 +96,7 @@ class PaperFigures:
         :param bool has_single_figure: Flag to ensure that class
         attribute is used for single figure case, to allow for the saving of the figure out with this method.
 
-        :return: No return statement. Method will outpfut a figure to wherever the method was invoked.
+        :return: No return statement. Method will output a figure to wherever the method was invoked.
         """
         if has_single_figure:
             # For images, may want to further alter plot outside this method. Hence, the use of attribute.
@@ -189,19 +190,19 @@ class PaperFigures:
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
         # Add text to figure with simulation parameters
-        #if self.exchange_min == self.exchange_max:
+        # if self.exchange_min == self.exchange_max:
         #    exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
-        #else:
+        # else:
         #    exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
         #                     f"{self.exchange_max} [T]"
-        #textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
+        # textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
         #                                                                               f" = {self.gilbert_factor: 2.2e}\n" \
         #                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
         #                                                                               f"{exchangeString}"
-#
-        #props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+        #
+        # props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
         ## Place text box in upper left in axes coords
-        #self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
+        # self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
         #               verticalalignment='top', bbox=props, ha='center', va='center')
 
         # Figure outputs
@@ -1076,22 +1077,58 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_t
     ax.set_xlabel('time', fontsize=12)
     ax.set_ylabel('m$_x$', fontsize=12)
     ax.set_zlabel('m$_y$', fontsize=12)
-    # ax = plt.axes(projection='3d')
-    # if use_tri:
-    #     ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
-    # else:
-    #     ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
-    #     ax.legend()
-    #
-    # ax.set_xlabel('m$_x$', fontsize=12)
-    # ax.set_ylabel('m$_y$', fontsize=12)
-    # ax.set_zlabel('m$_z$', fontsize=12)
-    #
-    # ax.xaxis.set_rotate_label(False)
-    # ax.yaxis.set_rotate_label(False)
-    # ax.zaxis.set_rotate_label(False)
+    ax = plt.axes(projection='3d')
+    if use_tri:
+        ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
+    else:
+        ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
+        ax.legend()
+
+    ax.set_xlabel('m$_x$', fontsize=12)
+    ax.set_ylabel('m$_y$', fontsize=12)
+    ax.set_zlabel('m$_z$', fontsize=12)
+
+    ax.xaxis.set_rotate_label(False)
+    ax.yaxis.set_rotate_label(False)
+    ax.zaxis.set_rotate_label(False)
     fig.savefig(f"{output_file}_contour.png")
 
+
+def test_3d_plot(mx_data, my_data, mz_data, spin_site):
+    x1 = mx_data[:, 1]
+    y1 = my_data[:, 1]
+    z1 = mz_data[:, 1]
+
+    x2 = mx_data[:, 2]
+    y2 = my_data[:, 2]
+    z2 = mz_data[:, 2]
+    time = mx_data[:, 0]
+
+    fig = plt.figure(figsize=(4, 4))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot3D(x1, y1, z1, markersize=1, color='grey', ls='--', alpha=0.8, label='site1', zorder=1.2)
+    ax.plot3D(x2, y2, z2, markersize=1, color='black', alpha=0.8, label='site2',zorder=1.1)
+    #ax.plot(x1, y1, 'o', markersize=1, color='grey', alpha=1.0, label='site1')
+    #ax.plot(x2, y2, 'o', markersize=1, color='black', alpha=1.0, label='site2')
+    #ax.invert_xaxis()
+    ax.set(xlabel='x', ylabel='y', zlabel='z', zlim=[-1, 1])
+    ax.legend()
+
+    #ax.xaxis.set(major_formatter=ticker.FormatStrFormatter("%1.1f"))
+    #ax.yaxis.set(major_formatter=ticker.FormatStrFormatter("%1.1f"))
+    #ax.zaxis.set(major_formatter=ticker.FormatStrFormatter("%1.f"))
+    #formatter = ticker.ScalarFormatter(useMathText=True)
+    #ax.xaxis.set_major_formatter(formatter)
+    #ax.yaxis.set_major_formatter(formatter)
+    #ax.zaxis.set_major_formatter(formatter)
+    #ax.ticklabel_format(axis='x', style='sci', scilimits=(-4, 4))
+    #ax.ticklabel_format(axis='y', style='sci', scilimits=(-4, 4))
+    #ax.ticklabel_format(axis='z', style='sci', scilimits=(-4, 4))
+    #ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-12/Outputs/threeDplot.png")
+    plt.show()
 
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
 def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
@@ -1212,7 +1249,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
         step = int(input("Enter step: "))
         lower = int(input("Enter lower: "))
         upper = int(input("Enter upper: "))
-        width_ones = float(input("Enter width of driving region: "))
+        width_ones = float(input("Enter width of driving region [0, 1]: "))
         width_zeros = 1 - width_ones
 
     # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
@@ -1243,7 +1280,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     # Plotting functions. Left here as nothing else will use this functionality.
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f'for a Non-Uniform System')  # {file_name}
+    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f'for a Uniform System')  # {file_name}
     plt.subplots_adjust(top=0.82)
 
     # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
@@ -1269,7 +1306,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     ax.grid(lw=2, ls='-')
 
     plt.tight_layout()
-    plt.show()
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-12/Outputs/fourier.png")
 
 
 def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
@@ -1285,6 +1322,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     :return: Outputs a single figure.
 
     """
+    print('Plotting please wait...')
     eigenmode += - 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
 
     # Select single mode to plot from imported data.
@@ -1323,7 +1361,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
 
     plt.tight_layout()
-    plt.show()
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-08/Outputs/eigenmode_{eigenmode+1}.png")
 
 
 # ----------------------------------------------------- Animation -----------------------------------------------------

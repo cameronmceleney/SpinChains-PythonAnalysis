@@ -27,17 +27,17 @@ PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
 def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info(f"Program start...")
-
+  # https://REDACTED@github.com/cameronmceleney/SpinChains.git
     # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(has_custom_name=False)
+    system_setup.detect_os(has_custom_name=True)
 
-    filename_base = str(input("Enter the unique identifier of the file: "))
+    filename_base = "1836"  # str(input("Enter the unique identifier of the file: "))
     dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
-                                   file_prefix="rk2", file_component='mx', file_identifier="T")
+                                    file_prefix="rk2", file_component='mx', file_identifier="T")
     dataset1.call_methods()
 
     #dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())

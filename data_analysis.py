@@ -29,34 +29,37 @@ PROGRAM_NAME = "data_analysis.py"
 
 
 class PlotEigenmodes:
-
-    def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
+    def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="eigenvalues", file_component="",
                  file_identifier="T"):
-        self.fd = file_descriptor
+
         self.input_dir_path = input_dir_path
         self.output_dir_path = output_dir_path
+
+        # Automatically constructs filename
+        self.fd = file_descriptor
         self.fp = file_prefix
         self.fc = file_component
         self.fi = file_identifier
-
-        self.full_filename = "T1352"#f"{self.fp}{self.fc}_{self.fi}{self.fd}"
+        self.full_filename = f"{self.fp}{self.fc}_{self.fi}{self.fd}"
 
         rc_params_update()
 
         # Arrays are inherently mutable, so there is no need to use @property decorator
         self.input_filenames_descriptions = ["mx_data", "my_data", "eigenvalues_data"]
+
         self._arrays_to_output = [0, 0, 0]  # Each array is initialised as none to remove garbage.
         self._does_data_exist_in_dir = [False, False, False]  # Tests if each filtered array is in the target directory.
-        self.output_filenames = [f"mx_formatted_{self.full_filename}.csv",
-                                 f"my_formatted_{self.full_filename}.csv",
+
+        self.output_filenames = [f"mx_formatted_{self.fi}{self.fd}.csv",
+                                 f"my_formatted_{self.fi}{self.fd}.csv",
                                  f"eigenvalues_formatted_{self.full_filename}.csv"]
         self.mx_data, self.my_data, self.eigenvalues_data = None, None, None
 
-    def _import_eigenmodes(self):
+    def import_eigenmodes(self):
         # Containers to store key information about the returned arrays. Iterating through containers was felt to be
         # easier to read than having many lines of variable declarations and initialisations.
 
-        print(f"\nChecking chosen directories for files...")
+        print(f"\nChecking chosen directories for input files...")
 
         for i, (output_file_description, output_file) in enumerate(
                 zip(self.input_filenames_descriptions, self.output_filenames)):
@@ -72,11 +75,15 @@ class PlotEigenmodes:
                 self._does_data_exist_in_dir[i] = False
                 print(f"{output_file_description}: not found")
 
+        print(f"\nChecking chosen directories for processed files...")
         for i, does_exist in enumerate(self._does_data_exist_in_dir):
             # Tests existence of each filtered array until either False is returned, or all are present (all True).
-            #self._generate_file_that_is_missing(i)
+
             try:
-                does_exist is True
+                if does_exist is True:
+                    pass
+                elif does_exist is False:
+                    self._generate_file_that_is_missing(i)
             except ValueError:
                 try:
                     does_exist is False
@@ -88,10 +95,8 @@ class PlotEigenmodes:
             else:
                 print(f"{self.input_filenames_descriptions[i]} successfully found")
 
-        else:
-            print("All files successfully found!\n")
-
         return self._arrays_to_output[0], self._arrays_to_output[1], self._arrays_to_output[2]
+
 
     def _generate_file_that_is_missing(self, index):
 
@@ -109,7 +114,7 @@ class PlotEigenmodes:
                     if index in [0, 1]:
                         self._generate_missing_eigenvectors()
                         return
-                    elif index == 2:
+                    elif index in [2]:
                         self._generate_missing_eigenvalues()
                         return
                     else:
@@ -125,15 +130,21 @@ class PlotEigenmodes:
         lg.info(f"Missing Eigenvalues file found. Attempting to generate new file in correct format...")
 
         # 'Raw' refers to the data produces from the C++ code.
-        eigenvalues_raw = np.loadtxt(f"{self.input_dir_path}eigenvalues_{self.full_filename}.csv",
+        eigenvalues_raw = np.loadtxt(f"{self.input_dir_path}eigenvalues_{self.fi}{self.fd}.csv",
                                      delimiter=",")
 
         # Filtered refers to the data imported into, and amended by, this Python code.
         eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
+        #print(eigenvalues_raw)
+        #eigenvalues_filtered = eigenvalues_raw[eigenvalues_raw >= 0]
+        #print(eigenvalues_filtered)
+        #eigenvalues_filtered = eigenvalues_filtered.sort(reverse=True)
+        #print(eigenvalues_filtered)
 
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[2]}", eigenvalues_filtered,
                    delimiter=',')
+
 
         lg.info(f"Successfully generated missing (eigenvalues) file, which is saved in {self.input_dir_path}")
 
@@ -142,7 +153,7 @@ class PlotEigenmodes:
         lg.info(f"Missing (mx) and/or (my) file(s) found. Attempting to generate new files in correct format...")
 
         # 'Raw' refers to the data produces from the C++ code.
-        eigenvectors_raw = np.loadtxt(f"{self.input_dir_path}eigenvectors_{self.full_filename}.csv",
+        eigenvectors_raw = np.loadtxt(f"{self.input_dir_path}eigenvectors_{self.fi}{self.fd}.csv",
                                       delimiter=",")
 
         # Filtered refers to the data imported into, and amended by, this Python code.
@@ -157,7 +168,7 @@ class PlotEigenmodes:
 
         lg.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
 
-        eigenmodes_data = self._import_eigenmodes()
+        eigenmodes_data = self.import_eigenmodes()
         [self.mx_data, self.my_data, self.eigenvalues_data] = eigenmodes_data
 
     def plot_eigenmodes(self):
@@ -179,7 +190,7 @@ class PlotImportedData:
 
         rc_params_update()
 
-        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
+        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
 
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
@@ -495,7 +506,8 @@ class PlotImportedData:
                                                input_data_path=my_path)
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
-        plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
+        #plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
+        plt_rk.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         lg.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
@@ -546,7 +558,7 @@ class PlotImportedData:
                         has_more_to_plot = False
 
         elif pf_selection == "GIF":
-            paper_fig.create_gif(number_of_frames=0.02)
+            paper_fig.create_gif(number_of_frames=0.01)
             # paper_fig2.create_gif(number_of_frames=0.01)
 
         elif pf_selection == "FFT":
