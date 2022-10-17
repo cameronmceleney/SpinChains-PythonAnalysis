@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import matplotlib
-matplotlib.use('macosx')
+#import matplotlib
+#matplotlib.use('macosx')
 # Standard modules (common)
 import matplotlib.pyplot as plt
 import numpy as np
@@ -84,7 +84,7 @@ class PaperFigures:
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 6e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
-                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+                       "xlim": [0, self.number_spins]}#, "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
@@ -118,8 +118,8 @@ class PaperFigures:
 
         self.axes.set(**self.kwargs)
 
-        self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-                       verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+        #self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
         self.axes.text(0.88, 0.88, f"(c) {self.time_data[plot_row]:2.3f} ns",
                        verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
         self.axes.xaxis.labelpad = -1.5
@@ -159,7 +159,7 @@ class PaperFigures:
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        self._tick_setter(self.axes, 250, 50, 3, 4)
+        self._tick_setter(self.axes, 2000, 500, 3, 4)
         class ScalarFormatterClass(ticker.ScalarFormatter):
             def _set_format(self):
                 self.format = "%1.1f"
@@ -274,8 +274,8 @@ class PaperFigures:
         self.axes.plot(self.time_data[lower3:], self.amplitude_data[lower3:, spin_site], marker='', lw=0.75, color='#9fd983',
                  markerfacecolor='black', markeredgecolor='black',label="Steady State", zorder=1)
 
-        self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-                       verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+        #self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
         #self.axes.text(0.04, 0.1, f"(b) 10 GHz",
         #               verticalalignment='center', horizontalalignment='left', transform=self.axes.transAxes, fontsize=6)
 
@@ -283,9 +283,9 @@ class PaperFigures:
         xlim_in = self.max_time  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0, xlim_in],
-                      ylim=[-1*ymax_plot,# - 1.25e-3,
-                            ymax_plot])
+                      xlim=[0, xlim_in])#,
+                      #ylim=[-1*ymax_plot,# - 1.25e-3,
+                      #      ymax_plot])
 
         #line_height = -3.625e-3
         #axes_props1 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#37782c", 'lw': 0.8}
@@ -306,8 +306,8 @@ class PaperFigures:
         #self.axes.text(4.4, -4.5e-3, 'Equilibrium', ha='center', va='bottom', fontsize=6)
 
         # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(0.025),
-                            minor_locator=ticker.MultipleLocator(0.005))
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(0.3/4),
+                            minor_locator=ticker.MultipleLocator(0.3/12))
         self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
                             minor_locator=ticker.AutoMinorLocator(4))
 
@@ -324,7 +324,7 @@ class PaperFigures:
         self.axes.yaxis.set_major_formatter(yScalarFormatter)
 
         self.axes.yaxis.get_offset_text().set_fontsize(6)
-        self.axes.yaxis.get_offset_text().set_visible(False)
+        #self.axes.yaxis.get_offset_text().set_visible(False)
         self.axes.yaxis.labelpad = -3
 
         # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
@@ -681,7 +681,7 @@ class PaperFigures:
             ax.yaxis.set_major_formatter(formatter)
 
             #ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-            ax.yaxis.get_offset_text().set_visible(False)
+            #ax.yaxis.get_offset_text().set_visible(False)
             #ax.yaxis.get_offset_text().set_fontsize(8)
             t = ax.yaxis.get_offset_text()
             t.set_x(-0.045)
@@ -1253,8 +1253,8 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
         width_zeros = 1 - width_ones
 
     # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
-    eigenvalues_angular = np.append([0], eigenvalues_angular)
-    eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues_angular]
+    eigenvalues_angular = np.append([0], eigenvalues_angular)  # eigenvalues_angular
+    eigenvalues = [eigval for eigval in eigenvalues_angular]
     x_axis_limits = range(0, number_of_spins)
 
     # Find widths of each component of the driving regions.
@@ -1284,13 +1284,13 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     plt.subplots_adjust(top=0.82)
 
     # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs) * 1e1, lw=3, marker='o', label='Left', zorder=2)
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs) * 1e1, lw=3, color='r',
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', label='Left', zorder=2)
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
                  marker='o', label='Right', zorder=1)
 
     # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
     ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
-           xlim=[lower, upper], yscale='log', ylim=[1e-2, 1e-0],
+           xlim=[lower, upper], yscale='log', ylim=[1e-3, 1e-1],
            xticks=list(range(lower, upper + 1, step)),
            xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
 
@@ -1306,7 +1306,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     ax.grid(lw=2, ls='-')
 
     plt.tight_layout()
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-12/Outputs/fourier.png")
+    fig.savefig(f"D:\\Data\\2022-10-14\\Outputs\\fourier.png")
 
 
 def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
@@ -1332,7 +1332,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     # Simulation parameters
     number_of_spins = len(mx_mode) + 2
     driving_width = 0.05
-    frequency = eigenvalues_data[eigenmode] / (2 * np.pi)  # Convert angular (frequency) eigenvalue to frequency [Hz].
+    frequency = eigenvalues_data[eigenmode]  # Convert angular (frequency) eigenvalue to frequency [Hz].
 
     if has_endpoints:
         # 0-valued reflects the (P-1) and (N+1) end spins that act as fixed nodes for the system.
@@ -1361,7 +1361,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
 
     plt.tight_layout()
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-08/Outputs/eigenmode_{eigenmode+1}.png")
+    fig.savefig(f"D:\\Data\\2022-10-14\\Outputs\\eigenmode_{eigenmode+1}.png")
 
 
 # ----------------------------------------------------- Animation -----------------------------------------------------
