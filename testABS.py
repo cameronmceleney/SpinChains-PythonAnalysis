@@ -41,6 +41,7 @@ def square_number():
 
     return squared_number
 
+
 def loggingSetup():
     """
     Minimum Working Example (MWE) for logging. Pre-defined levels are:
@@ -185,7 +186,7 @@ def compare_dataset_plots():
                            , height=1.55, loc="upper left", bbox_to_anchor=[0.0875, 0.875],
                            bbox_transform=ax1.figure.transFigure)
     mark_inset(ax1, ax1_inset, loc1=3, loc2=4, facecolor="none", edgecolor="black", lw=0.75, alpha=1.0, zorder=1.9)
-    #ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+    # ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
 
     ax1_inset.plot(time, abs(data_to_plot1), lw=0.5, marker='o', markersize=0, label="Instant", color=colour1,
                    zorder=1.1)
@@ -210,15 +211,15 @@ def compare_dataset_plots():
 
     ax1.xaxis.set(major_locator=ticker.MultipleLocator(1.0), major_formatter=ticker.FormatStrFormatter("%.1f"),
                   minor_locator=ticker.MultipleLocator(0.2))
-    #ax1.locator_params(axis='y', nbins=3)
+    # ax1.locator_params(axis='y', nbins=3)
     locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.01, numticks=15)
     ax1.yaxis.set_minor_locator(locmin)
     ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
     ax1.set_yticks([1e-4, 1e-3, 2e-3, 3e-3])
-    #ax1.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=15))
-    #locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=15)
-    #ax1.yaxis.set_minor_locator(locmin)
-    #ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
+    # ax1.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=15))
+    # locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=15)
+    # ax1.yaxis.set_minor_locator(locmin)
+    # ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
     # locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=20)
     # ax1.yaxis.set_minor_locator(locmin)
     # ax1.yaxis.set_minor_formatter(ticker.NullFormatter())
@@ -256,7 +257,7 @@ def compare_dataset_plots():
 
     ax1.yaxis.get_offset_text().set_visible(False)
     ax1.text(-0.05, 0.97, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-                   verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
+             verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
 
     # ax1.margins(x=0.5, y=0.1e-3)
     ax1_inset.set_axisbelow(False)
@@ -280,36 +281,105 @@ def afm_test():
     # omega = np.linspace(0, 300, 1000)  # Angular frequency is in rad*GHz
     t_range = 0.5
     h_0 = np.linspace(-t_range, t_range, 1000)
-    gamma = 28.8
+
     h_e = 53  # In tesla
-    h_a = 0.787 #  In tesla
+    h_a = 0.787  # In tesla
+    hbar = 1.05456e-34  # m^2 kg s^-1
 
-    omega_pos = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) + h_0)
-    omega_neg = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) - h_0)
+    # k = (2 * np.pi) / np.linspace(0, 100, 10000)
 
-    fig = plt.figure(figsize=(4, 2))
+    w_afm = np.linspace(0, 4000e9, 1000)
+    J = 53
+    S = 1
+    hbar = 1.05457182E-27  # m^2 kg s^-1
+
+    hbar_cgs = 1.0545919e-27  # erg s
+
+    j_2_mev = 6.2415e21
+    erg_to_joule = 1e-7
+    erg_to_meV = erg_to_joule * j_2_mev
+    hz_to_ghz = 1e9
+
+    # y_fm = (hbar * w) / (4 * S * J)
+
+    # omega_pos = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) + h_0)
+    # omega_neg = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) - h_0)
+    # w_ex_afm = 4 * J * np.abs(np.sin(k_afm * a))
+    # omega_fm = (2 * 13.25 * 2**2) / (k**2 * hbar)
+    gamma = 2.8 * hz_to_ghz * 2 * np.pi # Hz / kOe
+    a = 2  # nm
+    He = 570  # kOe
+    Ha = 8.2  # kOe
+    H0paper = 0
+
+    k_afm = np.linspace(0, 0.5 * 2 * np.pi, 1000)
+    gamma_k = np.cos(k_afm / 2)
+
+    omega_k = np.sqrt(2 * He * Ha + Ha ** 2 + He ** 2 * (1.0 - gamma_k ** 2))
+    w_afm_paper = gamma * (omega_k + H0paper)
+
+    fig = plt.figure(figsize=(6, 6))
     ax = fig.add_subplot(1, 1, 1)
 
     # # Move left y-axis and bottim x-axis to centre, passing through (0,0)
     # ax.spines['left'].set_position('center')
     # ax.spines['bottom'].set_position('center')
-#
+    #
     # # Eliminate upper and right axes
     # ax.spines['right'].set_color('none')
     # ax.spines['top'].set_color('none')
-#
+    #
     # # Show ticks in the left and lower axes only
     # ax.xaxis.set_ticks_position('bottom')
     # ax.yaxis.set_ticks_position('left')
 
-    ax.plot(h_0, omega_pos, label="$\omega_{pos}$")
-    ax.plot(h_0, omega_neg, label="$\omega_{neg}$")
+    # ax.plot(h_0, omega_pos_0, label="$\omega_{pos}$")
+    # ax.plot(h_0, omega_pos_01, label="$\omega_{neg}$")
+    # ax.plot(h_0, omega_pos_0787, label="$\omega_{neg}$")
 
-    ax.set(xlabel="$H_0$[T]", ylabel="$\omega$ [GHz]")
+    # ax.plot(k, 1 - np.cos(k*a), label="FM")
+    # ax.plot(k_afm, w_ex_afm, label='Dispersion Relation')
+    # ax.plot(k_afm, 4 * 53 * 1 * k_afm * a, label='Linear (ka << 1)')
+    ax.plot(k_afm / (2 * np.pi), hbar_cgs * w_afm_paper * erg_to_meV, label='new')
+    # ax.set(xlabel="$k$", ylabel="$\hbar$ $\omega$ / 4 S J")
+    # ax.set(xlabel="$k$ [m]", ylabel='$\hbar$ $\omega$')
+    ax.set(xlabel="$k_z$ / 2 $\pi$", ylabel='Energy (meV)')
+
+    # ax.set(xlabel="$H_0$[T]", ylabel="$\omega$ [GHz]")
     ax.legend()
 
     fig.tight_layout()
-    fig.savefig("D:\\Data\\2022-10-03\\Outputs\\test.png", bbox_inches="tight")
+    fig.savefig("D:\\Data\\2022-10-17\\Outputs\\test4.png", bbox_inches="tight")
+
+
+def afm_test_si():
+    # T: kg s-2 A-1. Units of H: A m-1. Units  of mu0*H: T
+    joule_to_meV = 6.242e21
+
+    gamma = 28e9 * 2 * np.pi  # Hz / T
+    mu_0 = 1.256637062e-6  # kg m s-2 A-2
+    hbar = 1.054571817e-34  # J s
+    h_bar_meV = hbar * joule_to_meV
+    h_ex = 57 / mu_0  # T
+    h_a = 0.82 / mu_0  # T
+    h_0 = 0 / mu_0  # T
+
+    k = np.linspace(0, 0.5 * 2 * np.pi, 1000)
+    gamma_k = np.cos(k / 2)
+    w_k = np.sqrt(2*h_ex*h_a + h_a**2 + (h_ex**2) * (1 - gamma_k ** 2))
+    omega = gamma * (w_k + h_0)
+    print(omega[0] * h_bar_meV)
+
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(k / (2 * np.pi), omega * h_bar_meV, label='new')
+    ax.set(xlabel="$k_z$ / 2 $\pi$", ylabel='Energy (meV)')
+
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig("D:\\Data\\2022-10-17\\Outputs\\test5.png", bbox_inches="tight")
+
 
 # --------------------------- main() implementation ---------------------------
 
@@ -351,11 +421,12 @@ def main():
 
     ax.plot(x1f, np.abs(y1f), marker='', lw=1.0, color='#ffb55a', markerfacecolor='black', markeredgecolor='black',
             label="1", zorder=1.2)
-    ax.plot(x2f, np.abs(y2f), marker='', lw=1.0, ls='-', color='#64bb6a', markerfacecolor='black', markeredgecolor='black',
+    ax.plot(x2f, np.abs(y2f), marker='', lw=1.0, ls='-', color='#64bb6a', markerfacecolor='black',
+            markeredgecolor='black',
             label="0", zorder=1.3)
 
     ax.set(xlim=(5, 25), ylim=(1e0, 1e4),
-           xlabel="Frequency [GHz]", ylabel="\n\nAmplitude [arb.]",yscale='log')
+           xlabel="Frequency [GHz]", ylabel="\n\nAmplitude [arb.]", yscale='log')
     ax.grid(visible=False, axis='both', which='both')
     ax.tick_params(top="on", right="on", which="both")
 
@@ -369,9 +440,9 @@ def main():
     ax2_inset.yaxis.set_label_position("right")
     ax2_inset.set_ylabel('Amplitude\n[arb.]', fontsize=8, rotation=-90, labelpad=10)
     ax2_inset.tick_params(axis='both', labelsize=8)
-    #ax2_inset.set(xlim=[0, 20], ylim=[-1, 1],
+    # ax2_inset.set(xlim=[0, 20], ylim=[-1, 1],
     #              yscale="linear")
-    #ax2_inset.set_yticks([])
+    # ax2_inset.set_yticks([])
 
     ax2_inset.patch.set_color("#f9f2e9")
 
@@ -399,23 +470,25 @@ def main():
     lg.info(f"{PROGRAM_NAME} end")
     exit()
 
-def test():
 
+def test():
     omega = 20e9
     t = np.linspace(0, 1e-9, 10000)
     drive = np.cos(omega * t)
-    fig = plt.figure(figsize=(4,4))
-    ax = fig.add_subplot(1,1,1)
+    fig = plt.figure(figsize=(4, 4))
+    ax = fig.add_subplot(1, 1, 1)
     ax.plot(t, drive)
     plt.show()
+
+
 # ------------------------------ Implementations ------------------------------
 
 if __name__ == '__main__':
     # loggingSetup()
-    #rc_params_update()
-    #square_number()
-    #compare_dataset_plots()
-    test()
-    #afm_test()
+    # rc_params_update()
+    # square_number()
+    # compare_dataset_plots()
+    # test()
+    afm_test()
     exit()
-    #main()
+    # main()
