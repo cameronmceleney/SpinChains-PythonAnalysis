@@ -399,6 +399,9 @@ class PlotImportedData:
         elif method_to_call == "CP":
             self._invoke_contour_plot()
 
+        elif method_to_call == 'DIS':
+            self._invoke_dispersion_relation()
+
         elif method_to_call == "EXIT":
             self._exit_conditions()
 
@@ -510,6 +513,12 @@ class PlotImportedData:
         plt_rk.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         lg.info(f"Plotting CP complete!")
 
+    def _invoke_dispersion_relation(self):
+        # Use this if you wish to see what ranplotter.py would output
+        lg.info(f"Plotting function selected: dispersion relation plot.")
+
+        plt_rk.plot_dispersion_relation(self.header_data_params, self.full_output_path)
+        lg.info(f"Plotting CP complete!")
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         lg.info(f"Plotting function selected: paper figure.")

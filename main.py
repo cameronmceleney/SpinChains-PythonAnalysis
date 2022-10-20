@@ -32,17 +32,21 @@ def main():
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
+    _should_use_eigs = True
+
     system_setup = sp.SystemSetup()
     system_setup.detect_os(has_custom_name=False)
 
     filename_base = str(input("Enter the unique identifier of the file: "))
-    #dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
-    #                                file_prefix="rk2", file_component='mx', file_identifier="T")
-    #dataset1.call_methods()
+    if not _should_use_eigs:
+        dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
+                                        file_prefix="rk2", file_component='mx', file_identifier="T")
+        dataset1.call_methods()
 
-    dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
-    dataset2.import_eigenmodes()
-    dataset2.plot_eigenmodes()
+    elif _should_use_eigs:
+        dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
+        dataset2.import_eigenmodes()
+        dataset2.plot_eigenmodes()
 
     exit(0)
 

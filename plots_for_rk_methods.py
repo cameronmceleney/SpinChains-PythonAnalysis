@@ -1364,6 +1364,36 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     fig.savefig(f"D:\\Data\\2022-10-14\\Outputs\\eigenmode_{eigenmode+1}.png")
 
 
+def plot_dispersion_relation(key_data, output_filepath):
+    h_0 = key_data['staticBiasField']
+    h_ex_1 = key_data['exchangeMinVal']
+    h_ex_2 = key_data['exchangeMaxVal']
+    gamma = key_data['gyroMagRatio']
+
+    h_0_arr = np.linspace(-h_0, h_0, 1000)
+
+    h_a = int(input("Enter the Ha value [T]: "))
+
+    gamma_si = 28  # GHz / T raf
+    he_si = 53  # T
+    ha_si = 0.787  # T
+
+    omega_pos = gamma_si * (np.sqrt(2 * h_ex_1 * h_a + h_a ** 2) + h_ex_1)
+    omega_neg = gamma_si * (np.sqrt(2 * h_ex_1 * h_a + h_a ** 2) - h_ex_1)
+
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.add_subplot(1, 1, 1)
+
+    ax.plot(h_0_arr, omega_pos, label="$\omega_{pos}$")
+    ax.plot(h_0_arr, omega_neg, label="$\omega_{neg}$")
+
+    ax.set(xlabel="$H_0$[T]", ylabel="$\\frac{\omega}{2 \pi}$ [GHz]")
+
+    ax.legend()
+    fig.tight_layout()
+
+    fig.savefig(f"{output_filepath}_dispersion.png", bbox_inches="tight")
+
 # ----------------------------------------------------- Animation -----------------------------------------------------
 def animate_plot(key_data, amplitude_data, path_to_save_gif, file_name):
     """

@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 # -------------------------- Preprocessing Directives -------------------------
+import matplotlib
+#matplotlib.use('macosx')
 
 # Standard Libraries
 import logging as lg
 # import os as os
 from sys import exit
 import seaborn as sns
+
 
 # 3rd Party packages
 from datetime import datetime
@@ -278,78 +281,135 @@ def compare_dataset_plots():
 
 
 def afm_test():
-    # omega = np.linspace(0, 300, 1000)  # Angular frequency is in rad*GHz
-    t_range = 0.5
-    h_0 = np.linspace(-t_range, t_range, 1000)
 
-    h_e = 53  # In tesla
-    h_a = 0.787  # In tesla
-    hbar = 1.05456e-34  # m^2 kg s^-1
+    type = 7
 
-    # k = (2 * np.pi) / np.linspace(0, 100, 10000)
-
-    w_afm = np.linspace(0, 4000e9, 1000)
-    J = 53
-    S = 1
-    hbar = 1.05457182E-27  # m^2 kg s^-1
-
-    hbar_cgs = 1.0545919e-27  # erg s
+    hbar_si = 1.05456e-34  # m^2 kg s^-1
+    hbar_cgs = 1.0545919e-27  # erg s (cm2 g s-1)
+    mu_0 = 1.256637062e-6  # kg m s-2 A-2
 
     j_2_mev = 6.2415e21
     erg_to_joule = 1e-7
     erg_to_meV = erg_to_joule * j_2_mev
     hz_to_ghz = 1e9
 
-    # y_fm = (hbar * w) / (4 * S * J)
-
-    # omega_pos = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) + h_0)
-    # omega_neg = gamma * (np.sqrt(2 * h_e * h_a + h_a**2) - h_0)
-    # w_ex_afm = 4 * J * np.abs(np.sin(k_afm * a))
-    # omega_fm = (2 * 13.25 * 2**2) / (k**2 * hbar)
-    gamma = 2.8 * hz_to_ghz * 2 * np.pi # Hz / kOe
-    a = 2  # nm
-    He = 570  # kOe
-    Ha = 8.2  # kOe
-    H0paper = 0
-
-    k_afm = np.linspace(0, 0.5 * 2 * np.pi, 1000)
-    gamma_k = np.cos(k_afm / 2)
-
-    omega_k = np.sqrt(2 * He * Ha + Ha ** 2 + He ** 2 * (1.0 - gamma_k ** 2))
-    w_afm_paper = gamma * (omega_k + H0paper)
+    t_range = 0.8  # T
+    h_0_si = np.linspace(-t_range, t_range, 1000)
+    h_0_cgs = np.linspace(-t_range*1e1, t_range*1e1, 1000)
 
     fig = plt.figure(figsize=(6, 6))
     ax = fig.add_subplot(1, 1, 1)
 
-    # # Move left y-axis and bottim x-axis to centre, passing through (0,0)
-    # ax.spines['left'].set_position('center')
-    # ax.spines['bottom'].set_position('center')
-    #
-    # # Eliminate upper and right axes
-    # ax.spines['right'].set_color('none')
-    # ax.spines['top'].set_color('none')
-    #
-    # # Show ticks in the left and lower axes only
-    # ax.xaxis.set_ticks_position('bottom')
-    # ax.yaxis.set_ticks_position('left')
+    if type == 1:
+        gamma_cgs = 2.8  # GHz / kOe rad
+        a = b = 4.873e-8
+        c = 3.13e-8
+        he_cgs = 530  # kOe
+        ha_cgs = 7.87  # kOe
 
-    # ax.plot(h_0, omega_pos_0, label="$\omega_{pos}$")
-    # ax.plot(h_0, omega_pos_01, label="$\omega_{neg}$")
-    # ax.plot(h_0, omega_pos_0787, label="$\omega_{neg}$")
+        k_afm = np.linspace(0, 0.5 * 2 * np.pi, 1000)
+        gamma_k = np.cos(k_afm * a / 2) * np.cos(k_afm * b / 2) * np.cos(k_afm * c / 2)
+        omega_k = np.sqrt(2 * he_cgs * ha_cgs + ha_cgs ** 2 + 0 * he_cgs ** 2 * (1.0 - gamma_k ** 2))
 
-    # ax.plot(k, 1 - np.cos(k*a), label="FM")
-    # ax.plot(k_afm, w_ex_afm, label='Dispersion Relation')
-    # ax.plot(k_afm, 4 * 53 * 1 * k_afm * a, label='Linear (ka << 1)')
-    ax.plot(k_afm / (2 * np.pi), hbar_cgs * w_afm_paper * erg_to_meV, label='new')
-    # ax.set(xlabel="$k$", ylabel="$\hbar$ $\omega$ / 4 S J")
-    # ax.set(xlabel="$k$ [m]", ylabel='$\hbar$ $\omega$')
-    ax.set(xlabel="$k_z$ / 2 $\pi$", ylabel='Energy (meV)')
+        w_afm_0 = gamma_cgs * (omega_k + h_0_cgs)
+        w_afm_0neg = gamma_cgs * (omega_k - h_0_cgs)
 
-    # ax.set(xlabel="$H_0$[T]", ylabel="$\omega$ [GHz]")
-    ax.legend()
+        ax.plot(h_0_cgs, w_afm_0, label='$\omega_{pos}$')
+        ax.plot(h_0_cgs, w_afm_0neg, label='$\omega_{neg}$')
+        # ax.plot(k_afm / (2 * np.pi), w_afm_0, label='0')
+        # ax.set(title='Dispersion Relation', xlabel="$k_z$ / 2 $\pi$", ylabel='Frequency [GHz]')
 
+        # ax.set(title='Dispersion Relation', xlabel="$k_z$ / 2 $\pi$", ylabel='Energy (meV) [$\hbar \omega$]', ylim=[0, 8])
+        ax.set(xlabel="$H_0$[kOe]", ylabel="$\\frac{\omega}{2 \pi}$ [GHz]")
+    elif type == 2:
+        a_si = 2e-9  # nm
+        gamma_si = 28  # GHz / T raf
+        he_si = 53  # T
+        ha_si = 0.787  # T
+
+        omega_pos = gamma_si * (np.sqrt(2 * he_si * ha_si + ha_si**2) + h_0_si)
+        omega_neg = gamma_si * (np.sqrt(2 * he_si * ha_si + ha_si**2) - h_0_si)
+
+        ax.plot(h_0_si, omega_pos, label="$\omega_{pos}$")
+        ax.plot(h_0_si, omega_neg, label="$\omega_{neg}$")
+
+        ax.set(xlabel="$H_0$[T]", ylabel="$\\frac{\omega}{2 \pi}$ [GHz]")
+    elif type == 3:
+
+        a_si = 4.87e-8  # cm
+        he_si = 570e3  # Oe
+        ha_si = 7.87  # T
+        S = 1
+
+        k = np.linspace(0.0, 0.4e-8, 1000)
+
+        omega_ex = 4 * np.abs(he_si) * S / hbar_cgs
+
+        omega = omega_ex * np.sin(k*a_si)
+        ax.plot(k, hbar_cgs*omega, label="$\\omega$")
+
+        ax.set(xlabel="$k$ [cm]", ylabel="$Magnon Energy \\hbar \\omega$ [erg]")
+    elif type == 4:
+        # Comparing dispersion relations of FM and AFM, and plotting in terms of hw/4JS
+        a = 2e-9
+        k = np.linspace(0, np.pi/a, 1000)
+        #ax.plot(k, 2 * 13.25 * 2e-9**2 * k**2)
+        ax.plot(k, np.sin(k*a), label='AFM')
+        ax.plot(k, 1 - np.cos(k*a), label='FM')
+        ax.set(xlabel='$k$ [m]', ylabel='$\\frac{\\hbar \\omega}{4 J S}$')
+    elif type == 5:
+        # Comparing dispersion relations of FM and AFM in CGS units and plotting in terms of energy
+        a = b = 4.873e-8
+        c = 3.13e-8
+        k = np.linspace(0, np.pi/a, 1000)
+
+        ax.plot(k, np.sin(k*a) * 4 * 570e3, label='AFM')
+        ax.plot(k, (1 - np.cos(k*a)) * 4 * 570e3, label='FM')
+        ax.set(xlabel='$k$ [cm$^{-1}$]', ylabel='Magnon Energy $\\hbar \\omega$ [erg]')
+    elif type == 6:
+        #AFM resonance frequencies in CGS units
+        gamma = 2.8  # GHz / kOe
+        he = 530  # kOe
+        ha = 7.87  # kOe
+        h0 = np.linspace(-8, 8, 100)
+        omega_0 = gamma * (np.sqrt(2 * he * ha + ha**2) + h0)
+        omega_0n = gamma * (np.sqrt(2 * he * ha + ha**2) - h0)
+        omega_1 = gamma * (np.sqrt(2 * he * ha + ha** 2) + 1)
+        omega_7 = gamma * (np.sqrt(2 * he * ha + ha ** 2) + ha)
+
+        ax.plot(h0, omega_0, label='$\omega_{pos}$')
+        ax.plot(h0, omega_0n, label='$\omega_{neg}$')
+    elif type == 7:
+
+        omega = 2 * np.pi * 1e9 * np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Simulation_Data/eigenvalues_formatted_eigenvalues_T1314.csv")
+        freqs = np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Simulation_Data/eigenvalues_formatted_eigenvalues_T1314.csv")
+        gamma = 28.8e9 * 2 * np.pi  # GHz / T
+        h_0 = 1e-3  # T
+        J = 1e-3 * 1.60218E-19  # was in meV then converted to joules
+        a = 2e-9  # m
+
+        k = np.sqrt((hbar_si * omega - gamma * hbar_si * h_0) / (2 * J * a**2))
+        #ax.scatter(k * a / (2 * np.pi), hbar_si * omega * j_2_mev, label="$k$")
+        #ax.set(xlabel="k a / $ 2 \\pi$", ylabel="$\\hbar \\omega$ [meV]")
+        ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
+        ax.set(ylabel="Frequency [GHz]", xlabel='Mode Number')
+
+    # ax.legend(title='$H_0$ [T]')
     fig.tight_layout()
-    fig.savefig("D:\\Data\\2022-10-17\\Outputs\\test4.png", bbox_inches="tight")
+
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Outputs/laptop_t{type}_freqs2", bbox_inches="tight")
+    exit(0)
+
+    if type == 1:
+        fig.savefig("/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Outputs/laptop_t1_1.png", bbox_inches="tight")
+    elif type == 2:
+        fig.savefig("/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Outputs/laptop_t2_1.png", bbox_inches="tight")
+    elif type == 3:
+        fig.savefig("/Users/cameronmceleney/CLionProjects/Data/2022-10-18/Outputs/laptop_t3_1.png", bbox_inches="tight")
+    elif type == 4:
+        fig.savefig("/Users/cameronmceleney/CLionProjects/Data/2022-10-18/Outputs/laptop_t4_1.png", bbox_inches="tight")
+    elif type == 5:
+        fig.savefig("/Users/cameronmceleney/CLionProjects/Data/2022-10-18/Outputs/laptop_t5_1.png", bbox_inches="tight")
 
 
 def afm_test_si():
