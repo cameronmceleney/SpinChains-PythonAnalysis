@@ -1292,7 +1292,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
            xlim=[lower, upper], yscale='log', ylim=[1e-3, 1e-1],
            xticks=list(range(lower, upper + 1, step)),
-           xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 1)])
+           xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 3)])
 
     ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
     ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
@@ -1306,7 +1306,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     ax.grid(lw=2, ls='-')
 
     plt.tight_layout()
-    fig.savefig(f"D:\\Data\\2022-10-14\\Outputs\\fourier.png")
+    fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\fourier.png")
 
 
 def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
@@ -1347,7 +1347,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
 
     axes.set(title=f"Eigenmode[{eigenmode + 1}]",
              xlabel="Site Number", ylabel="Amplitude [arb.]",
-             xlim=(0, number_of_spins), ylim=(-0.05, 0.05),
+             xlim=(0, number_of_spins),
              xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 4))
 
     # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
@@ -1361,7 +1361,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
 
     plt.tight_layout()
-    fig.savefig(f"D:\\Data\\2022-10-14\\Outputs\\eigenmode_{eigenmode+1}.png")
+    fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\eigenmode_{eigenmode+1}.png")
 
 
 def plot_dispersion_relation(key_data, output_filepath):
