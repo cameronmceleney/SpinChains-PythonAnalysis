@@ -1185,7 +1185,7 @@ def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
                     sys.exit(0)
 
                 elif test_mode.upper() == 'FOURIER':
-                    generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name, False)
+                    generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name, True)
                     has_valid_modes = False
                     break
 
@@ -1239,9 +1239,9 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
 
     # use_defaults is a testing flag to speed up the process of running sims.
     if use_defaults:
-        step = 10
-        lower = 120
-        upper = 180
+        step = 20
+        lower = 0
+        upper = 240
         width_ones = 0.05
         width_zeros = 0.95
 
@@ -1284,7 +1284,7 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     plt.subplots_adjust(top=0.82)
 
     # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', label='Left', zorder=2)
+    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', ls='--', label='Left', zorder=2)
     sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
                  marker='o', label='Right', zorder=1)
 
@@ -1306,7 +1306,8 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     ax.grid(lw=2, ls='-')
 
     plt.tight_layout()
-    fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\fourier.png")
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/fourier.png")
+    # fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\fourier.png")
 
 
 def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
@@ -1348,7 +1349,7 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     axes.set(title=f"Eigenmode[{eigenmode + 1}]",
              xlabel="Site Number", ylabel="Amplitude [arb.]",
              xlim=(0, number_of_spins),
-             xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 4))
+             xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 20))
 
     # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
     axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
@@ -1361,7 +1362,8 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
 
     plt.tight_layout()
-    fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\eigenmode_{eigenmode+1}.png")
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/eigenmode_{eigenmode+1}.png")
+    # fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\eigenmode_{eigenmode+1}.png")
 
 
 def plot_dispersion_relation(key_data, output_filepath):
