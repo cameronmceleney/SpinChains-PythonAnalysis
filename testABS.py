@@ -381,12 +381,12 @@ def afm_test():
         ax.plot(h0, omega_0n, label='$\omega_{neg}$')
     elif type == 7:
 
-        omega = 2 * np.pi * 1e9 * np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Simulation_Data/eigenvalues_formatted_eigenvalues_T1314.csv")
-        freqs = np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Simulation_Data/eigenvalues_formatted_eigenvalues_T1314.csv")
-        gamma = 28.8e9 * 2 * np.pi  # GHz / T
-        h_0 = 1e-3  # T
+        omega = np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Simulation_Data/eigenvalues_formatted_eigenvalues_T2124.csv")
+        freqs = np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Simulation_Data/eigenvalues_formatted_eigenvalues_T2124.csv")
+        gamma = 29.2  # GHz / T
+        h_0 = 1e-1  # T
         J = 1e-3 * 1.60218E-19  # was in meV then converted to joules
-        a = 2e-9  # m
+        a = 2e-10  # m
 
         k = np.sqrt((hbar_si * omega - gamma * hbar_si * h_0) / (2 * J * a**2))
         #ax.scatter(k * a / (2 * np.pi), hbar_si * omega * j_2_mev, label="$k$")
@@ -397,7 +397,7 @@ def afm_test():
     # ax.legend(title='$H_0$ [T]')
     fig.tight_layout()
 
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-19/Outputs/laptop_t{type}_freqs2", bbox_inches="tight")
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/laptop_t{type}_freqs6", bbox_inches="tight")
     exit(0)
 
     if type == 1:

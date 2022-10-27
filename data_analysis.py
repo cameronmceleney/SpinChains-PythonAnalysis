@@ -134,12 +134,13 @@ class PlotEigenmodes:
                                      delimiter=",")
 
         # Filtered refers to the data imported into, and amended by, this Python code.
-        eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
+        # eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
         #print(eigenvalues_raw)
         #eigenvalues_filtered = eigenvalues_raw[eigenvalues_raw >= 0]
         #print(eigenvalues_filtered)
         #eigenvalues_filtered = eigenvalues_filtered.sort(reverse=True)
         #print(eigenvalues_filtered)
+        eigenvalues_filtered = np.sort(eigenvalues_raw[eigenvalues_raw >= 0])
 
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[2]}", eigenvalues_filtered,
