@@ -158,10 +158,10 @@ class PlotEigenmodes:
                                       delimiter=",")
 
         # Filtered refers to the data imported into, and amended by, this Python code.
-        eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
+        eigenvectors_filtered = eigenvectors_raw[::2, :]
 
-        mx_data = eigenvectors_filtered[:, 0::2]
-        my_data = eigenvectors_filtered[:, 1::2]
+        mx_data = np.fliplr(eigenvectors_filtered[:, 0::2])
+        my_data = np.fliplr(eigenvectors_filtered[:, 1::2])
 
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[0]}", mx_data, delimiter=',')

@@ -1,0 +1,137 @@
+# MIF 2.2
+
+SetOptions {
+  basename slonczewski_scalar_values
+  scalar_output_format %.12g
+  scalar_field_output_format {binary 8}
+  vector_field_output_format {binary 8}
+}
+
+# BoxAtlas for r1_atlas
+Specify Oxs_BoxAtlas:r1_atlas {
+  xrange { -5e-09 5e-09 }
+  yrange { -5e-09 0.0 }
+  zrange { -3e-09 3e-09 }
+  name r1
+}
+
+# BoxAtlas for r2_atlas
+Specify Oxs_BoxAtlas:r2_atlas {
+  xrange { -5e-09 5e-09 }
+  yrange { 0.0 5e-09 }
+  zrange { -3e-09 3e-09 }
+  name r2
+}
+
+# BoxAtlas for entire_atlas
+Specify Oxs_BoxAtlas:entire_atlas {
+  xrange { -5e-09 5e-09 }
+  yrange { -5e-09 5e-09 }
+  zrange { -3e-09 3e-09 }
+  name entire
+}
+
+# MultiAtlas
+Specify Oxs_MultiAtlas:main_atlas {
+  atlas :r1_atlas
+  atlas :r2_atlas
+  atlas :entire_atlas
+  xrange { -5e-09 5e-09 }
+  yrange { -5e-09 5e-09 }
+  zrange { -3e-09 3e-09 }
+}
+
+# RectangularMesh
+Specify Oxs_RectangularMesh:mesh {
+  cellsize { 5e-09 5e-09 3e-09 }
+  atlas :main_atlas
+}
+
+# FixedZeeman
+Specify Oxs_FixedZeeman:zeeman {
+  field {0 0 1000000.0}
+}
+
+# m0 file
+Specify Oxs_FileVectorField:m0 {
+  file m0.omf
+  atlas :main_atlas
+}
+
+# m0_norm
+Specify Oxs_VecMagScalarField:m0_norm {
+    field :m0
+}
+
+# sl_J
+Specify Oxs_AtlasScalarField:sl_J {
+  atlas :main_atlas
+  default_value 0
+  values {
+    r1 1000000000000.0
+    r2 5000000000000.0
+  }}
+
+# sl_mp
+Specify Oxs_AtlasVectorField:sl_mp {
+  atlas :main_atlas
+  default_value {0 0 0}
+  values {
+    r1 {0 0 1}
+    r2 {0 1 0}
+  }}
+
+# sl_P
+Specify Oxs_AtlasScalarField:sl_P {
+  atlas :main_atlas
+  default_value 0
+  values {
+    r1 0.4
+    r2 0.35
+  }}
+
+# sl_Lambda
+Specify Oxs_AtlasScalarField:sl_Lambda {
+  atlas :main_atlas
+  default_value 1
+  values {
+    r1 2
+    r2 1.5
+  }}
+
+# sl_eps_prime
+Specify Oxs_AtlasScalarField:sl_eps_prime {
+  atlas :main_atlas
+  default_value 0
+  values {
+    r1 0
+    r2 1
+  }}
+
+# Slonczewski evolver
+Specify Oxs_SpinXferEvolve:evolver {
+  alpha 0
+  do_precess 0
+  P sl_P
+  Lambda sl_Lambda
+  eps_prime sl_eps_prime
+  J sl_J
+  mp sl_mp
+}
+
+# TimeDriver
+Specify Oxs_TimeDriver {
+  evolver :evolver
+  mesh :mesh
+  Ms :m0_norm
+  m0 :m0
+  stopping_time 1.0000000000000001e-11
+  stage_count 20
+}
+
+Destination table mmArchive
+Destination mags mmArchive
+Destination archive mmArchive
+
+Schedule DataTable table Stage 1
+Schedule Oxs_TimeDriver::Magnetization mags Stage 1
