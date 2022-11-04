@@ -1,0 +1,110 @@
+# MIF 2.2
+
+SetOptions {
+  basename compute_tests
+  scalar_output_format %.12g
+  scalar_field_output_format {binary 8}
+  vector_field_output_format {binary 8}
+}
+
+# BoxAtlas for a_atlas
+Specify Oxs_BoxAtlas:a_atlas {
+  xrange { 0.0 6e-09 }
+  yrange { 0.0 2e-09 }
+  zrange { 0.0 2e-09 }
+  name a
+}
+
+# BoxAtlas for b_atlas
+Specify Oxs_BoxAtlas:b_atlas {
+  xrange { 6e-09 1e-08 }
+  yrange { 0.0 2e-09 }
+  zrange { 0.0 2e-09 }
+  name b
+}
+
+# BoxAtlas for entire_atlas
+Specify Oxs_BoxAtlas:entire_atlas {
+  xrange { 0.0 1e-08 }
+  yrange { 0.0 2e-09 }
+  zrange { 0.0 2e-09 }
+  name entire
+}
+
+# MultiAtlas
+Specify Oxs_MultiAtlas:main_atlas {
+  atlas :a_atlas
+  atlas :b_atlas
+  atlas :entire_atlas
+  xrange { 0.0 1e-08 }
+  yrange { 0.0 2e-09 }
+  zrange { 0.0 2e-09 }
+}
+
+# RectangularMesh
+Specify Oxs_RectangularMesh:mesh {
+  cellsize { 2e-09 2e-09 2e-09 }
+  atlas :main_atlas
+}
+
+# UniformExchange
+Specify Oxs_UniformExchange:exchange {
+  A 1e-12
+}
+
+# Demag
+Specify Oxs_Demag:demag {
+}
+
+# FixedZeeman
+Specify Oxs_FixedZeeman:zeeman {
+  field {8000000.0 0 0}
+}
+
+# UniaxialAnisotropy
+Specify Oxs_UniaxialAnisotropy:uniaxialanisotropy {
+  K1 10000.0
+  axis {0 0 1}
+}
+
+# CubicAnisotropy
+Specify Oxs_CubicAnisotropy:cubicanisotropy {
+  K1 1000.0
+  axis1 {1 0 0}
+  axis2 {0 1 0}
+}
+
+# m0 file
+Specify Oxs_FileVectorField:m0 {
+  file m0.omf
+  atlas :main_atlas
+}
+
+# m0_norm
+Specify Oxs_VecMagScalarField:m0_norm {
+    field :m0
+}
+
+# RungeKuttaEvolver
+Specify Oxs_RungeKuttaEvolve:evolver {
+  alpha 0
+  do_precess 0
+}
+
+# TimeDriver
+Specify Oxs_TimeDriver {
+  evolver :evolver
+  mesh :mesh
+  Ms :m0_norm
+  m0 :m0
+  stopping_time 1e-25
+  stage_count 1
+  total_iteration_limit 1
+}
+
+Destination table mmArchive
+Destination mags mmArchive
+Destination archive mmArchive
+
+Schedule DataTable table Stage 1
+Schedule Oxs_TimeDriver::Magnetization mags Stage 1

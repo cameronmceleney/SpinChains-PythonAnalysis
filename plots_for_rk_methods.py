@@ -1306,8 +1306,8 @@ def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, fil
     ax.grid(lw=2, ls='-')
 
     plt.tight_layout()
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/fourier.png")
-    # fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\fourier.png")
+    # fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/fourier.png")
+    fig.savefig(f"D:\\Data\\2022-10-27\\Outputs\\fourier.png")
 
 
 def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
@@ -1362,8 +1362,8 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
     axes.grid(color='black', ls='--', alpha=0.1, lw=1)
 
     plt.tight_layout()
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/eigenmode_{eigenmode+1}.png")
-    # fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\eigenmode_{eigenmode+1}.png")
+    # fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Outputs/eigenmode_{eigenmode+1}.png")
+    fig.savefig(f"D:\\Data\\2022-10-27\\Outputs\\eigenmode_{eigenmode+1}.png")
 
 
 def plot_dispersion_relation(key_data, output_filepath):

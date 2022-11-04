@@ -1,0 +1,96 @@
+# MIF 2.2
+
+SetOptions {
+  basename dynamics_scalar_dict
+  scalar_output_format %.12g
+  scalar_field_output_format {binary 8}
+  vector_field_output_format {binary 8}
+}
+
+# BoxAtlas for r1_atlas
+Specify Oxs_BoxAtlas:r1_atlas {
+  xrange { -5e-09 5e-09 }
+  yrange { -5e-09 0.0 }
+  zrange { -3e-09 3e-09 }
+  name r1
+}
+
+# BoxAtlas for r2_atlas
+Specify Oxs_BoxAtlas:r2_atlas {
+  xrange { -5e-09 5e-09 }
+  yrange { 0.0 5e-09 }
+  zrange { -3e-09 3e-09 }
+  name r2
+}
+
+# BoxAtlas for entire_atlas
+Specify Oxs_BoxAtlas:entire_atlas {
+  xrange { -5e-09 5e-09 }
+  yrange { -5e-09 5e-09 }
+  zrange { -3e-09 3e-09 }
+  name entire
+}
+
+# MultiAtlas
+Specify Oxs_MultiAtlas:main_atlas {
+  atlas :r1_atlas
+  atlas :r2_atlas
+  atlas :entire_atlas
+  xrange { -5e-09 5e-09 }
+  yrange { -5e-09 5e-09 }
+  zrange { -3e-09 3e-09 }
+}
+
+# RectangularMesh
+Specify Oxs_RectangularMesh:mesh {
+  cellsize { 1e-09 1e-09 6e-10 }
+  atlas :main_atlas
+}
+
+# FixedZeeman
+Specify Oxs_FixedZeeman:zeeman {
+  field {0 0 1000000.0}
+}
+
+# m0 file
+Specify Oxs_FileVectorField:m0 {
+  file m0.omf
+  atlas :main_atlas
+}
+
+# m0_norm
+Specify Oxs_VecMagScalarField:m0_norm {
+    field :m0
+}
+
+# dp_alpha
+Specify Oxs_AtlasScalarField:dp_alpha {
+  atlas :main_atlas
+  default_value 0
+  values {
+    r1 0
+    r2 1
+  }}
+
+# RungeKuttaEvolver
+Specify Oxs_RungeKuttaEvolve:evolver {
+  alpha dp_alpha
+  gamma_G 221100.0
+}
+
+# TimeDriver
+Specify Oxs_TimeDriver {
+  evolver :evolver
+  mesh :mesh
+  Ms :m0_norm
+  m0 :m0
+  stopping_time 4e-12
+  stage_count 50
+}
+
+Destination table mmArchive
+Destination mags mmArchive
+Destination archive mmArchive
+
+Schedule DataTable table Stage 1
+Schedule Oxs_TimeDriver::Magnetization mags Stage 1
