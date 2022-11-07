@@ -52,7 +52,7 @@ class PlotEigenmodes:
 
         self.output_filenames = [f"mx_formatted_{self.fi}{self.fd}.csv",
                                  f"my_formatted_{self.fi}{self.fd}.csv",
-                                 f"eigenvalues_formatted_{self.full_filename}.csv"]
+                                 f"eigenvalues_formatted_{self.fi}{self.fd}.csv"]
         self.mx_data, self.my_data, self.eigenvalues_data = None, None, None
 
     def import_eigenmodes(self):
@@ -160,12 +160,18 @@ class PlotEigenmodes:
         # Filtered refers to the data imported into, and amended by, this Python code.
         eigenvectors_filtered = eigenvectors_raw[::2, :]
 
-        mx_data = np.fliplr(eigenvectors_filtered[:, 0::2])
-        my_data = np.fliplr(eigenvectors_filtered[:, 1::2])
+        mx_data = eigenvectors_filtered[:, 0::2]
+        my_data = eigenvectors_filtered[:, 1::2]
+
+        afm_up_mx_data = mx_data[:, 0::2]
+        afm_down_mx_data = mx_data[:, 1::2]
 
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[0]}", mx_data, delimiter=',')
         np.savetxt(f"{self.input_dir_path}{self.output_filenames[1]}", my_data, delimiter=',')
+
+        np.savetxt(f"{self.input_dir_path}afm_up_{self.output_filenames[0]}", afm_up_mx_data, delimiter=',')
+        np.savetxt(f"{self.input_dir_path}afm_down_{self.output_filenames[0]}", afm_down_mx_data, delimiter=',')
 
         lg.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
 

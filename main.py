@@ -32,7 +32,7 @@ def main():
     # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
     #                  breaking_paper=False)
 
-    _should_use_eigs = True
+    _should_use_eigs = False
 
     system_setup = sp.SystemSetup()
     system_setup.detect_os(has_custom_name=False)

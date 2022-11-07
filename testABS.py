@@ -300,9 +300,6 @@ def afm_test():
     fig = plt.figure(figsize=(6, 6))
     ax = fig.add_subplot(1, 1, 1)
 
-    date = "2022-10-27"
-    timestamp = "T1535"
-
     if type == 1:
         gamma_cgs = 2.8  # GHz / kOe rad
         a = b = 4.873e-8
@@ -384,10 +381,11 @@ def afm_test():
         ax.plot(h0, omega_0n, label='$\omega_{neg}$')
     elif type == 7:
 
-        omega = np.loadtxt(f"D:\\Data\\{date}\\Simulation_Data\\eigenvalues_formatted_eigenvalues_{timestamp}.csv")
-        freqs = np.loadtxt(f"D:\\Data\\{date}\\Simulation_Data\\eigenvalues_formatted_eigenvalues_{timestamp}.csv")
-        # omega = np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Simulation_Data/eigenvalues_formatted_eigenvalues_T2124.csv")
-        # freqs = np.loadtxt("/Users/cameronmceleney/CLionProjects/Data/2022-10-26/Simulation_Data/eigenvalues_formatted_eigenvalues_T2124.csv")
+        datestamp = "2022-11-02"
+        timestamp = "1548"
+
+        omega = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
+        freqs = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
         gamma = 29.2  # GHz / T
         h_0 = 1e-1  # T
         J = 1e-3 * 1.60218E-19  # was in meV then converted to joules
@@ -402,9 +400,10 @@ def afm_test():
     # ax.legend(title='$H_0$ [T]')
     fig.tight_layout()
 
-    fig.savefig(f"D:\\Data\\{date}\\Outputs\\laptop{type}_{timestamp}_freqs", bbox_inches="tight")
-    #fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/{date}/Outputs/laptop{type}_{timestamp}_freqs", bbox_inches="tight")
+    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Outputs/T{timestamp}_dispersion_{type}",
+                bbox_inches="tight")
     exit(0)
+
 
 def afm_test_si():
     # T: kg s-2 A-1. Units of H: A m-1. Units  of mu0*H: T
