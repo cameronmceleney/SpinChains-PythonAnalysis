@@ -82,9 +82,9 @@ class PaperFigures:
         cm = 1 / 2.54
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 6e-3  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 1e-1  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
-                       "xlim": [0, self.number_spins]}  # , "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+                       "xlim": [0, self.number_spins]}#, "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
@@ -163,7 +163,7 @@ class PaperFigures:
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        self._tick_setter(self.axes, 2000, 500, 3, 4)
+        self._tick_setter(self.axes, 100, 25, 3, 4)
 
         class ScalarFormatterClass(ticker.ScalarFormatter):
             def _set_format(self):
@@ -1229,8 +1229,8 @@ def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
         modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
 
 
-datestamp = "2022-11-04"
-timestamp = "1619"
+datestamp = "2022-11-08"
+timestamp = "1158"
 
 
 def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, file_name, use_defaults=True):
