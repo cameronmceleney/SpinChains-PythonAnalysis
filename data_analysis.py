@@ -42,88 +42,105 @@ class PlotEigenmodes:
         self.fi = file_identifier
         self.full_filename = f"{self.fp}{self.fc}_{self.fi}{self.fd}"
 
+        self.full_output_path = f"{self.output_dir_path}{file_identifier}{file_descriptor}"
+
         rc_params_update()
 
-        # Arrays are inherently mutable, so there is no need to use @property decorator
-        self.input_filenames_descriptions = ["mx_data", "my_data", "eigenvalues_data"]
-
         self._arrays_to_output = [0, 0, 0]  # Each array is initialised as none to remove garbage.
-        self._does_data_exist_in_dir = [False, False, False]  # Tests if each filtered array is in the target directory.
+        self.is_input_data_present = [False, False]
+        self.is_formatted_data_present = [False, False, False]  # Tests if each filtered array is in the target directory.
 
-        self.output_filenames = [f"mx_formatted_{self.fi}{self.fd}.csv",
-                                 f"my_formatted_{self.fi}{self.fd}.csv",
-                                 f"eigenvalues_formatted_{self.fi}{self.fd}.csv"]
-        self.mx_data, self.my_data, self.eigenvalues_data = None, None, None
+        self.input_filenames = [f"eigenvalues_{self.fi}{self.fd}.csv",
+                                f"eigenvectors_{self.fi}{self.fd}.csv"]
+
+        # Arrays are inherently mutable, so there is no need to use @property decorator
+        self.input_filename_descriptions = ["eigenvalues_data", "eigenvectors_data"]
+        self.formatted_filename_descriptions = ["mx_data", "my_data", "eigenvalues_data"]
+
+        self.formatted_filenames = [f"mx_formatted_{self.fi}{self.fd}.csv",
+                                    f"my_formatted_{self.fi}{self.fd}.csv",
+                                    f"eigenvalues_formatted_{self.fi}{self.fd}.csv"]
 
     def import_eigenmodes(self):
         # Containers to store key information about the returned arrays. Iterating through containers was felt to be
         # easier to read than having many lines of variable declarations and initialisations.
 
-        print(f"\nChecking chosen directories for input files...")
+        self._check_if_files_present(True)
 
-        for i, (output_file_description, output_file) in enumerate(
-                zip(self.input_filenames_descriptions, self.output_filenames)):
-            # Tests if the required files already exist in the target (input data) directory.
-            file_to_search_for = self.input_dir_path + output_file
+        if all(self.is_formatted_data_present):
+            # All directories have been found, so can load into memory
+            print(f"\nAll required files found. Loading data into memory...")
 
-            if path.exists(file_to_search_for):
+            for i, filename in enumerate(self.formatted_filenames):
+                file_to_search_for = self.input_dir_path + filename
                 self._arrays_to_output[i] = np.loadtxt(file_to_search_for, delimiter=',')
-                self._does_data_exist_in_dir[i] = True
-                print(f"{output_file_description}: found")
 
-            else:
-                self._does_data_exist_in_dir[i] = False
-                print(f"{output_file_description}: not found")
+            return
 
-        print(f"\nChecking chosen directories for processed files...")
-        for i, does_exist in enumerate(self._does_data_exist_in_dir):
-            # Tests existence of each filtered array until either False is returned, or all are present (all True).
+        else:
+            print(f"\nSome required files were not found. Need to generate formatted files from datasets...")
 
-            try:
-                if does_exist is True:
-                    pass
-                elif does_exist is False:
-                    self._generate_file_that_is_missing(i)
-            except ValueError:
+            for i, does_exist in enumerate(self.is_formatted_data_present):
+                # Tests existence of each filtered array until either False is returned, or all are present (all True).
+
                 try:
-                    does_exist is False
+                    if does_exist is True:
+                        pass
+                    elif does_exist is False:
+                        self._generate_file_that_is_missing(i)
+
                 except ValueError:
                     lg.info(f"Boolean variable (does_exist) was dtype None.")
                     exit(1)
+
+            return
+
+    def _check_if_files_present(self, should_check_all=False):
+        print('\n---------------------------------------------------------------------------------------')
+        print(f"Checking chosen directories for raw input files...")
+
+        if should_check_all is True:
+            for i, (file_description, filename) in enumerate(
+                    zip(self.input_filename_descriptions, self.input_filenames)):
+                # Tests if the required files already exist in the target (input data) directory.
+                file_to_search_for = self.input_dir_path + filename
+
+                if path.exists(file_to_search_for):
+                    self.is_input_data_present[i] = True
+                    print(f"{file_description}: found")
                 else:
-                    self._generate_file_that_is_missing(i)
+                    self.is_input_data_present[i] = False
+                    print(f"{file_description}: not found")
+
+        print(f"\nChecking chosen directories for formatted input files...")
+        for i, (file_description, filename) in enumerate(
+                zip(self.formatted_filename_descriptions, self.formatted_filenames)):
+            # Tests if the required files already exist in the target (input data) directory.
+            file_to_search_for = self.input_dir_path + filename
+
+            if path.exists(file_to_search_for):
+                self.is_formatted_data_present[i] = True
+                print(f"{file_description}: found")
             else:
-                print(f"{self.input_filenames_descriptions[i]} successfully found")
+                self.is_formatted_data_present[i] = False
+                print(f"{file_description}: not found")
 
-        return self._arrays_to_output[0], self._arrays_to_output[1], self._arrays_to_output[2]
-
+        print('---------------------------------------------------------------------------------------')
 
     def _generate_file_that_is_missing(self, index):
 
         # Instance of missing file has been found, and will need to generate all filtered files that are needed.
         # Before doing so, allow user to opt-out.
 
-        while True:
-            generate_file_query = input('Run import code to generate missing files? y/n: ').upper()
-            try:
-                generate_file_query in "YN"
-            except ValueError:
-                continue
-            else:
-                if generate_file_query == 'Y':
-                    if index in [0, 1]:
-                        self._generate_missing_eigenvectors()
-                        return
-                    elif index in [2]:
-                        self._generate_missing_eigenvalues()
-                        return
-                    else:
-                        lg.error(f"Index of value {index} was called")
-                        return
-                elif generate_file_query == 'N':
-                    print("\nWill not generate files. Exiting...\n")
-                    lg.info("User chose to not generate missing files. Code exited.")
-                    exit(0)
+        if index in [0, 1]:
+            self._generate_missing_eigenvectors()
+            return
+        elif index in [2]:
+            self._generate_missing_eigenvalues()
+            return
+        else:
+            lg.error(f"Index of value {index} was called")
+            return
 
     def _generate_missing_eigenvalues(self):
 
@@ -133,23 +150,15 @@ class PlotEigenmodes:
         eigenvalues_raw = np.loadtxt(f"{self.input_dir_path}eigenvalues_{self.fi}{self.fd}.csv",
                                      delimiter=",")
 
-        # Filtered refers to the data imported into, and amended by, this Python code.
-        # eigenvalues_filtered = np.flipud(eigenvalues_raw[::2])
-        #print(eigenvalues_raw)
-        #eigenvalues_filtered = eigenvalues_raw[eigenvalues_raw >= 0]
-        #print(eigenvalues_filtered)
-        #eigenvalues_filtered = eigenvalues_filtered.sort(reverse=True)
-        #print(eigenvalues_filtered)
         eigenvalues_filtered = np.sort(eigenvalues_raw[eigenvalues_raw >= 0])
 
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
-        np.savetxt(f"{self.input_dir_path}{self.output_filenames[2]}", eigenvalues_filtered,
+        np.savetxt(f"{self.input_dir_path}{self.formatted_filenames[2]}", eigenvalues_filtered,
                    delimiter=',')
-
 
         lg.info(f"Successfully generated missing (eigenvalues) file, which is saved in {self.input_dir_path}")
 
-    def _generate_missing_eigenvectors(self):
+    def _generate_missing_eigenvectors(self, should_separate_afm_modes=False):
 
         lg.info(f"Missing (mx) and/or (my) file(s) found. Attempting to generate new files in correct format...")
 
@@ -158,30 +167,37 @@ class PlotEigenmodes:
                                       delimiter=",")
 
         # Filtered refers to the data imported into, and amended by, this Python code.
-        eigenvectors_filtered = eigenvectors_raw[::2, :]
+        eigenvectors_filtered = np.fliplr(eigenvectors_raw[::2, :])
 
         mx_data = eigenvectors_filtered[:, 0::2]
         my_data = eigenvectors_filtered[:, 1::2]
 
-        afm_up_mx_data = mx_data[:, 0::2]
-        afm_down_mx_data = mx_data[:, 1::2]
-
         # Use np.savetxt to save the data (2nd parameter) directly to the files (first parameter).
-        np.savetxt(f"{self.input_dir_path}{self.output_filenames[0]}", mx_data, delimiter=',')
-        np.savetxt(f"{self.input_dir_path}{self.output_filenames[1]}", my_data, delimiter=',')
+        np.savetxt(f"{self.input_dir_path}{self.formatted_filenames[0]}", mx_data, delimiter=',')
+        np.savetxt(f"{self.input_dir_path}{self.formatted_filenames[1]}", my_data, delimiter=',')
 
-        np.savetxt(f"{self.input_dir_path}afm_up_{self.output_filenames[0]}", afm_up_mx_data, delimiter=',')
-        np.savetxt(f"{self.input_dir_path}afm_down_{self.output_filenames[0]}", afm_down_mx_data, delimiter=',')
+        print(f"{self.formatted_filename_descriptions[0]}: generated\n"
+              f"{self.formatted_filename_descriptions[1]}: generated")
+
+        if should_separate_afm_modes:
+            # Repeats process for AFM to separate all UP spins from DOWN
+            afm_up_mx_data = mx_data[:, 0::2]
+            afm_down_mx_data = mx_data[:, 1::2]
+            np.savetxt(f"{self.input_dir_path}afm_up_{self.formatted_filenames[0]}", afm_up_mx_data, delimiter=',')
+            np.savetxt(f"{self.input_dir_path}afm_down_{self.formatted_filenames[0]}", afm_down_mx_data, delimiter=',')
+
+            print(f"AFM files: generated")
 
         lg.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
 
-        eigenmodes_data = self.import_eigenmodes()
-        [self.mx_data, self.my_data, self.eigenvalues_data] = eigenmodes_data
 
     def plot_eigenmodes(self):
         lg.info(f"Invoking functions to plot data...")
-        plt_rk.eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1], self._arrays_to_output[2],
-                          self.full_filename)
+
+        handle_eigenmodes = plt_rk.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
+                                              self._arrays_to_output[2], f"{self.fi}{self.fd}",
+                                              self.input_dir_path, self.full_output_path)
+        handle_eigenmodes.eigenmodes()
 
 
 class PlotImportedData:
@@ -516,7 +532,7 @@ class PlotImportedData:
                                                input_data_path=my_path)
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
-        #plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
+        # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
         plt_rk.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         lg.info(f"Plotting CP complete!")
 
@@ -526,6 +542,7 @@ class PlotImportedData:
 
         plt_rk.plot_dispersion_relation(self.header_data_params, self.full_output_path)
         lg.info(f"Plotting CP complete!")
+
     def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         lg.info(f"Plotting function selected: paper figure.")
