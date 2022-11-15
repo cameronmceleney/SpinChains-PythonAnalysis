@@ -82,9 +82,9 @@ class PaperFigures:
         cm = 1 / 2.54
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 1e-1  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 3.5e-7  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
-                       "xlim": [0, self.number_spins]}#, "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
@@ -163,7 +163,7 @@ class PaperFigures:
             plt.gca().add_patch(rectDriving)
 
         # Change tick markers as needed.
-        self._tick_setter(self.axes, 100, 25, 3, 4)
+        self._tick_setter(self.axes, 5000, 1000, 3, 4)
 
         class ScalarFormatterClass(ticker.ScalarFormatter):
             def _set_format(self):
@@ -269,8 +269,8 @@ class PaperFigures:
         self.axes.clear()
         # self.axes.set_aspect('auto')
         lower1 = 12
-        lower2 = 3345
-        lower3 = 5079
+        lower2 = 1_000_000
+        lower3 = 1_000_000
         # self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
         self.axes.plot(self.time_data[lower1:lower2], self.amplitude_data[lower1:lower2, spin_site], marker='', lw=0.75,
@@ -292,7 +292,7 @@ class PaperFigures:
         xlim_in = self.max_time  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0, xlim_in])  # ,
+                      xlim=[0.035, 0.04])  # ,
         # ylim=[-1*ymax_plot,# - 1.25e-3,
         #      ymax_plot])
 
@@ -315,8 +315,8 @@ class PaperFigures:
         # self.axes.text(4.4, -4.5e-3, 'Equilibrium', ha='center', va='bottom', fontsize=6)
 
         # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(0.3 / 4),
-                            minor_locator=ticker.MultipleLocator(0.3 / 12))
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(0.005 / 4),
+                            minor_locator=ticker.MultipleLocator(0.005 / 12))
         self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
                             minor_locator=ticker.AutoMinorLocator(4))
 
@@ -851,8 +851,7 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     # Set marker='o' to see each datapoint, else leave as marker='' to hide
     ax.plot(frequencies, abs(fourier_transform),
             marker='', lw=2, color='red', markerfacecolor='black', markeredgecolor='black')
-    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]",
-           xlim=[0, 60])
+    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log')
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
               title=f'Freq. List [GHz]\nDriving - {driving_freq}', fontsize=12)
@@ -889,7 +888,7 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
         cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
         plt.show()
     else:
-        fig.savefig(f"{filename}_{spin_site}.png")
+        fig.savefig(f"{filename}_ft_only_{spin_site}.png")
 
 
 def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params, filename):
@@ -1144,6 +1143,262 @@ def test_3d_plot(mx_data, my_data, mz_data, spin_site):
     fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-12/Outputs/threeDplot.png")
     plt.show()
 
+
+class Eigenmodes:
+    def __init__(self, mx_data, my_data, eigenvalues_data, filename_ending, input_filepath, output_filepath):
+
+        self.mx_data = mx_data
+        self.my_data = my_data
+        self.eigenvalues_data = eigenvalues_data
+        self.input_filename = filename_ending
+        self.input_filepath = input_filepath
+        self.output_filepath = output_filepath
+
+    def eigenmodes(self):
+        """
+        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used to
+        replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to plot
+        the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
+        paper.
+
+        :return: A figure (png).
+
+        """
+        print('---------------------------------------------------------------------------------------')
+        print('''
+        This will plot the eigenmodes of the selected data. Input the requested 
+        modes as single values, or as a space-separated list. Unique [keywords] include:
+            *   Exit [EXIT] (Quit the program)
+            *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
+            *   Dispersion Relation [DIS] (Plot the dispersion relation)
+
+        Note: None of the keywords are case-sensitive.
+              ''')
+        print('---------------------------------------------------------------------------------------')
+
+        upper_limit_mode = len(self.mx_data)  # The largest mode which can be plotted for the given data.
+        previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
+
+        # Take in first user input. Assume input is valid, until an error is raised.
+        modes_to_plot = input("Enter mode(s) to plot: ").split()
+        has_valid_modes = True
+
+        while True:
+            # Plots eigenmodes as long as the user enters a valid input.
+            for test_mode in modes_to_plot:
+
+                try:
+                    if not 1 <= int(test_mode) <= upper_limit_mode:
+                        # Check mode is in the range held by the dataset
+                        print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
+                        break
+
+                    if set(previously_plotted_modes) & set(modes_to_plot):
+                        # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
+                        has_valid_modes = False
+                        print(
+                            f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
+                        break
+
+                except ValueError:
+                    # If the current tested mode is within the range, then it is either a keyword, or invalid.
+                    if test_mode.upper() == 'EXIT':
+                        sys.exit(0)
+
+                    elif test_mode.upper() == 'FRC':
+                        self.generalised_fourier_coefficients(True)
+                        has_valid_modes = False
+                        break
+
+                    elif test_mode.upper() == 'DIS':
+                        self.plot_dispersion_relation()
+                        has_valid_modes = False
+                        break
+
+                    has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
+                    while True:
+
+                        if has_more_plots == 'Y':
+                            has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
+                            break
+
+                        elif has_more_plots == 'N':
+                            print("Exiting program...")
+                            exit(0)
+
+                        else:
+                            while has_more_plots not in 'YN':
+                                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
+
+                if has_valid_modes:
+                    self.plot_single_eigenmode(int(test_mode))
+
+                else:
+                    has_valid_modes = True  # Reset condition
+                    continue
+
+            previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
+            modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
+
+    def generalised_fourier_coefficients(self, use_defaults=True, are_eigens_angular_freqs=False):
+        """
+        Plot coefficients across a range of eigenfrequencies to find frequencies of strong coupling.
+
+        The 'generalised fourier coefficients' indicate the affinity of spins to couple to a particular driving field
+        profile. If a non-linear exchange was used, then the rightward and leftward profiles will look different. This
+        information can be used to deduce when a system allows for:
+
+            * rightward only propagation.
+            * leftward only propagation.
+            * propagation in both directions.
+            * propagation in neither direction.
+
+        :param bool are_eigens_angular_freqs: Converts eigenvalues from [rad Hz] to [Hz].
+        :param bool use_defaults: Use preset parameters to reduce user input, and speed-up running of simulations.
+
+        :return: Single figure plot.
+        """
+        number_of_spins = len(self.mx_data[:, 0])
+
+        # use_defaults is a testing flag to speed up the process of running sims.
+        if use_defaults:
+            step = 20
+            lower = 0
+            upper = 240
+            width_ones = 0.05
+            width_zeros = 0.95
+
+        else:
+            step = int(input("Enter step: "))
+            lower = int(input("Enter lower: "))
+            upper = int(input("Enter upper: "))
+            width_ones = float(input("Enter width of driving region [0, 1]: "))
+            width_zeros = 1 - width_ones
+
+        if are_eigens_angular_freqs:
+            # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
+            eigenvalues_angular = np.append([0], self.eigenvalues_data)  # eigenvalues_angular
+            eigenvalues = [eigval/(2*np.pi) for eigval in eigenvalues_angular]
+        else:
+            # No need for further data processing
+            eigenvalues = np.append([0], self.eigenvalues_data)
+
+        x_axis_limits = range(0, number_of_spins)
+
+        # Find widths of each component of the driving regions.
+        g_ones = [1] * int(number_of_spins * width_ones)
+        g_zeros = [0] * int(number_of_spins * width_zeros)
+
+        # g is the driving field profile along the axis where the drive is applied. My simulations all have the
+        # drive along the x-axis, hence the name 'gx'.
+        gx_lhs = g_ones + g_zeros
+        gx_rhs = g_zeros + g_ones
+
+        fourier_coefficents_lhs = []
+        fourier_coefficents_rhs = []
+
+        for i in range(0, number_of_spins):
+            # Select an eigenvector, and take the dot-product to return the coefficient of that particular mode.
+            fourier_coefficents_lhs.append(np.dot(gx_lhs, self.mx_data[:, i]))
+            fourier_coefficents_rhs.append(np.dot(gx_rhs, self.mx_data[:, i]))
+
+        # Normalise the arrays of coefficients.
+        fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
+        fourier_coefficents_rhs = fourier_coefficents_rhs / np.linalg.norm(fourier_coefficents_rhs)
+
+        # Plotting functions. Left here as nothing else will use this functionality.
+        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+        fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f'for a Uniform System')  # {file_name}
+        plt.subplots_adjust(top=0.82)
+
+        # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
+        sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', ls='--', label='Left',
+                     zorder=1.2)
+        sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
+                     marker='o', label='Right', zorder=1.1)
+
+        # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
+        ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
+               xlim=[lower, upper], yscale='log', ylim=[1e-3, 1e-1],
+               xticks=list(range(lower, upper + 1, step)),
+               xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 3)])
+
+        ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
+        ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
+                    xlim=ax.get_xlim(),
+                    xticks=list(range(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]) + 1, step)))
+
+        ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                  frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                  title='Propagation\n   Direction', fontsize=10)
+
+        ax.grid(lw=2, ls='-')
+
+        plt.tight_layout()
+        fig.savefig(f"{self.output_filepath}_fourier_coefficents.png", bbox_inches="tight")
+
+    def plot_single_eigenmode(self, eigenmode, has_endpoints=True):
+        """
+        Plot a single eigenmode with the x- and y-axis magnetic moment components against spin site.
+
+        :param int eigenmode: The eigenmode that is to be plotted.
+        :param bool has_endpoints: Allows for fixed nodes to be included on plot. Useful for visualisation purposes.
+
+        :return: Outputs a single figure.
+
+        """
+        print('Plotting please wait...')
+        eigenmode -= 0  # To handle 'off-by-one' error, as first site is at mx_data[0]
+
+        # Select single mode to plot from imported data.
+        mx_mode = self.mx_data[:, eigenmode] * -1
+        my_mode = self.my_data[:, eigenmode] * -1
+
+        # Simulation parameters
+        number_of_spins = len(mx_mode) + 2
+        driving_width = 0.05
+        frequency = self.eigenvalues_data[eigenmode]  # Convert angular (frequency) eigenvalue to frequency [Hz].
+
+        if has_endpoints:
+            # 0-valued reflects the (P-1) and (N+1) end spins that act as fixed nodes for the system.
+            mx_mode = np.append(np.append([0], mx_mode), [0])
+            my_mode = np.append(np.append([0], my_mode), [0])
+
+        # Generate plot
+        fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+
+        sns.lineplot(x=range(0, len(mx_mode)), y=mx_mode, marker='', ls=':', lw=3, label='Mx', zorder=2)
+        sns.lineplot(x=range(0, len(my_mode)), y=my_mode, color='r', ls='-', lw=3, label='My', zorder=1)
+
+        axes.set(title=f"Eigenmode[{eigenmode}]",
+                 xlabel="Site Number", ylabel="Amplitude [arb.]",
+                 xlim=(0, number_of_spins),
+                 xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 20))
+
+        # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
+        axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                    frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                    title=f"Frequency [GHz]\n        {frequency:4.2f}\n\n    Component",
+                    fontsize=10)
+
+        axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
+
+        axes.grid(color='black', ls='--', alpha=0.1, lw=1)
+
+        plt.tight_layout()
+        fig.savefig(f"{self.output_filepath}_eigenmode_{eigenmode}.png")
+
+    def plot_dispersion_relation(self):
+        freqs = np.loadtxt(f"{self.input_filepath}eigenvalues_formatted_{self.input_filename}.csv")
+
+        fig = plt.figure(figsize=(6, 6))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
+        ax.set(ylabel="Frequency [GHz]", xlabel='Mode Number')
+
+        fig.tight_layout()
+
+        fig.savefig(f"{self.output_filepath}_dispersion_relation.png", bbox_inches="tight")
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
 def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
     """

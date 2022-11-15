@@ -381,8 +381,8 @@ def afm_test():
         ax.plot(h0, omega_0n, label='$\omega_{neg}$')
     elif type == 7:
 
-        datestamp = "2022-11-02"
-        timestamp = "1548"
+        datestamp = "2022-11-11"
+        timestamp = "1453"
 
         omega = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
         freqs = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
@@ -394,8 +394,8 @@ def afm_test():
         k = np.sqrt((hbar_si * omega - gamma * hbar_si * h_0) / (2 * J * a**2))
         #ax.scatter(k * a / (2 * np.pi), hbar_si * omega * j_2_mev, label="$k$")
         #ax.set(xlabel="k a / $ 2 \\pi$", ylabel="$\\hbar \\omega$ [meV]")
-        ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
-        ax.set(ylabel="Frequency [GHz]", xlabel='Mode Number')
+        ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
+        ax.set(ylabel="Frequency [GHz]", xlabel='Mode Number', xlim=[1800, 2200], ylim=[6200, 8400])
 
     # ax.legend(title='$H_0$ [T]')
     fig.tight_layout()
