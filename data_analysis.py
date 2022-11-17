@@ -658,5 +658,5 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 1000,
+                         'savefig.dpi': 100, "figure.dpi": 100,
                          'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
