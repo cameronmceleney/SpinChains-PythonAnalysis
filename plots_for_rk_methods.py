@@ -82,7 +82,7 @@ class PaperFigures:
         cm = 1 / 2.54
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 3.5e-7  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 5.5e-7  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
@@ -292,7 +292,7 @@ class PaperFigures:
         xlim_in = self.max_time  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0.035, 0.04])  # ,
+                      xlim=[0, xlim_in], ylim=[-5.5e-7, 5.5e-7])  # ,
         # ylim=[-1*ymax_plot,# - 1.25e-3,
         #      ymax_plot])
 
@@ -315,8 +315,8 @@ class PaperFigures:
         # self.axes.text(4.4, -4.5e-3, 'Equilibrium', ha='center', va='bottom', fontsize=6)
 
         # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(0.005 / 4),
-                            minor_locator=ticker.MultipleLocator(0.005 / 12))
+        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time / 2),
+                            minor_locator=ticker.MultipleLocator(self.max_time / 10))
         self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
                             minor_locator=ticker.AutoMinorLocator(4))
 
@@ -835,7 +835,7 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 # ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
 def fft_only(amplitude_data, spin_site, simulation_params, filename):
-    interactive = False
+    interactive = True
     # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
     if interactive:
         fig = plt.figure(figsize=(9, 9))
@@ -851,7 +851,7 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     # Set marker='o' to see each datapoint, else leave as marker='' to hide
     ax.plot(frequencies, abs(fourier_transform),
             marker='', lw=2, color='red', markerfacecolor='black', markeredgecolor='black')
-    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log')
+    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log', xlim=[0, 10000])
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
               title=f'Freq. List [GHz]\nDriving - {driving_freq}', fontsize=12)
