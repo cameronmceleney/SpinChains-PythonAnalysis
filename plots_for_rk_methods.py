@@ -82,7 +82,7 @@ class PaperFigures:
         cm = 1 / 2.54
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 5.5e-7  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 1.2e-6  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
@@ -249,6 +249,8 @@ class PaperFigures:
 
         frames = []
 
+        plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})
+
         for index in range(0, int(self.data_points + 1), int(self.data_points * number_of_frames)):
             frame = self._plot_paper_gif(index)
             frames.append(frame)
@@ -268,31 +270,32 @@ class PaperFigures:
 
         self.axes.clear()
         # self.axes.set_aspect('auto')
-        lower1 = 12
-        lower2 = 1_000_000
-        lower3 = 1_000_000
+        #lower1, upper1 = 3363190, 3430357
+        #lower2, upper2 = 3228076, 3287423
+        #lower3, upper3 = 3118177, 3162992
         # self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
-        self.axes.plot(self.time_data[lower1:lower2], self.amplitude_data[lower1:lower2, spin_site], marker='', lw=0.75,
+        self.axes.plot(self.time_data[:], self.amplitude_data[:, spin_site], lw=0.5,
                        color='#37782c',
-                       markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        self.axes.plot(self.time_data[lower2:lower3], self.amplitude_data[lower2:lower3, spin_site], marker='', lw=0.75,
-                       color='#64bb6a',
-                       markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
-        self.axes.plot(self.time_data[lower3:], self.amplitude_data[lower3:, spin_site], marker='', lw=0.75,
-                       color='#9fd983',
-                       markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
-
+                       markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.1)
+        #self.axes.plot(self.time_data[lower1:upper1], self.amplitude_data[lower1:upper1, spin_site], marker='', lw=0.75,
+        #               color='purple',
+        #               markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
+        #self.axes.plot(self.time_data[lower2:upper2], self.amplitude_data[lower2:upper2, spin_site], marker='', lw=0.75,
+        #               color='red',
+        #               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
+        #self.axes.plot(self.time_data[lower3:upper3], self.amplitude_data[lower3:upper3, spin_site], marker='', lw=0.75,
+        #               color='blue',
+        #               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
         # self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
         #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
         # self.axes.text(0.04, 0.1, f"(b) 10 GHz",
         #               verticalalignment='center', horizontalalignment='left', transform=self.axes.transAxes, fontsize=6)
-
-        ymax_plot = 8e-3  # self.amplitude_data[:, spin_site].max()
+        ymax_plot = 1e-6  # self.amplitude_data[:, spin_site].max()
         xlim_in = self.max_time  # int(input("Enter xlim: "))
         # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0, xlim_in], ylim=[-5.5e-7, 5.5e-7])  # ,
+                      xlim=[0, xlim_in], ylim=[-ymax_plot, ymax_plot])  # ,
         # ylim=[-1*ymax_plot,# - 1.25e-3,
         #      ymax_plot])
 
@@ -452,9 +455,9 @@ class PaperFigures:
         x_scaling = 0.1
         fft_shaded_box_width = 10  # In GHz
 
-        plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$", "xlim": (0, 5)},
-                           1: {"xlim": (0, 60), "ylim": (1e-5, 1e1)},
-                           2: {"xlabel": "Frequency [GHz]", "xlim": (0, 10)}}
+        plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$"},
+                           1: {"ylim": (1e-5, 1e0)},
+                           2: {"xlabel": "Frequency [GHz]"}}
         fig = plt.figure()
 
         # Signal that varies in time #37782c
@@ -471,35 +474,44 @@ class PaperFigures:
         # self._tick_setter(ax1, 2.5, 0.5, 3, 4)
 
         # FFT stuff
-        frequencies_blob1, fourier_transform_blob1 = self._fft_data(self.amplitude_data[2930:3340, 3000])
-        frequencies_blob2, fourier_transform_blob2 = self._fft_data(self.amplitude_data[2340:2570, 3000])
-        frequencies_blob3, fourier_transform_blob3 = self._fft_data(self.amplitude_data[1980:2120, 3000])
-        frequencies_precursors, fourier_transform_precursors = self._fft_data(self.amplitude_data[12:3346, 3000])
-        frequencies_dsw, fourier_transform_dsw = self._fft_data(self.amplitude_data[3346:5079, 3000])
-        frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[5079:6666, 3000])
+
+        lower1, upper1 = 3363190, 3423357
+        lower2, upper2 = 3223076, 3283423
+        lower3, upper3 = 3113177, 3162992
+        frequencies_blob1, fourier_transform_blob1 = self._fft_data(self.amplitude_data[lower1:upper1, spin_site])
+        frequencies_blob2, fourier_transform_blob2 = self._fft_data(self.amplitude_data[lower2:upper2, spin_site])
+        frequencies_blob3, fourier_transform_blob3 = self._fft_data(self.amplitude_data[lower3:upper3, spin_site])
+        frequencies_precursors, fourier_transform_precursors = self._fft_data(self.amplitude_data[12:int(self.data_points*0.26), spin_site])
+        frequencies_dsw, fourier_transform_dsw = self._fft_data(self.amplitude_data[int(self.data_points*0.27)+1:int(self.data_points*0.34), spin_site])
+        frequencies_dsw2, fourier_transform_dsw2 = self._fft_data(self.amplitude_data[int(self.data_points*0.27)+1:int(self.data_points*0.4), spin_site])
+        frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[int(self.data_points*0.7)+1:int(self.data_points*0.99), spin_site])
 
         # FFT for blobs
-        ax2 = plt.subplot2grid((4, 8), (0, 0), rowspan=2, colspan=8)
-        ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
-                 markerfacecolor='black', markeredgecolor='black', ls=':')
-        ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
-                 markerfacecolor='black', markeredgecolor='black', ls='--')
-        ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
-                 markerfacecolor='black', markeredgecolor='black', ls='-.')
+        fig = plt.figure()
+        #ax2 = plt.subplot2grid((4, 8), (0, 0), rowspan=4, colspan=8)
+        ax2 = plt.subplot(1, 1, 1)
+        #ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
+        #         markerfacecolor='black', markeredgecolor='black', ls=':')
+        #ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
+        #         markerfacecolor='black', markeredgecolor='black', ls='--')
+        #ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
+        #         markerfacecolor='black', markeredgecolor='black', ls='-.')
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
-                 markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
-        ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
-                 markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
+        #ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
+        #         markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
+        #ax2.plot(frequencies_dsw2, abs(fourier_transform_dsw2), marker='', lw=1, color='green',
+        #         markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
+        #ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
+        #         markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
         ax2.set(**plot_set_params[1], yscale='log')
         arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-        ax2.annotate('P1', xy=(24.22, 0.029), xytext=(26.31, 0.231), va='center', ha='center',
-                     arrowprops=arrow_ax2_props, fontsize=8)
-        ax2.annotate('P2', xy=(36.48, 0.0096), xytext=(39.91, 0.13), va='center', ha='center',
-                     arrowprops=arrow_ax2_props, fontsize=8)
-        ax2.annotate('P3', xy=(52.00, 0.0045), xytext=(56.25, 0.075), va='center', ha='center',
-                     arrowprops=arrow_ax2_props, fontsize=8)
+        # ax2.annotate('P1', xy=(24.22, 0.029), xytext=(26.31, 0.231), va='center', ha='center',
+        #              arrowprops=arrow_ax2_props, fontsize=8)
+        # ax2.annotate('P2', xy=(36.48, 0.0096), xytext=(39.91, 0.13), va='center', ha='center',
+        #              arrowprops=arrow_ax2_props, fontsize=8)
+        # ax2.annotate('P3', xy=(52.00, 0.0045), xytext=(56.25, 0.075), va='center', ha='center',
+        #              arrowprops=arrow_ax2_props, fontsize=8)
         ax2.legend(ncol=1, fontsize=6, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
                    bbox_to_anchor=[0.825, 0.7])
         self._tick_setter(ax2, 10, 2, 3, 4, is_fft_plot=True)
@@ -549,6 +561,8 @@ class PaperFigures:
             # ax1.spines[spine].set_visible(True)
             ax2.spines[spine].set_visible(True)
 
+        fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
+        exit(0)
         ax = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
         SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
         DURATION = int(15)  # Nanoseconds
@@ -638,7 +652,6 @@ class PaperFigures:
         """
         Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
 
-        :param dict simulation_params: Imported key simulation parameters.
         :param amplitude_data: Magnitudes of magnetic moments for a spin site
 
         :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
@@ -648,13 +661,6 @@ class PaperFigures:
         # gamma is in [GHz/T] here.
         core_values = {"gamma": self.gyro_mag_ratio / (2 * np.pi),
                        "hz_to_ghz": 1e-9}
-
-        # Data in file header is in [Hz] by default.
-        # driving_freq_ghz = self.driving_freq # * core_values["hz_to_ghz"]
-
-        # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
-        # add other markers to the plot(s)
-        # natural_freq = core_values['gamma'] * self.static_field
 
         # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
         sample_spacing = (self.max_time / (self.data_points - 1))
@@ -666,7 +672,7 @@ class PaperFigures:
         fourier_transform = rfft(normalised_data)
         frequencies = rfftfreq(n, sample_spacing)
 
-        return frequencies, fourier_transform  # , natural_freq, driving_freq_ghz
+        return frequencies, fourier_transform
 
     def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
 
@@ -835,6 +841,9 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 # ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
 def fft_only(amplitude_data, spin_site, simulation_params, filename):
+
+    plt.rcParams.update({'savefig.dpi': 100, "figure.dpi": 100})
+
     interactive = True
     # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
     if interactive:
@@ -842,19 +851,45 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     else:
         fig = plt.figure(figsize=(12, 9), constrained_layout=True)
 
-    fig.suptitle(f"Data from Spin Site #{spin_site}")
+    fig.suptitle(f"Data from Spin Site #{14000}")
     ax = plt.subplot(1, 1, 1)
-
-    frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
+    num_dp = simulation_params['numberOfDataPoints']
+    #frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
+    #frequencies, fourier_transform = fft_data2(amplitude_data[:])
+    lower1, upper1 = 3363190, 3430357
+    lower2, upper2 = 3228076, 3287423
+    lower3, upper3 = 3118177, 3162992
+    frequencies_blob1, fourier_transform_blob1 = fft_data2(amplitude_data[lower1:upper1], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_blob2, fourier_transform_blob2 = fft_data2(amplitude_data[lower2:upper2], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_blob3, fourier_transform_blob3 = fft_data2(amplitude_data[lower3:upper3], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_precursors, fourier_transform_precursors = fft_data2(amplitude_data[12:int(num_dp * 0.25)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_dsw, fourier_transform_dsw = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.34)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_dsw2, fourier_transform_dsw2 = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.4)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_eq, fourier_transform_eq = fft_data2(amplitude_data[int(num_dp * 0.7) + 1:int(num_dp * 0.95)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
 
     # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
     # Set marker='o' to see each datapoint, else leave as marker='' to hide
-    ax.plot(frequencies, abs(fourier_transform),
-            marker='', lw=2, color='red', markerfacecolor='black', markeredgecolor='black')
-    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log', xlim=[0, 10000])
+    #ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black', markeredgecolor='black',
+    #        label='all data', alpha=0.0)
 
-    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title=f'Freq. List [GHz]\nDriving - {driving_freq}', fontsize=12)
+    ax.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
+             markerfacecolor='black', markeredgecolor='black', ls=':', label='Blob 1')
+    ax.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
+             markerfacecolor='black', markeredgecolor='black', ls='--', label='Blob 2')
+    ax.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
+             markerfacecolor='black', markeredgecolor='black', ls='-.', label='Blob 3')
+    ax.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#4fc1e8',
+             markerfacecolor='black', markeredgecolor='black', label="Pre-Precursors", zorder=1.5)
+    ax.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#a0d568',
+             markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.3)
+    ax.plot(frequencies_dsw2, abs(fourier_transform_dsw2), marker='', lw=1, color='#ffce54',
+             markerfacecolor='black', markeredgecolor='black', label="Shockwave Region", zorder=1.2)
+    ax.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#ed5564',
+             markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.1)
+
+    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log', xlim=[0, 16000], ylim=[1e-7, 1e-0])
+
+    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',title=f'Freq. List [GHz]\nDriving - {12500} GHz', fontsize=12)
 
     # ax.xaxis.set_major_locator(MultipleLocator(5))
     # ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -872,14 +907,14 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
                          f"{simulation_params['exchangeMaxVal']} [T]"
     textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} [T] | " \
               f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} [T] | " \
-              f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}[T]" \
+              f"\nH$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}[T]" \
               f" | {exchangeString} | N = {simulation_params['totalSpins']}"
 
     props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
     # place a text box in upper left in axes coords
     ax.text(0.5, -0.10, textstr, transform=ax.transAxes, fontsize=18,
             verticalalignment='top', bbox=props, ha='center', va='center')
-
+    fig.tight_layout()
     if interactive:
         # For interactive plots
         def mouse_event(event):
@@ -1064,7 +1099,7 @@ def fft_data(amplitude_data, simulation_params):
     natural_freq = core_values['gamma'] * simulation_params['staticBiasField']
 
     # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
-    sample_spacing = (simulation_params["maxSimTime"] / (simulation_params["numberOfDataPoints"] - 1)) / core_values[
+    sample_spacing = (simulation_params["maxSimTime"] / (simulation_params['numberOfDataPoints'] - 1)) / core_values[
         'hz_to_ghz']
 
     # Compute the FFT
@@ -1075,6 +1110,42 @@ def fft_data(amplitude_data, simulation_params):
     frequencies = rfftfreq(n, sample_spacing)
 
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
+
+
+def fft_data2(amplitude_data, maxtime, numberDP):
+    """
+        Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
+
+        :param dict simulation_params: Imported key simulation parameters.
+        :param amplitude_data: Magnitudes of magnetic moments for a spin site
+
+        :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
+        (1st eigenvalue) [2], and driving frequency [3] for the system.
+        """
+    # Simulation parameters needed for FFT computations that are always the same are saved here.
+    # gamma is in [GHz/T] here.
+    core_values = {"gamma": 29.2e9 / (2 * np.pi),
+                   "hz_to_ghz": 1e-9}
+
+    # Data in file header is in [Hz] by default.
+    # driving_freq_ghz = self.driving_freq # * core_values["hz_to_ghz"]
+
+    # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
+    # add other markers to the plot(s)
+    # natural_freq = core_values['gamma'] * self.static_field
+
+    # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
+    sample_spacing = (maxtime / (numberDP - 1)) / core_values[
+        'hz_to_ghz']
+
+    # Compute the FFT
+    n = amplitude_data.size
+    normalised_data = amplitude_data
+
+    fourier_transform = rfft(normalised_data)
+    frequencies = rfftfreq(n, sample_spacing)
+
+    return frequencies, fourier_transform  # , natural_freq, driving_freq_ghz
 
 
 def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_tri=False):
@@ -1278,7 +1349,7 @@ class Eigenmodes:
         if are_eigens_angular_freqs:
             # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
             eigenvalues_angular = np.append([0], self.eigenvalues_data)  # eigenvalues_angular
-            eigenvalues = [eigval/(2*np.pi) for eigval in eigenvalues_angular]
+            eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues_angular]
         else:
             # No need for further data processing
             eigenvalues = np.append([0], self.eigenvalues_data)
@@ -1399,6 +1470,8 @@ class Eigenmodes:
         fig.tight_layout()
 
         fig.savefig(f"{self.output_filepath}_dispersion_relation.png", bbox_inches="tight")
+
+
 # --------------------------------------------- Continually plot eigenmodes --------------------------------------------
 def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
     """
@@ -1641,6 +1714,9 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
 
 
 def plot_dispersion_relation(key_data, output_filepath):
+
+    plt.rcParams.update({'savefig.dpi': 300, "figure.dpi": 300})
+
     h_0 = key_data['staticBiasField']
     h_ex_1 = key_data['exchangeMinVal']
     h_ex_2 = key_data['exchangeMaxVal']

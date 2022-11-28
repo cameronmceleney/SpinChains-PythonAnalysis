@@ -580,10 +580,10 @@ class PlotImportedData:
                 sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     target_site = int(target_site)
-                    if target_site >= 1:
+                    if target_site >= 0:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                        paper_fig.plot_site_variation(target_site, False, False, False)
+                        paper_fig.plot_site_variation(target_site - 1, False, False, False)
                         lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                     else:
                         print("Exiting PF-TV plotting.")
@@ -598,13 +598,13 @@ class PlotImportedData:
             has_more_to_plot = True
             while has_more_to_plot:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = [3000]  # (input("Plot which site (-ve to exit): ")).split()
+                sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     target_site = int(target_site)
                     if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
-                        paper_fig.plot_fft(target_site)
+                        paper_fig.plot_fft(target_site - 1)
                         lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
                         exit(0)
                     else:
@@ -658,5 +658,5 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 100, "figure.dpi": 100,
+                         'savefig.dpi': 1000, "figure.dpi": 1000,
                          'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})

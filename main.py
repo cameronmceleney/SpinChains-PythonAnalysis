@@ -28,11 +28,8 @@ def main():
     """All functions should be initialised here (excluding core operating features like logging)."""
     lg.info(f"Program start...")
   # https://REDACTED@github.com/cameronmceleney/SpinChains.git
-    # das.data_analysis(file_prefix="rk2_", file_identifier="500spins", file_descriptor="-nonlin", breaking_paper=True)
-    # das.data_analysis(file_prefix="rk2_mx_", file_identifier="LLGTest", file_descriptor=filename_base,
-    #                  breaking_paper=False)
 
-    _should_use_eigs = False
+    _should_use_eigs = True
 
     system_setup = sp.SystemSetup()
     system_setup.detect_os(has_custom_name=False)
