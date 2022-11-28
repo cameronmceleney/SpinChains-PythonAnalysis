@@ -2,14 +2,13 @@
 
 # -------------------------- Preprocessing Directives -------------------------
 import matplotlib
-#matplotlib.use('macosx')
+# matplotlib.use('macosx')
 
 # Standard Libraries
 import logging as lg
 # import os as os
 from sys import exit
 import seaborn as sns
-
 
 # 3rd Party packages
 from datetime import datetime
@@ -281,7 +280,6 @@ def compare_dataset_plots():
 
 
 def afm_test():
-
     type = 7
 
     hbar_si = 1.05456e-34  # m^2 kg s^-1
@@ -295,7 +293,7 @@ def afm_test():
 
     t_range = 0.8  # T
     h_0_si = np.linspace(-t_range, t_range, 1000)
-    h_0_cgs = np.linspace(-t_range*1e1, t_range*1e1, 1000)
+    h_0_cgs = np.linspace(-t_range * 1e1, t_range * 1e1, 1000)
 
     fig = plt.figure(figsize=(6, 6))
     ax = fig.add_subplot(1, 1, 1)
@@ -327,8 +325,8 @@ def afm_test():
         he_si = 53  # T
         ha_si = 0.787  # T
 
-        omega_pos = gamma_si * (np.sqrt(2 * he_si * ha_si + ha_si**2) + h_0_si)
-        omega_neg = gamma_si * (np.sqrt(2 * he_si * ha_si + ha_si**2) - h_0_si)
+        omega_pos = gamma_si * (np.sqrt(2 * he_si * ha_si + ha_si ** 2) + h_0_si)
+        omega_neg = gamma_si * (np.sqrt(2 * he_si * ha_si + ha_si ** 2) - h_0_si)
 
         ax.plot(h_0_si, omega_pos, label="$\omega_{pos}$")
         ax.plot(h_0_si, omega_neg, label="$\omega_{neg}$")
@@ -345,36 +343,36 @@ def afm_test():
 
         omega_ex = 4 * np.abs(he_si) * S / hbar_cgs
 
-        omega = omega_ex * np.sin(k*a_si)
-        ax.plot(k, hbar_cgs*omega, label="$\\omega$")
+        omega = omega_ex * np.sin(k * a_si)
+        ax.plot(k, hbar_cgs * omega, label="$\\omega$")
 
         ax.set(xlabel="$k$ [cm]", ylabel="$Magnon Energy \\hbar \\omega$ [erg]")
     elif type == 4:
         # Comparing dispersion relations of FM and AFM, and plotting in terms of hw/4JS
         a = 2e-9
-        k = np.linspace(0, np.pi/a, 1000)
-        #ax.plot(k, 2 * 13.25 * 2e-9**2 * k**2)
-        ax.plot(k, np.sin(k*a), label='AFM')
-        ax.plot(k, 1 - np.cos(k*a), label='FM')
+        k = np.linspace(0, np.pi / a, 1000)
+        # ax.plot(k, 2 * 13.25 * 2e-9**2 * k**2)
+        ax.plot(k, np.sin(k * a), label='AFM')
+        ax.plot(k, 1 - np.cos(k * a), label='FM')
         ax.set(xlabel='$k$ [m]', ylabel='$\\frac{\\hbar \\omega}{4 J S}$')
     elif type == 5:
         # Comparing dispersion relations of FM and AFM in CGS units and plotting in terms of energy
         a = b = 4.873e-8
         c = 3.13e-8
-        k = np.linspace(0, np.pi/a, 1000)
+        k = np.linspace(0, np.pi / a, 1000)
 
-        ax.plot(k, np.sin(k*a) * 4 * 570e3, label='AFM')
-        ax.plot(k, (1 - np.cos(k*a)) * 4 * 570e3, label='FM')
+        ax.plot(k, np.sin(k * a) * 4 * 570e3, label='AFM')
+        ax.plot(k, (1 - np.cos(k * a)) * 4 * 570e3, label='FM')
         ax.set(xlabel='$k$ [cm$^{-1}$]', ylabel='Magnon Energy $\\hbar \\omega$ [erg]')
     elif type == 6:
-        #AFM resonance frequencies in CGS units
+        # AFM resonance frequencies in CGS units
         gamma = 2.8  # GHz / kOe
         he = 530  # kOe
         ha = 7.87  # kOe
         h0 = np.linspace(-8, 8, 100)
-        omega_0 = gamma * (np.sqrt(2 * he * ha + ha**2) + h0)
-        omega_0n = gamma * (np.sqrt(2 * he * ha + ha**2) - h0)
-        omega_1 = gamma * (np.sqrt(2 * he * ha + ha** 2) + 1)
+        omega_0 = gamma * (np.sqrt(2 * he * ha + ha ** 2) + h0)
+        omega_0n = gamma * (np.sqrt(2 * he * ha + ha ** 2) - h0)
+        omega_1 = gamma * (np.sqrt(2 * he * ha + ha ** 2) + 1)
         omega_7 = gamma * (np.sqrt(2 * he * ha + ha ** 2) + ha)
 
         ax.plot(h0, omega_0, label='$\omega_{pos}$')
@@ -384,16 +382,18 @@ def afm_test():
         datestamp = "2022-11-11"
         timestamp = "1453"
 
-        omega = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
-        freqs = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
+        omega = np.loadtxt(
+            f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
+        freqs = np.loadtxt(
+            f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Simulation_Data/eigenvalues_formatted_eigenvalues_T{timestamp}.csv")
         gamma = 29.2  # GHz / T
         h_0 = 1e-1  # T
         J = 1e-3 * 1.60218E-19  # was in meV then converted to joules
         a = 2e-10  # m
 
-        k = np.sqrt((hbar_si * omega - gamma * hbar_si * h_0) / (2 * J * a**2))
-        #ax.scatter(k * a / (2 * np.pi), hbar_si * omega * j_2_mev, label="$k$")
-        #ax.set(xlabel="k a / $ 2 \\pi$", ylabel="$\\hbar \\omega$ [meV]")
+        k = np.sqrt((hbar_si * omega - gamma * hbar_si * h_0) / (2 * J * a ** 2))
+        # ax.scatter(k * a / (2 * np.pi), hbar_si * omega * j_2_mev, label="$k$")
+        # ax.set(xlabel="k a / $ 2 \\pi$", ylabel="$\\hbar \\omega$ [meV]")
         ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
         ax.set(ylabel="Frequency [GHz]", xlabel='Mode Number', xlim=[1800, 2200], ylim=[6200, 8400])
 
@@ -419,7 +419,7 @@ def afm_test_si():
 
     k = np.linspace(0, 0.5 * 2 * np.pi, 1000)
     gamma_k = np.cos(k / 2)
-    w_k = np.sqrt(2*h_ex*h_a + h_a**2 + (h_ex**2) * (1 - gamma_k ** 2))
+    w_k = np.sqrt(2 * h_ex * h_a + h_a ** 2 + (h_ex ** 2) * (1 - gamma_k ** 2))
     omega = gamma * (w_k + h_0)
     print(omega[0] * h_bar_meV)
 
@@ -524,6 +524,55 @@ def main():
     exit()
 
 
+def resizing_system_test(use_gauss):
+    if use_gauss:
+        # Core parameters
+        D = 5.3E-9  # [erg / G * cm]
+        gamma = 2.9  # [GHz G**-1] # * 2 * np.pi
+        H = 1  # [kG]
+        w = 25  # [GHz]
+        um = 1e4  # how many [cm] in 1[um]
+
+        # Find wavenumber
+        k = np.sqrt(((w / gamma) - H) * 1e3 / D) * (1 / um)
+        print(f"k\t\t\t: {k}\t\t[1/um]")
+
+        # Find wavelength
+        wavelength = (2 * np.pi) / (k)
+        print(f"wavelength\t: {wavelength}\t[um]")
+
+        # Find lattice spacing
+        a = 0.002 * (1 / um)  # 0.002 [um] is what we used on the board
+        print(f"spacing\t\t: {a} [cm]")
+
+        # Find exchange integral
+        J = D / a ** 2
+        print(f"J\t\t\t: {J / 1e3}\t\t[kG]")
+
+    else:
+        # Core parameters
+        D = 5.3E-17 / 2  # [T m**2]
+        gamma = 29.3 * 2 * np.pi  # [GHz T**-1] # * 2 * np.pi
+        H = 0.1  # [T]
+        w = (2 * np.pi) * 42.5  # [GHz]
+
+        # Find wavenumber
+        k = np.sqrt(((w / gamma) - H) / D)
+        print(f"k\t\t\t: {k * 1e-6}\t\t[1/um]")
+
+        # Find wavelength
+        wavelength = (2 * np.pi) / k
+        print(f"wavelength\t: {wavelength * 1e6}\t[um]")
+
+        # Find lattice spacing
+        a = wavelength * 0.05  # 0.002E-6 is what we used on the board
+        print(f"spacing\t\t: {a * 1e6} [um]")
+
+        # Find exchange integral
+        J = D / a ** 2
+        print(f"J\t\t\t: {J}\t[T]")
+
+
 def test():
     omega = 20e9
     t = np.linspace(0, 1e-9, 10000)
@@ -534,14 +583,42 @@ def test():
     plt.show()
 
 
-def string_test():
-    import re
-    input_str = "2022-11-01"
-    regex_pattern = re.compile('\d{4}-\d{2}-\d{2}')
-    if regex_pattern.match(input_str) is not None:
-        print('matches')
-    elif regex_pattern.match(input_str) is None:
-        print('doesn\'t match')
+def propagating_modes():
+    g = 29.2
+    H = np.linspace(0, 1.0, 1000)
+    Ms = 0.1
+    fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(6, 4))
+
+    perpendicular = g*np.sqrt(H*(H+4*np.pi*Ms))
+    parallel = g*H
+    surface = g*(H+2*np.pi*Ms)
+
+    combined = np.vstack((parallel, perpendicular)).T
+    plt.plot(H, combined)
+    plt.xlabel("Applied Magnetic Field [T]")
+    plt.ylabel("Angular Frequency [GHz]")
+    plt.title("Bulk Propagating Modes")
+
+    ax1.fill_between(H, parallel, perpendicular, alpha=0.1)
+    ax1.grid(False)
+    fig.tight_layout()
+    plt.show()
+
+
+def afm():
+
+    h0 = np.arange(-3, 3, 0.1)
+    gamma = 28.8
+    he = 53
+    ha = 0.787
+    omega_pos = gamma * np.sqrt(2 * he * ha + ha**2) + h0
+    omega_neg = gamma * np.sqrt(2 * he * ha + ha ** 2) - h0
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.plot(h0, omega_pos)
+    ax.plot(h0, omega_neg)
+    fig.tight_layout()
+    plt.show()
 # ------------------------------ Implementations ------------------------------
 
 if __name__ == '__main__':
@@ -550,7 +627,6 @@ if __name__ == '__main__':
     # square_number()
     # compare_dataset_plots()
     # test()
-    #afm_test()
-    string_test()
+    # afm_test()
     exit()
     # main()
