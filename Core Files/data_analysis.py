@@ -48,7 +48,8 @@ class PlotEigenmodes:
 
         self._arrays_to_output = [0, 0, 0]  # Each array is initialised as none to remove garbage.
         self.is_input_data_present = [False, False]
-        self.is_formatted_data_present = [False, False, False]  # Tests if each filtered array is in the target directory.
+        self.is_formatted_data_present = [False, False,
+                                          False]  # Tests if each filtered array is in the target directory.
 
         self.input_filenames = [f"eigenvalues_{self.fi}{self.fd}.csv",
                                 f"eigenvectors_{self.fi}{self.fd}.csv"]
@@ -189,7 +190,6 @@ class PlotEigenmodes:
             print(f"AFM files: generated")
 
         lg.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
-
 
     def plot_eigenmodes(self):
         lg.info(f"Invoking functions to plot data...")
@@ -446,7 +446,7 @@ class PlotImportedData:
                 sites_to_compare.append(input("Tertiary sites to compare: ").split())
 
             elif should_compare_sites == 'N':
-                None
+                exit(0)
 
         sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
 
@@ -566,7 +566,7 @@ class PlotImportedData:
                     if row_num >= 1:
                         print(f"Generating plot for [#{row_num}]...")
                         lg.info(f"Generating PV plot for row [#{row_num}]")
-                        paper_fig.create_png(row_num)
+                        paper_fig.create_position_variation(row_num)
                         lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
                     else:
                         print("Exiting PF-PV plotting.")
@@ -583,7 +583,7 @@ class PlotImportedData:
                     if target_site >= 0:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                        paper_fig.plot_site_variation(target_site - 1, False, False, False)
+                        paper_fig.create_time_variation(target_site - 1, False, False, False)
                         lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                     else:
                         print("Exiting PF-TV plotting.")
