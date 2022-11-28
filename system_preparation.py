@@ -6,6 +6,7 @@ from datetime import datetime
 import errno as errno
 import logging as lg
 import os as os
+import re
 from sys import platform
 
 """
@@ -50,10 +51,13 @@ class SystemSetup:
         self.output_data_directory = None
         self.logging_directory = None
 
-    def detect_os(self, has_custom_name=False):
+        self.parent_name = ''
+
+    def detect_os(self, has_custom_name=False, custom_name=""):
         """
         Detect the user's operating system.
 
+        :param custom_name: Allows for direct entry of the custom name instead of using console-entry.
         :param bool has_custom_name: Select if the target parent directory has a customised name. Default is today's
                                      date.
 
@@ -62,41 +66,45 @@ class SystemSetup:
          """
 
         if has_custom_name:
-            parent_name = str(input("Enter the name of the parent directory: "))
-            # parent_name = "2022-07-27"
+            # Custom directory name usage can lead to bugs - syntax must be correct (YYYY-MM-DD)
+            if custom_name:
+                self.parent_name = custom_name
+            else:
+                self.parent_name = str(input("Enter the name of the parent directory: "))
         else:
-            parent_name = self._date_of_today()
+            self.parent_name = self._date_of_today()
 
-        lg.info(f"Target (parent) directory is {parent_name}.")
+        self._is_dir_name_valid(self.parent_name)
 
         if platform == "linux" or platform == "linux2":
             raise SystemError("Detected Linux, which is not yet supported.")
 
         elif platform == "darwin":
-            # OS X
-            mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"  # Location of my C++ data on Mac
+            # OS X. This is the permanent location on my Macbook
+            mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"
 
             if not self.has_target_dir_been_found:
-                self._create_directory(mac_dir_root, parent_name)
+                self._create_directory(mac_dir_root, self.parent_name)
 
-            self.input_data_directory = f"{mac_dir_root}{parent_name}/Simulation_Data/"
-            self.output_data_directory = f"{mac_dir_root}{parent_name}/Outputs/"
-            self.logging_directory = f"{mac_dir_root}{parent_name}/Logs/"
+            self.input_data_directory = f"{mac_dir_root}{self.parent_name}/Simulation_Data/"
+            self.output_data_directory = f"{mac_dir_root}{self.parent_name}/Outputs/"
+            self.logging_directory = f"{mac_dir_root}{self.parent_name}/Logs/"
 
         elif platform == "win32" or platform == "win64":
-            # Windows
-            windows_dir_root = "D:\\Data\\"  # Location of my C++ data on Windows
+            # Windows. This is the permanent location on my desktop
+            windows_dir_root = "D:/Data/"
 
             if not self.has_target_dir_been_found:
-                self._create_directory(windows_dir_root, parent_name)
+                self._create_directory(windows_dir_root, self.parent_name)
 
-            self.input_data_directory = f"{windows_dir_root}{parent_name}\\Simulation_Data\\"
-            self.output_data_directory = f"{windows_dir_root}{parent_name}\\Outputs\\"
-            self.logging_directory = f"{windows_dir_root}{parent_name}\\Logs\\"
+            self.input_data_directory = f"{windows_dir_root}{self.parent_name}/Simulation_Data/"
+            self.output_data_directory = f"{windows_dir_root}{self.parent_name}/Outputs/"
+            self.logging_directory = f"{windows_dir_root}{self.parent_name}/Logs/"
 
         self._logging_setup()
+        lg.info(f"Target (parent) directory is {self.parent_name}.")
 
-    def input_dir(self, should_print=False):
+    def _input_dir(self, should_print=False):
 
         if self.input_data_directory is None:
             raise ValueError("input_data_directory was None")
@@ -107,7 +115,7 @@ class SystemSetup:
         else:
             return self.input_data_directory
 
-    def output_dir(self, should_print=False):
+    def _output_dir(self, should_print=False):
 
         if self.output_data_directory is None:
             raise ValueError("output_data_directory was None")
@@ -118,7 +126,7 @@ class SystemSetup:
         else:
             return self.output_data_directory
 
-    def logging_dir(self, should_print=False):
+    def _logging_dir(self, should_print=False):
 
         if self.logging_directory is None:
             raise ValueError("logging_directory was None")
@@ -139,7 +147,7 @@ class SystemSetup:
         :return: Today's date.
         """
 
-        # date = datetime.today().strftime("%d %b %y") # Old version left for backwards compatibility
+        # Old version was ("%d %b %y"). Try for backwards compatibility if current code fails
         date = datetime.today().strftime("%Y-%m-%d")  # Use ISO 8601 for dates
 
         return date
@@ -167,8 +175,7 @@ class SystemSetup:
         path_list = []
 
         for i, child_dir_name in enumerate(sub_dirs):
-            # Create list of paths to all subdirectories to be created. Done separately as future functions are to be
-            # added
+            # Create list of paths to all subdirectories to be created.
             path_list.append(os.path.join(parent_dir_path, child_dir_name))
 
         for i, child_dir_name in enumerate(sub_dirs):
@@ -188,6 +195,48 @@ class SystemSetup:
                     pass
 
         self.has_target_dir_been_found = True
+
+    def _is_dir_name_valid(self, str_to_test=''):
+        """
+        Tests if a given directory exists.
+
+        If a directory does exist, but the directory name is not in the standard format, then the user is given a
+        warning before continuing. This method recursively calls itself to check a valid directory name
+        """
+
+        # Checks if a given string is in the format ####-##-## where # is a digit from 0-9
+        regex_pattern = re.compile('\d{4}-\d{2}-\d{2}')
+
+        if not str_to_test:
+            # Testing self.parent_name is the primary purpose of this function.
+            str_to_test = self.parent_name
+
+        if regex_pattern.match(str_to_test) is not None:
+            # Directory is named in the correct format
+            return True
+
+        elif regex_pattern.match(str_to_test) is None:
+            # Unconventional naming format detected
+
+            dir_accepted_answers = ['Y', 'N']
+
+            dir_response = input('Your directory name is not in the format ####-##-##'
+                                 '\nWas this intentional [Y/N]? ').upper()
+
+            while True:
+                if dir_response in dir_accepted_answers:
+                    if dir_response == 'Y':
+                        return True
+
+                    elif dir_response == 'N':
+                        # Recursively call until a valid dir name is entered
+                        self.parent_name = input("Enter the name of the parent directory: ")
+                        self._is_dir_name_valid()
+                    break
+                else:
+                    # Force user to enter Y/N to above question
+                    while dir_response not in dir_accepted_answers:
+                        dir_response = input('Invalid option. Was this intentional [Y/N]? ').upper()
 
     def _logging_setup(self):
         """Initialisation of basic logging information."""
