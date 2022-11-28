@@ -534,6 +534,14 @@ def test():
     plt.show()
 
 
+def string_test():
+    import re
+    input_str = "2022-11-01"
+    regex_pattern = re.compile('\d{4}-\d{2}-\d{2}')
+    if regex_pattern.match(input_str) is not None:
+        print('matches')
+    elif regex_pattern.match(input_str) is None:
+        print('doesn\'t match')
 # ------------------------------ Implementations ------------------------------
 
 if __name__ == '__main__':
@@ -542,6 +550,7 @@ if __name__ == '__main__':
     # square_number()
     # compare_dataset_plots()
     # test()
-    afm_test()
+    #afm_test()
+    string_test()
     exit()
     # main()

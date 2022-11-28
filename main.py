@@ -25,23 +25,27 @@ PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
 
 
 def main():
-    """All functions should be initialised here (excluding core operating features like logging)."""
+    """
+    All functions should be initialised here (excluding core operating features like logging).
+
+    The GitHub token for this project is :https://REDACTED@github.com/cameronmceleney
+    /SpinChains.git
+    """
     lg.info(f"Program start...")
-  # https://REDACTED@github.com/cameronmceleney/SpinChains.git
 
     _should_use_eigs = True
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(has_custom_name=False)
+    system_setup.detect_os(has_custom_name=True)
 
     filename_base = str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigs:
-        dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
+        dataset1 = das.PlotImportedData(filename_base, system_setup._input_dir(), system_setup._output_dir(),
                                         file_prefix="rk2", file_component='mx', file_identifier="T")
         dataset1.call_methods()
 
     elif _should_use_eigs:
-        dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
+        dataset2 = das.PlotEigenmodes(filename_base, system_setup._input_dir(), system_setup._output_dir())
         dataset2.import_eigenmodes()
         dataset2.plot_eigenmodes()
 
@@ -49,7 +53,6 @@ def main():
 
 
 if __name__ == '__main__':
-
     main()
 
     """
