@@ -104,7 +104,7 @@ class SystemSetup:
         self._logging_setup()
         lg.info(f"Target (parent) directory is {self.parent_name}.")
 
-    def _input_dir(self, should_print=False):
+    def input_dir(self, should_print=False):
 
         if self.input_data_directory is None:
             raise ValueError("input_data_directory was None")
@@ -115,7 +115,7 @@ class SystemSetup:
         else:
             return self.input_data_directory
 
-    def _output_dir(self, should_print=False):
+    def output_dir(self, should_print=False):
 
         if self.output_data_directory is None:
             raise ValueError("output_data_directory was None")

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+# For interactive plots on Mac
 # import matplotlib
 # matplotlib.use('macosx')
+
 # Standard modules (common)
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import sys as sys
-import types as typ
 
 # Third party modules (uncommon)
 from matplotlib.animation import FuncAnimation
@@ -21,8 +23,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 import gif as gif
 from scipy.fft import rfft, rfftfreq
 
-from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
-                               AutoMinorLocator)
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 
 # My packages / Any header files
 
@@ -99,25 +100,21 @@ class PaperFigures:
         :return: No return statement. Method will output a figure to wherever the method was invoked.
         """
         if has_single_figure:
-            # For images, may want to further alter plot outside this method. Hence, the use of attribute.
-            cm = 1 / 2.54
+            # For single images, may want to further alter plot outside this method.
             self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
             self.axes = self.fig.add_subplot(111)
         else:
-            # For GIFs
+            # For GIFs. Each frame requires a new fig to prevent stuttering. Each subplot will be the same so no need
+            # to access ax outside of method.
             cm = 1 / 2.54
-            self.fig = plt.figure(
-                figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Each frame requires a new fig to prevent stuttering.
-            self.axes = self.fig.add_subplot(
-                111)  # Each subplot will be the same so no need to access ax outside of method.
+            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))
+            self.axes = self.fig.add_subplot(111)
 
         self.axes.set_aspect("auto")
-        #  plt.suptitle(f"{self.nm_method}")
-        #  plt.subplots_adjust(top=0.80)
 
+        # Easier to have time-stamp as label than textbox.
         self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=0.75,
-                       label=f"{self.time_data[plot_row]:2.2f} [ns]",
-                       color='#64bb6a')  # Easier to have time-stamp as label than textbox.
+                       label=f"{self.time_data[plot_row]:2.2f} [ns]", color='#64bb6a')
 
         self.axes.set(**self.kwargs)
 
@@ -126,6 +123,7 @@ class PaperFigures:
         self.axes.text(0.88, 0.88, f"(c) {self.time_data[plot_row]:2.3f} ns",
                        verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes,
                        fontsize=6)
+
         self.axes.xaxis.labelpad = -1.5
         self.axes.yaxis.labelpad = -5
         self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
@@ -137,33 +135,22 @@ class PaperFigures:
                 (self.dampedSpins, self.driving_width),
                 4 * self.axes.get_ylim()[1])
 
-            rectLHS = mpatches.Rectangle((left[0], bottom), width[0], height,
-                                         # fill=False,
-                                         alpha=0.5,
-                                         facecolor="grey",
-                                         edgecolor=None,
-                                         lw=0)
+            rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height,
+                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
 
-            rectRHS = mpatches.Rectangle((left[1], bottom), width[0], height,
-                                         # fill=False,
-                                         alpha=0.5,
-                                         facecolor="grey",
-                                         edgecolor=None,
-                                         lw=0)
+            rectangle_rhs = mpatches.Rectangle((left[1], bottom), width[0], height,
+                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
 
-            rectDriving = mpatches.Rectangle((left[2], bottom), width[1], height,
-                                             # fill=False,
-                                             alpha=0.25,
-                                             facecolor="grey",
-                                             edgecolor=None,
-                                             lw=0)
+            rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height,
+                                                          alpha=0.25, facecolor="grey", edgecolor=None, lw=0)
 
-            plt.gca().add_patch(rectLHS)
-            plt.gca().add_patch(rectRHS)
-            plt.gca().add_patch(rectDriving)
+            plt.gca().add_patch(rectangle_lhs)
+            plt.gca().add_patch(rectangle_rhs)
+            plt.gca().add_patch(rectangle_driving_region)
 
         # Change tick markers as needed.
-        self._tick_setter(self.axes, 5000, 1000, 3, 4)
+        xlim_major_ticks = 5000
+        self._tick_setter(self.axes, xlim_major_ticks, int(xlim_major_ticks * 0.2), 3, 4)
 
         class ScalarFormatterClass(ticker.ScalarFormatter):
             def _set_format(self):
@@ -174,18 +161,16 @@ class PaperFigures:
         self.axes.xaxis.set_major_formatter(yScalarFormatter)
         self.axes.yaxis.set_major_formatter(yScalarFormatter)
 
-        # self.axes.legend(loc=1, ncol=1, fontsize=6,
-        #          frameon=False, fancybox=True, facecolor=None, edgecolor=None)
-
         self.fig.tight_layout()
 
-    def create_png(self, row_number=-1):
+    def create_position_variation(self, row_number=-1, should_add_data=False):
         """
         Generate a PNG for a single row of the given dataset.
 
         A row corresponds to an instant in time, so this can be particularly useful for investigating the final 'state'
         of a system.
 
+        :param should_add_data:
         :param int row_number: Which row of data to be plotted. Defaults to plotting the final row.
 
         :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
@@ -195,23 +180,22 @@ class PaperFigures:
 
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
-        # Add text to figure with simulation parameters
-        # if self.exchange_min == self.exchange_max:
-        #    exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
-        # else:
-        #    exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-        #                     f"{self.exchange_max} [T]"
-        # textstr = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
-        #                                                                               f" = {self.gilbert_factor: 2.2e}\n" \
-        #                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n" \
-        #                                                                               f"{exchangeString}"
-        #
-        # props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
-        ## Place text box in upper left in axes coords
-        # self.axes.text(0.05, 1.2, textstr, transform=self.axes.transAxes, fontsize=12,
-        #               verticalalignment='top', bbox=props, ha='center', va='center')
+        if should_add_data:
+            # Add text to figure with simulation parameters
+            if self.exchange_min == self.exchange_max:
+                exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
+            else:
+                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
+                                 f"{self.exchange_max} [T]"
+            data_string = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
+                          f" = {self.gilbert_factor: 2.2e}\n" \
+                          f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
+                          f"H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n{exchangeString}"
 
-        # Figure outputs
+            props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+            # Place text box in upper left in axes coords
+            self.axes.text(0.05, 1.2, data_string, transform=self.axes.transAxes, fontsize=12,
+                           verticalalignment='top', bbox=props, ha='center', va='center')
 
         # Add spines to all plots (to override any rcParams elsewhere in the code
         for spine in ['top', 'bottom', 'left', 'right']:
@@ -257,7 +241,7 @@ class PaperFigures:
 
         gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
 
-    def plot_site_variation(self, spin_site, add_zoomed_region=True, add_info_box=True, add_colored_regions=True):
+    def create_time_variation(self, spin_site, add_zoomed_region=True, add_info_box=True, add_colored_regions=True):
         """
         Plot the magnetisation of a site against time.
 
@@ -270,21 +254,21 @@ class PaperFigures:
 
         self.axes.clear()
         # self.axes.set_aspect('auto')
-        #lower1, upper1 = 3363190, 3430357
-        #lower2, upper2 = 3228076, 3287423
-        #lower3, upper3 = 3118177, 3162992
+        # lower1, upper1 = 3363190, 3430357
+        # lower2, upper2 = 3228076, 3287423
+        # lower3, upper3 = 3118177, 3162992
         # self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
         #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
         self.axes.plot(self.time_data[:], self.amplitude_data[:, spin_site], lw=0.5,
                        color='#37782c',
                        markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.1)
-        #self.axes.plot(self.time_data[lower1:upper1], self.amplitude_data[lower1:upper1, spin_site], marker='', lw=0.75,
+        # self.axes.plot(self.time_data[lower1:upper1], self.amplitude_data[lower1:upper1, spin_site], marker='', lw=0.75,
         #               color='purple',
         #               markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
-        #self.axes.plot(self.time_data[lower2:upper2], self.amplitude_data[lower2:upper2, spin_site], marker='', lw=0.75,
+        # self.axes.plot(self.time_data[lower2:upper2], self.amplitude_data[lower2:upper2, spin_site], marker='', lw=0.75,
         #               color='red',
         #               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-        #self.axes.plot(self.time_data[lower3:upper3], self.amplitude_data[lower3:upper3, spin_site], marker='', lw=0.75,
+        # self.axes.plot(self.time_data[lower3:upper3], self.amplitude_data[lower3:upper3, spin_site], marker='', lw=0.75,
         #               color='blue',
         #               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
         # self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
@@ -481,28 +465,32 @@ class PaperFigures:
         frequencies_blob1, fourier_transform_blob1 = self._fft_data(self.amplitude_data[lower1:upper1, spin_site])
         frequencies_blob2, fourier_transform_blob2 = self._fft_data(self.amplitude_data[lower2:upper2, spin_site])
         frequencies_blob3, fourier_transform_blob3 = self._fft_data(self.amplitude_data[lower3:upper3, spin_site])
-        frequencies_precursors, fourier_transform_precursors = self._fft_data(self.amplitude_data[12:int(self.data_points*0.26), spin_site])
-        frequencies_dsw, fourier_transform_dsw = self._fft_data(self.amplitude_data[int(self.data_points*0.27)+1:int(self.data_points*0.34), spin_site])
-        frequencies_dsw2, fourier_transform_dsw2 = self._fft_data(self.amplitude_data[int(self.data_points*0.27)+1:int(self.data_points*0.4), spin_site])
-        frequencies_eq, fourier_transform_eq = self._fft_data(self.amplitude_data[int(self.data_points*0.7)+1:int(self.data_points*0.99), spin_site])
+        frequencies_precursors, fourier_transform_precursors = self._fft_data(
+            self.amplitude_data[12:int(self.data_points * 0.26), spin_site])
+        frequencies_dsw, fourier_transform_dsw = self._fft_data(
+            self.amplitude_data[int(self.data_points * 0.27) + 1:int(self.data_points * 0.34), spin_site])
+        frequencies_dsw2, fourier_transform_dsw2 = self._fft_data(
+            self.amplitude_data[int(self.data_points * 0.27) + 1:int(self.data_points * 0.4), spin_site])
+        frequencies_eq, fourier_transform_eq = self._fft_data(
+            self.amplitude_data[int(self.data_points * 0.7) + 1:int(self.data_points * 0.99), spin_site])
 
         # FFT for blobs
         fig = plt.figure()
-        #ax2 = plt.subplot2grid((4, 8), (0, 0), rowspan=4, colspan=8)
+        # ax2 = plt.subplot2grid((4, 8), (0, 0), rowspan=4, colspan=8)
         ax2 = plt.subplot(1, 1, 1)
-        #ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
+        # ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
         #         markerfacecolor='black', markeredgecolor='black', ls=':')
-        #ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
+        # ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
         #         markerfacecolor='black', markeredgecolor='black', ls='--')
-        #ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
+        # ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
         #         markerfacecolor='black', markeredgecolor='black', ls='-.')
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        #ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
+        # ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
         #         markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
-        #ax2.plot(frequencies_dsw2, abs(fourier_transform_dsw2), marker='', lw=1, color='green',
+        # ax2.plot(frequencies_dsw2, abs(fourier_transform_dsw2), marker='', lw=1, color='green',
         #         markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
-        #ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
+        # ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
         #         markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
         ax2.set(**plot_set_params[1], yscale='log')
         arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
@@ -841,7 +829,6 @@ def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
 
 # ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
 def fft_only(amplitude_data, spin_site, simulation_params, filename):
-
     plt.rcParams.update({'savefig.dpi': 100, "figure.dpi": 100})
 
     interactive = True
@@ -854,42 +841,57 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     fig.suptitle(f"Data from Spin Site #{14000}")
     ax = plt.subplot(1, 1, 1)
     num_dp = simulation_params['numberOfDataPoints']
-    #frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
-    #frequencies, fourier_transform = fft_data2(amplitude_data[:])
+    # frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
+    # frequencies, fourier_transform = fft_data2(amplitude_data[:])
     lower1, upper1 = 3363190, 3430357
     lower2, upper2 = 3228076, 3287423
     lower3, upper3 = 3118177, 3162992
-    frequencies_blob1, fourier_transform_blob1 = fft_data2(amplitude_data[lower1:upper1], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
-    frequencies_blob2, fourier_transform_blob2 = fft_data2(amplitude_data[lower2:upper2], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
-    frequencies_blob3, fourier_transform_blob3 = fft_data2(amplitude_data[lower3:upper3], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
-    frequencies_precursors, fourier_transform_precursors = fft_data2(amplitude_data[12:int(num_dp * 0.25)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
-    frequencies_dsw, fourier_transform_dsw = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.34)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
-    frequencies_dsw2, fourier_transform_dsw2 = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.4)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
-    frequencies_eq, fourier_transform_eq = fft_data2(amplitude_data[int(num_dp * 0.7) + 1:int(num_dp * 0.95)], simulation_params['maxSimTime'], simulation_params['numberOfDataPoints'])
+    frequencies_blob1, fourier_transform_blob1 = fft_data2(amplitude_data[lower1:upper1],
+                                                           simulation_params['maxSimTime'],
+                                                           simulation_params['numberOfDataPoints'])
+    frequencies_blob2, fourier_transform_blob2 = fft_data2(amplitude_data[lower2:upper2],
+                                                           simulation_params['maxSimTime'],
+                                                           simulation_params['numberOfDataPoints'])
+    frequencies_blob3, fourier_transform_blob3 = fft_data2(amplitude_data[lower3:upper3],
+                                                           simulation_params['maxSimTime'],
+                                                           simulation_params['numberOfDataPoints'])
+    frequencies_precursors, fourier_transform_precursors = fft_data2(amplitude_data[12:int(num_dp * 0.25)],
+                                                                     simulation_params['maxSimTime'],
+                                                                     simulation_params['numberOfDataPoints'])
+    frequencies_dsw, fourier_transform_dsw = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.34)],
+                                                       simulation_params['maxSimTime'],
+                                                       simulation_params['numberOfDataPoints'])
+    frequencies_dsw2, fourier_transform_dsw2 = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.4)],
+                                                         simulation_params['maxSimTime'],
+                                                         simulation_params['numberOfDataPoints'])
+    frequencies_eq, fourier_transform_eq = fft_data2(amplitude_data[int(num_dp * 0.7) + 1:int(num_dp * 0.95)],
+                                                     simulation_params['maxSimTime'],
+                                                     simulation_params['numberOfDataPoints'])
 
     # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
     # Set marker='o' to see each datapoint, else leave as marker='' to hide
-    #ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black', markeredgecolor='black',
+    # ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black', markeredgecolor='black',
     #        label='all data', alpha=0.0)
 
     ax.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
-             markerfacecolor='black', markeredgecolor='black', ls=':', label='Blob 1')
+            markerfacecolor='black', markeredgecolor='black', ls=':', label='Blob 1')
     ax.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
-             markerfacecolor='black', markeredgecolor='black', ls='--', label='Blob 2')
+            markerfacecolor='black', markeredgecolor='black', ls='--', label='Blob 2')
     ax.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
-             markerfacecolor='black', markeredgecolor='black', ls='-.', label='Blob 3')
+            markerfacecolor='black', markeredgecolor='black', ls='-.', label='Blob 3')
     ax.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#4fc1e8',
-             markerfacecolor='black', markeredgecolor='black', label="Pre-Precursors", zorder=1.5)
+            markerfacecolor='black', markeredgecolor='black', label="Pre-Precursors", zorder=1.5)
     ax.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#a0d568',
-             markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.3)
+            markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.3)
     ax.plot(frequencies_dsw2, abs(fourier_transform_dsw2), marker='', lw=1, color='#ffce54',
-             markerfacecolor='black', markeredgecolor='black', label="Shockwave Region", zorder=1.2)
+            markerfacecolor='black', markeredgecolor='black', label="Shockwave Region", zorder=1.2)
     ax.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#ed5564',
-             markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.1)
+            markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.1)
 
     ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log', xlim=[0, 16000], ylim=[1e-7, 1e-0])
 
-    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',title=f'Freq. List [GHz]\nDriving - {12500} GHz', fontsize=12)
+    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+              title=f'Freq. List [GHz]\nDriving - {12500} GHz', fontsize=12)
 
     # ax.xaxis.set_major_locator(MultipleLocator(5))
     # ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -1714,7 +1716,6 @@ def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_end
 
 
 def plot_dispersion_relation(key_data, output_filepath):
-
     plt.rcParams.update({'savefig.dpi': 300, "figure.dpi": 300})
 
     h_0 = key_data['staticBiasField']
