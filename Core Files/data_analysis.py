@@ -373,26 +373,29 @@ class PlotImportedData:
 
         return key_params, list_of_simulated_sites, sim_flags
 
-    def call_methods(self):
+    def call_methods(self, input_only=False):
 
         lg.info(f"Invoking functions to plot data...")
 
         print('\n---------------------------------------------------------------------------------------')
-        print('''
-        The plotting functions available are:
+        if input_only:
+            initials_of_method_to_call = input("Choose another function to use: ").upper()
+        else:
+            print('''
+            The plotting functions available are:
+    
+                *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
+                *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
+                *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
+                *   Paper Figure [PF] (Plot final state of system at all sites)
+                *   Contour Plot [CP] (Plot a single site as a 3D map)
+    
+            The terms within the square brackets are the keys for each function. 
+            If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
+                      ''')
+            print('---------------------------------------------------------------------------------------\n')
 
-            *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
-            *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
-            *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
-            *   Paper Figure [PF] (Plot final state of system at all sites)
-            *   Contour Plot [CP] (Plot a single site as a 3D map)
-
-        The terms within the square brackets are the keys for each function. 
-        If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
-                  ''')
-        print('---------------------------------------------------------------------------------------\n')
-
-        initials_of_method_to_call = input("Which function to use: ").upper()
+            initials_of_method_to_call = input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -421,9 +424,6 @@ class PlotImportedData:
 
         elif method_to_call == "CP":
             self._invoke_contour_plot()
-
-        elif method_to_call == 'DIS':
-            self._invoke_dispersion_relation()
 
         elif method_to_call == "EXIT":
             self._exit_conditions()
@@ -536,14 +536,7 @@ class PlotImportedData:
         plt_rk.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         lg.info(f"Plotting CP complete!")
 
-    def _invoke_dispersion_relation(self):
-        # Use this if you wish to see what ranplotter.py would output
-        lg.info(f"Plotting function selected: dispersion relation plot.")
-
-        plt_rk.plot_dispersion_relation(self.header_data_params, self.full_output_path)
-        lg.info(f"Plotting CP complete!")
-
-    def _invoke_paper_figures(self, has_override=False, override_name="PNG"):
+    def _invoke_paper_figures(self, has_override=False, override_name="TV"):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         lg.info(f"Plotting function selected: paper figure.")
 
@@ -556,9 +549,17 @@ class PlotImportedData:
         else:
             pf_selection = str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
 
-        if pf_selection == "PV":
-            has_more_to_plot = True
-            while has_more_to_plot:
+        pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK"]
+        while True:
+            if pf_selection in pf_keywords:
+                break
+            else:
+                while pf_selection not in pf_keywords:
+                    pf_selection = str(input("Invalid choice. Select  from [PV, TV, GIF, FFT, BACK]: ")).upper()
+
+        cont_plotting = True
+        if pf_selection == pf_keywords[0]:
+            while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
                 for row_num in rows_to_plot:
@@ -566,21 +567,20 @@ class PlotImportedData:
                     if row_num >= 1:
                         print(f"Generating plot for [#{row_num}]...")
                         lg.info(f"Generating PV plot for row [#{row_num}]")
-                        paper_fig.create_position_variation(row_num)
+                        paper_fig.create_position_variation(row_num - 1)
                         lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
                     else:
                         print("Exiting PF-PV plotting.")
                         lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
-                        has_more_to_plot = False
+                        cont_plotting = False
 
-        elif pf_selection == "TV":
-            has_more_to_plot = True
-            while has_more_to_plot:
+        elif pf_selection == pf_keywords[1]:
+            while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     target_site = int(target_site)
-                    if target_site >= 0:
+                    if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
                         paper_fig.create_time_variation(target_site - 1, add_zoomed_region=False, add_info_box=False,
@@ -589,29 +589,32 @@ class PlotImportedData:
                     else:
                         print("Exiting PF-TV plotting.")
                         lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
-                        has_more_to_plot = False
+                        cont_plotting = False
 
-        elif pf_selection == "GIF":
+        elif pf_selection == pf_keywords[2]:
             paper_fig.create_gif(number_of_frames=0.01)
-            # paper_fig2.create_gif(number_of_frames=0.01)
 
-        elif pf_selection == "FFT":
-            has_more_to_plot = True
-            while has_more_to_plot:
+        elif pf_selection == pf_keywords[3]:
+            while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     target_site = int(target_site)
                     if target_site >= 1:
                         print(f"Generating plot for [#{target_site}]...")
+
                         lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
                         paper_fig.plot_fft(target_site - 1)
                         lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+
                         exit(0)
                     else:
                         print("Exiting PF-FFT plotting.")
                         lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
-                        has_more_to_plot = False
+                        cont_plotting = False
+
+        elif pf_selection == pf_keywords[4]:
+            self.call_methods(True)
 
         lg.info(f"Plotting PF complete!")
 
