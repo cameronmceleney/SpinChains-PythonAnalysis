@@ -583,7 +583,8 @@ class PlotImportedData:
                     if target_site >= 0:
                         print(f"Generating plot for [#{target_site}]...")
                         lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                        paper_fig.create_time_variation(target_site - 1, False, False, False)
+                        paper_fig.create_time_variation(target_site - 1, add_zoomed_region=False, add_info_box=False,
+                                                        add_coloured_regions=False)
                         lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                     else:
                         print("Exiting PF-TV plotting.")

@@ -79,8 +79,7 @@ class PaperFigures:
         self.gilbert_factor = key_data['gilbertFactor']
         self.gyro_mag_ratio = key_data['gyroMagRatio']
 
-        # Attributes for plots "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]
-        cm = 1 / 2.54
+        # Attributes for plots
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = 1.2e-6  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
@@ -118,8 +117,8 @@ class PaperFigures:
 
         self.axes.set(**self.kwargs)
 
-        # self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+        # self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', verticalalignment='center',
+        # horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
         self.axes.text(0.88, 0.88, f"(c) {self.time_data[plot_row]:2.3f} ns",
                        verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes,
                        fontsize=6)
@@ -241,88 +240,74 @@ class PaperFigures:
 
         gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
 
-    def create_time_variation(self, spin_site, add_zoomed_region=True, add_info_box=True, add_colored_regions=True):
+    def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
+                              add_zoomed_region=True, add_info_box=True, add_coloured_regions=True):
         """
         Plot the magnetisation of a site against time.
 
         One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
 
+        :param annotate_precursors: Add arrows to denote precursors.
+        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
+        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
+        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
+        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
         :param int spin_site: The number of the spin site to be plotted.
 
         :return: Saves a .png image to the designated output folder.
         """
 
         self.axes.clear()
-        # self.axes.set_aspect('auto')
-        # lower1, upper1 = 3363190, 3430357
-        # lower2, upper2 = 3228076, 3287423
-        # lower3, upper3 = 3118177, 3162992
-        # self.axes.plot(self.time_data, self.amplitude_data[:, spin_site], ls='-', lw=0.5,
-        #               label=f"{self.sites_array[spin_site]}", color="#64bb6a")  # Easier to have time-stamp as label than textbox.
-        self.axes.plot(self.time_data[:], self.amplitude_data[:, spin_site], lw=0.5,
-                       color='#37782c',
-                       markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.1)
-        # self.axes.plot(self.time_data[lower1:upper1], self.amplitude_data[lower1:upper1, spin_site], marker='', lw=0.75,
-        #               color='purple',
-        #               markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
-        # self.axes.plot(self.time_data[lower2:upper2], self.amplitude_data[lower2:upper2, spin_site], marker='', lw=0.75,
-        #               color='red',
-        #               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-        # self.axes.plot(self.time_data[lower3:upper3], self.amplitude_data[lower3:upper3, spin_site], marker='', lw=0.75,
-        #               color='blue',
-        #               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-        # self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
-        # self.axes.text(0.04, 0.1, f"(b) 10 GHz",
-        #               verticalalignment='center', horizontalalignment='left', transform=self.axes.transAxes, fontsize=6)
-        ymax_plot = 1e-6  # self.amplitude_data[:, spin_site].max()
-        xlim_in = self.max_time  # int(input("Enter xlim: "))
-        # title = f"Mx Values for {self.driving_freq:2.2f} [GHz]",
+        self.axes.set_aspect('auto')
+
+        self.axes.plot(self.time_data[:], self.amplitude_data[:, spin_site], ls='-', lw=0.5,
+                       color='#37782c', label=f"{self.sites_array[spin_site]}",
+                       markerfacecolor='black', markeredgecolor='black', zorder=1.1)
+
+        if colour_precursors:
+            lower1, upper1 = 3363190, 3430357
+            lower2, upper2 = 3228076, 3287423
+            lower3, upper3 = 3118177, 3162992
+            self.axes.plot(self.time_data[lower1:upper1], self.amplitude_data[lower1:upper1, spin_site], marker='',
+                           lw=0.75, color='purple',
+                           markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
+            self.axes.plot(self.time_data[lower2:upper2], self.amplitude_data[lower2:upper2, spin_site], marker='',
+                           lw=0.75, color='red',
+                           markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
+            self.axes.plot(self.time_data[lower3:upper3], self.amplitude_data[lower3:upper3, spin_site], marker='',
+                           lw=0.75, color='blue',
+                           markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
+
+        if annotate_precursors:
+            line_height = -3.625e-3
+            axes_props1 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#37782c", 'lw': 0.8}
+            axes_props2 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#64bb6a", 'lw': 0.8}
+            axes_props3 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#9fd983", 'lw': 0.8}
+
+            self.axes.text(0.25, -4.5e-3, f"(b)",
+                           verticalalignment='bottom', horizontalalignment='center', fontsize=6)
+
+            self.axes.annotate('', xy=(0, line_height), xytext=(2.5, line_height), va='center', ha='center',
+                               arrowprops=axes_props1, fontsize=6)
+            self.axes.annotate('', xy=(2.5, line_height), xytext=(3.8, line_height), va='center', ha='center',
+                               arrowprops=axes_props2, fontsize=6)
+            self.axes.annotate('', xy=(3.8, line_height), xytext=(5, line_height), va='center', ha='center',
+                               arrowprops=axes_props3, fontsize=6)
+            self.axes.text(1.25, -4.5e-3, 'Precursors', ha='center', va='bottom', fontsize=6)
+            self.axes.text(3.15, -4.5e-3, 'Shockwave', ha='center', va='bottom', fontsize=6)
+            self.axes.text(4.4, -4.5e-3, 'Equilibrium', ha='center', va='bottom', fontsize=6)
+
+        self._tick_setter(self.axes, self.max_time / 2, self.max_time / 10, 3, 4)
+
+        ylim_signal = 1e-6  # self.amplitude_data[:, spin_site].max()
         self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0, xlim_in], ylim=[-ymax_plot, ymax_plot])  # ,
-        # ylim=[-1*ymax_plot,# - 1.25e-3,
-        #      ymax_plot])
+                      xlim=[0, self.max_time], ylim=[-ylim_signal, ylim_signal])
 
-        # line_height = -3.625e-3
-        # axes_props1 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#37782c", 'lw': 0.8}
-        # axes_props2 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#64bb6a", 'lw': 0.8}
-        # axes_props3 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#9fd983", 'lw': 0.8}
-        #
-        # self.axes.text(0.25, -4.5e-3, f"(b)",
-        #               verticalalignment='bottom', horizontalalignment='center', fontsize=6)
-        #
-        # self.axes.annotate('', xy=(0, line_height), xytext=(2.5, line_height), va='center', ha='center',
-        #                   arrowprops=axes_props1, fontsize=6)
-        # self.axes.annotate('', xy=(2.5, line_height), xytext=(3.8, line_height), va='center', ha='center',
-        #                   arrowprops=axes_props2, fontsize=6)
-        # self.axes.annotate('', xy=(3.8, line_height), xytext=(5, line_height), va='center', ha='center',
-        #                   arrowprops=axes_props3, fontsize=6)
-        # self.axes.text(1.25, -4.5e-3, 'Precursors', ha='center', va='bottom', fontsize=6)
-        # self.axes.text(3.15, -4.5e-3, 'Shockwave', ha='center', va='bottom', fontsize=6)
-        # self.axes.text(4.4, -4.5e-3, 'Equilibrium', ha='center', va='bottom', fontsize=6)
-
-        # Change tick markers as needed.
-        self.axes.xaxis.set(major_locator=ticker.MultipleLocator(self.max_time / 2),
-                            minor_locator=ticker.MultipleLocator(self.max_time / 10))
-        self.axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=3, prune='lower'),
-                            minor_locator=ticker.AutoMinorLocator(4))
-
-        class ScalarFormatterClass(ticker.ScalarFormatter):
-            def _set_format(self):
-                self.format = "%1.3f"
-
-        formatter = ticker.ScalarFormatter(useMathText=True)
-        self.axes.yaxis.set_major_formatter(formatter)
-        self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0), useMathText=True)
-        yScalarFormatter = ScalarFormatterClass(useMathText=True)
-        yScalarFormatter.set_powerlimits((0, 0))
-        self.axes.xaxis.set_major_formatter(yScalarFormatter)
-        self.axes.yaxis.set_major_formatter(yScalarFormatter)
-
-        self.axes.yaxis.get_offset_text().set_fontsize(6)
-        # self.axes.yaxis.get_offset_text().set_visible(False)
-        self.axes.yaxis.labelpad = -3
-
+        # Use these for paper publication figures
+        # self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', verticalalignment='center',
+        # horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+        # self.axes.text(0.04, 0.1, f"(b) 10 GHz", verticalalignment='center', horizontalalignment='left',
+        # transform=self.axes.transAxes, fontsize=6)
         # self.axes.legend(title="Spin Site [#]", loc=1,frameon=True, fancybox=True, framealpha=0.5, facecolor='white')
 
         # Add zoomed in region if needed.
@@ -331,7 +316,7 @@ class PaperFigures:
             x = self.time_data
             y = self.amplitude_data[:, spin_site]
 
-            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
+            # Impose inset onto plot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
             ax2_inset = inset_axes(self.axes, width=1.7, height=0.4, loc="upper left",
                                    bbox_to_anchor=[0.085, 0.1 + 0.875], bbox_transform=self.axes.figure.transFigure)
             ax2_inset.plot(x, y, lw=0.75, color='#37782c')
@@ -393,37 +378,26 @@ class PaperFigures:
             self.axes.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
                            transform=self.axes.transAxes)
 
-        if add_colored_regions:
+        if add_coloured_regions:
             rectLHS = mpatches.Rectangle((0, -1 * self.amplitude_data[:, spin_site].max()), 5.75,
-                                         2 * self.amplitude_data[:, spin_site].max() + + 0.375e-2,
-                                         # fill=False,
-                                         alpha=0.05,
-                                         facecolor="grey",
-                                         edgecolor=None,
-                                         lw=0)
+                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.05,
+                                         facecolor="grey", edgecolor=None, lw=0)
             rectMID = mpatches.Rectangle((5.751, -1 * self.amplitude_data[:, spin_site].max()), 3.249,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2,
-                                         # fill=False,
-                                         alpha=0.25,
-                                         facecolor="grey",
-                                         edgecolor=None,
-                                         lw=0)
+                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.25,
+                                         facecolor="grey", edgecolor=None, lw=0)
             rectRHS = mpatches.Rectangle((9.0, -1 * self.amplitude_data[:, spin_site].max()), 6,
-                                         2 * self.amplitude_data[:, spin_site].max() + + 0.375e-2,
-                                         # fill=False,
-                                         alpha=0.5,
-                                         facecolor="grey",
-                                         edgecolor=None,
-                                         lw=0)
+                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.5,
+                                         facecolor="grey", edgecolor=None, lw=0)
 
             self.axes.add_patch(rectLHS)
             self.axes.add_patch(rectMID)
             self.axes.add_patch(rectRHS)
+
         self.axes.grid(visible=False, axis='y', which='both')
         self.axes.grid(visible=False, axis='x', which='both')
         self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
-        # self.fig.tight_layout()
+        self.fig.tight_layout()
         self.axes.set_axisbelow(False)
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 
@@ -431,13 +405,12 @@ class PaperFigures:
         """
         Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
 
+        :param add_zoomed_region: Add inset to plot for showing Heaviside function.
         :param int spin_site: The spin site being plotted.
 
         :return: A figure containing four sub-plots.
         """
         # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
-        x_scaling = 0.1
-        fft_shaded_box_width = 10  # In GHz
 
         plot_set_params = {0: {"xlabel": "Time [ns]", "ylabel": "m$_x$ / M$_S$"},
                            1: {"ylim": (1e-5, 1e0)},
@@ -510,39 +483,40 @@ class PaperFigures:
             # ax.set_facecolor('#f4f4f5')
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
-        # Add zoomed in region if needed. 2933:3346
-        # if add_zoomed_region:
-        #    # Select datasets to use
-        #    x = self.time_data[:]
-        #    y = self.amplitude_data[:, spin_site]
-        #
-        #    # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
-        #    ax1_inset = inset_axes(ax1, width=2.4, height=0.625, loc="lower left", bbox_to_anchor=[0.14, 0.625],
-        #                           bbox_transform=ax1.figure.transFigure)
-        #    ax1_inset.plot(x, y, lw=0.75, color='#37782c')
-        #
-        #
-        #    # Select data (of original) to show in inset through changing axis limits
-        #    ax1_inset.set_xlim(1.25, 2.5)
-        #    ax1_inset.set_ylim(-0.2e-3, 0.2e-3)
-        #
-        #    # Remove tick labels
-        #    ax1_inset.set_xticks([])
-        #    ax1_inset.set_yticks([])
-        #    ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3' fbe3e5
-        #    # ax2_inset.patch.set_alpha(0.3)
-        #    # ax2_inset.set(facecolor='red', alpha=0.3)
-        #    # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
-        #
-        #    # Add box to indicate the region which is being zoomed into on the main figure
-        #    ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
-        #    arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-        #    ax1_inset.annotate('P1', xy=(2.228, -1.5e-4), xytext=(1.954, -1.5e-4), va='center', ha='center',
-        #            arrowprops=arrow_inset_props, fontsize=6)
-        #    ax1_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407,  -1.5e-4), va='center', ha='center',
-        #            arrowprops=arrow_inset_props, fontsize=6)
-        #    ax1_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407,  1.5e-4), va='center', ha='center',
-        #            arrowprops=arrow_inset_props, fontsize=6)
+        # Add zoomed in region if needed.
+        if add_zoomed_region:
+            # Select datasets to use
+            x = self.time_data[:]
+            y = self.amplitude_data[:, spin_site]
+
+            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
+            ax1_inset = inset_axes(ax2, width=2.4, height=0.625, loc="lower left", bbox_to_anchor=[0.14, 0.625],
+                                   bbox_transform=ax2.figure.transFigure)
+            ax1_inset.plot(x, y, lw=0.75, color='#37782c')
+
+
+            # Select data (of original) to show in inset through changing axis limits
+            ax1_inset.set_xlim(1.25, 2.5)
+            ax1_inset.set_ylim(-0.2e-3, 0.2e-3)
+
+            # Remove tick labels
+            ax1_inset.set_xticks([])
+            ax1_inset.set_yticks([])
+            ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3' fbe3e5
+            # ax2_inset.patch.set_alpha(0.3)
+            # ax2_inset.set(facecolor='red', alpha=0.3)
+            # mark_inset(self.axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
+
+            # Add box to indicate the region which is being zoomed into on the main figure
+            ax2.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+            arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+            ax1_inset.annotate('P1', xy=(2.228, -1.5e-4), xytext=(1.954, -1.5e-4), va='center', ha='center',
+                    arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407,  -1.5e-4), va='center', ha='center',
+                    arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407,  1.5e-4), va='center', ha='center',
+                    arrowprops=arrow_inset_props, fontsize=6)
+
         # Add spines to all plots (to override any rcParams elsewhere in the code
         for spine in ['top', 'bottom', 'left', 'right']:
             # ax1_inset.spines[spine].set_visible(True)
@@ -594,7 +568,6 @@ class PaperFigures:
         ax2.text(0.04, 0.88, f"(a)",
                  verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=8)
 
-        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
         ax2_inset = inset_axes(ax, width=1.8, height=0.7, loc="upper right", bbox_to_anchor=[0.88, 0.47],
                                bbox_transform=ax.figure.transFigure)
         ax2_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1.2)
@@ -645,10 +618,6 @@ class PaperFigures:
         :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
         (1st eigenvalue) [2], and driving frequency [3] for the system.
         """
-        # Simulation parameters needed for FFT computations that are always the same are saved here.
-        # gamma is in [GHz/T] here.
-        core_values = {"gamma": self.gyro_mag_ratio / (2 * np.pi),
-                       "hz_to_ghz": 1e-9}
 
         # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
         sample_spacing = (self.max_time / (self.data_points - 1))
@@ -685,10 +654,17 @@ class PaperFigures:
                          major_formatter=ticker.FormatStrFormatter("%1.1f"),
                          minor_locator=ticker.AutoMinorLocator(y_minor))
 
-            formatter = ticker.ScalarFormatter(useMathText=True)
-            ax.yaxis.set_major_formatter(formatter)
+            class ScalarFormatterClass(ticker.ScalarFormatter):
+                def _set_format(self):
+                    self.format = "%1.3f"
 
-            # ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            yScalarFormatter = ScalarFormatterClass(useMathText=True)
+            yScalarFormatter.set_powerlimits((0, 0))
+            ax.xaxis.set_major_formatter(yScalarFormatter)
+            ax.yaxis.set_major_formatter(yScalarFormatter)
+
+            # ax.yaxis.labelpad = -3
+
             # ax.yaxis.get_offset_text().set_visible(False)
             # ax.yaxis.get_offset_text().set_fontsize(8)
             t = ax.yaxis.get_offset_text()
@@ -869,7 +845,7 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
                                                      simulation_params['numberOfDataPoints'])
 
     # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
-    # Set marker='o' to see each datapoint, else leave as marker='' to hide
+    # Set marker='o' to see each datapoint, else leave as marker= to hide
     # ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black', markeredgecolor='black',
     #        label='all data', alpha=0.0)
 
@@ -922,7 +898,7 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
         def mouse_event(event):
             print('x: {} and y: {}'.format(event.xdata, event.ydata))
 
-        cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
+        fig.canvas.mpl_connect('button_press_event', mouse_event)
         plt.show()
     else:
         fig.savefig(f"{filename}_ft_only_{spin_site}.png")
@@ -1023,6 +999,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
 
     Description.
 
+    :param box_width: Width of box to draw.
     :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
     :param dict plt_set_kwargs: **kwargs for the ax.set() function.
     :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
@@ -1037,7 +1014,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
         ax = plt.gca()
 
     # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
-    # Set marker='o' to see each datapoint, else leave as marker='' to hide
+    # Set marker='o' to see each datapoint, else leave as marker= to hide
     ax.plot(frequencies, abs(fourier_transform),
             marker='', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
     ax.set(**plt_set_kwargs)
@@ -1050,7 +1027,6 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
         # triple_wave_gen_freq = driving_freq_hz * 3
         # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
-        a = 5
         if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
             exchangeString = f"Uniform Exc. ({simulation_params['exchangeMinVal']} [T])"
         else:
@@ -1114,11 +1090,12 @@ def fft_data(amplitude_data, simulation_params):
     return frequencies, fourier_transform, natural_freq, driving_freq_ghz
 
 
-def fft_data2(amplitude_data, maxtime, numberDP):
+def fft_data2(amplitude_data, maxtime, number_dp):
     """
         Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
 
-        :param dict simulation_params: Imported key simulation parameters.
+        :param number_dp: Number of datapoints
+        :param maxtime: Maximum time simulated.
         :param amplitude_data: Magnitudes of magnetic moments for a spin site
 
         :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
@@ -1137,7 +1114,7 @@ def fft_data2(amplitude_data, maxtime, numberDP):
     # natural_freq = core_values['gamma'] * self.static_field
 
     # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
-    sample_spacing = (maxtime / (numberDP - 1)) / core_values[
+    sample_spacing = (maxtime / (number_dp - 1)) / core_values[
         'hz_to_ghz']
 
     # Compute the FFT
@@ -1181,36 +1158,24 @@ def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_t
 
 
 def test_3d_plot(mx_data, my_data, mz_data, spin_site):
-    x1 = mx_data[:, 1]
-    y1 = my_data[:, 1]
-    z1 = mz_data[:, 1]
+    x1 = mx_data[:, spin_site]
+    y1 = my_data[:, spin_site]
+    z1 = mz_data[:, spin_site]
 
-    x2 = mx_data[:, 2]
-    y2 = my_data[:, 2]
-    z2 = mz_data[:, 2]
+    x2 = mx_data[:, spin_site+1]
+    y2 = my_data[:, spin_site+1]
+    z2 = mz_data[:, spin_site+1]
     time = mx_data[:, 0]
 
     fig = plt.figure(figsize=(4, 4))
     ax = fig.add_subplot(111, projection='3d')
+
     ax.plot3D(x1, y1, z1, markersize=1, color='grey', ls='--', alpha=0.8, label='site1', zorder=1.2)
     ax.plot3D(x2, y2, z2, markersize=1, color='black', alpha=0.8, label='site2', zorder=1.1)
-    # ax.plot(x1, y1, 'o', markersize=1, color='grey', alpha=1.0, label='site1')
-    # ax.plot(x2, y2, 'o', markersize=1, color='black', alpha=1.0, label='site2')
+
     # ax.invert_xaxis()
     ax.set(xlabel='x', ylabel='y', zlabel='z', zlim=[-1, 1])
     ax.legend()
-
-    # ax.xaxis.set(major_formatter=ticker.FormatStrFormatter("%1.1f"))
-    # ax.yaxis.set(major_formatter=ticker.FormatStrFormatter("%1.1f"))
-    # ax.zaxis.set(major_formatter=ticker.FormatStrFormatter("%1.f"))
-    # formatter = ticker.ScalarFormatter(useMathText=True)
-    # ax.xaxis.set_major_formatter(formatter)
-    # ax.yaxis.set_major_formatter(formatter)
-    # ax.zaxis.set_major_formatter(formatter)
-    # ax.ticklabel_format(axis='x', style='sci', scilimits=(-4, 4))
-    # ax.ticklabel_format(axis='y', style='sci', scilimits=(-4, 4))
-    # ax.ticklabel_format(axis='z', style='sci', scilimits=(-4, 4))
-    # ax.legend()
 
     fig.tight_layout()
     fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-12/Outputs/threeDplot.png")
@@ -1472,322 +1437,3 @@ class Eigenmodes:
         fig.tight_layout()
 
         fig.savefig(f"{self.output_filepath}_dispersion_relation.png", bbox_inches="tight")
-
-
-# --------------------------------------------- Continually plot eigenmodes --------------------------------------------
-def eigenmodes(mx_data, my_data, eigenvalues_data, file_name):
-    """
-    Allows the user to plot as may eigenmodes as they would like; one per figure. This function is primarily used to
-    replicate Fig. 1 from macedo2021breaking. The user of keywords within this function also allow the user to plot
-    the 'generalised fourier coefficients' of a system. This is mainly used to replicate Figs 4.a & 4.d of the same
-    paper.
-
-    :params Any mx_data: The magnetic moments (x-component) at each iteration for all spin sites.
-    :params Any my_data: The magnetic moments (y-component) at each iteration for all spin sites.
-    :params Any eigenvalues_data: List of eigenvalues for the system.
-
-    :return: Each iteration within this function shows a plot.
-
-    """
-    print('---------------------------------------------------------------------------------------')
-    print('''
-          This will plot the eigenmodes of the selected data. Input the requested 
-          modes as single values, or as a space-separated list. Enter any 
-          non-int to exit, or type EXIT. If you wish to plot the generalized 
-          Fourier coefficients, type FOURIER.
-
-          Note: None of the keywords are case-sensitive.
-          ''')
-    print('---------------------------------------------------------------------------------------')
-
-    upper_limit_mode = len(mx_data)  # The largest mode which can be plotted for the given data.
-    previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
-
-    # Take in first user input. Assume input is valid, until an error is raised.
-    modes_to_plot = input("Enter mode(s) to plot: ").split()
-    has_valid_modes = True
-
-    while True:
-        # Plots eigenmodes as long as the user enters a valid input.
-        for test_mode in modes_to_plot:
-
-            try:
-                if not 1 <= int(test_mode) <= upper_limit_mode:
-                    # Check mode is in the range held by the dataset
-                    print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
-                    break
-
-                if set(previously_plotted_modes) & set(modes_to_plot):
-                    # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
-                    has_valid_modes = False
-                    print(f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
-                    break
-
-            except ValueError:
-                # If the current tested mode is within the range, then it is either a keyword, or invalid.
-                if test_mode.upper() == 'EXIT':
-                    sys.exit(0)
-
-                elif test_mode.upper() == 'FOURIER':
-                    generalised_fourier_coefficients(mx_data, eigenvalues_data, file_name, True)
-                    has_valid_modes = False
-                    break
-
-                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-                while True:
-
-                    if has_more_plots == 'Y':
-                        has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
-                        break
-
-                    elif has_more_plots == 'N':
-                        print("Exiting program...")
-                        exit(0)
-
-                    else:
-                        while has_more_plots not in 'YN':
-                            has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-
-            if has_valid_modes:
-                plot_single_eigenmode(int(test_mode), mx_data, my_data, eigenvalues_data)
-
-            else:
-                has_valid_modes = True  # Reset condition
-                continue
-
-        previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
-        modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
-
-
-datestamp = "2022-11-08"
-timestamp = "1158"
-
-
-def generalised_fourier_coefficients(amplitude_mx_data, eigenvalues_angular, file_name, use_defaults=True):
-    """
-    Plot coefficients across a range of eigenfrequencies to find frequencies of strong coupling.
-
-    The 'generalised fourier coefficients' indicate the affinity of spins to couple to a particular driving field
-    profile. If a non-linear exchange was used, then the rightward and leftward profiles will look different. This
-    information can be used to deduce when a system allows for:
-
-        * rightward only propagation.
-        * leftward only propagation.
-        * propagation in both directions.
-        * propagation in neither direction.
-
-    :param amplitude_mx_data: The magnetic moments (x-component) at each iteration for all spin sites.
-    :param eigenvalues_angular:  Eigenvalues, derived from Kittel's equations, of the system.
-    :param str file_name: Name of file that data is coming from. Used to name saved plot.
-    :param bool use_defaults: Use preset parameters to reduce user input, and speed-up running of simulations.
-
-    :return: Single figure plot.
-    """
-    number_of_spins = len(amplitude_mx_data[:, 0])
-
-    # use_defaults is a testing flag to speed up the process of running sims.
-    if use_defaults:
-        step = 20
-        lower = 0
-        upper = 240
-        width_ones = 0.05
-        width_zeros = 0.95
-
-    else:
-        step = int(input("Enter step: "))
-        lower = int(input("Enter lower: "))
-        upper = int(input("Enter upper: "))
-        width_ones = float(input("Enter width of driving region [0, 1]: "))
-        width_zeros = 1 - width_ones
-
-    # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
-    eigenvalues_angular = np.append([0], eigenvalues_angular)  # eigenvalues_angular
-    eigenvalues = [eigval for eigval in eigenvalues_angular]
-    x_axis_limits = range(0, number_of_spins)
-
-    # Find widths of each component of the driving regions.
-    g_ones = [1] * int(number_of_spins * width_ones)
-    g_zeros = [0] * int(number_of_spins * width_zeros)
-
-    # g is the driving field profile along the axis where the drive is applied. My simulations all have the
-    # drive along the x-axis, hence the name 'gx'.
-    gx_lhs = g_ones + g_zeros
-    gx_rhs = g_zeros + g_ones
-
-    fourier_coefficents_lhs = []
-    fourier_coefficents_rhs = []
-
-    for i in range(0, number_of_spins):
-        # Select an eigenvector, and take the dot-product to return the coefficient of that particular mode.
-        fourier_coefficents_lhs.append(np.dot(gx_lhs, amplitude_mx_data[:, i]))
-        fourier_coefficents_rhs.append(np.dot(gx_rhs, amplitude_mx_data[:, i]))
-
-    # Normalise the arrays of coefficients.
-    fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
-    fourier_coefficents_rhs = fourier_coefficents_rhs / np.linalg.norm(fourier_coefficents_rhs)
-
-    # Plotting functions. Left here as nothing else will use this functionality.
-    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-    fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f'for a Uniform System')  # {file_name}
-    plt.subplots_adjust(top=0.82)
-
-    # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', ls='--', label='Left', zorder=2)
-    sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
-                 marker='o', label='Right', zorder=1)
-
-    # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
-    ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
-           xlim=[lower, upper], yscale='log', ylim=[1e-3, 1e-1],
-           xticks=list(range(lower, upper + 1, step)),
-           xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 3)])
-
-    ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
-    ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
-                xlim=ax.get_xlim(),
-                xticks=list(range(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]) + 1, step)))
-
-    ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-              frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title='Propagation\n   Direction', fontsize=10)
-
-    ax.grid(lw=2, ls='-')
-
-    plt.tight_layout()
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Outputs/T{timestamp}_fourier.png")
-    # fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\fourier.png")
-
-
-def plot_single_eigenmode(eigenmode, mx_data, my_data, eigenvalues_data, has_endpoints=True):
-    """
-    Plot a single eigenmode with the x- and y-axis magnetic moment components against spin site.
-
-    :param int eigenmode: The eigenmode that is to be plotted.
-    :param mx_data: 2D array of amplitudes of the mx components.
-    :param my_data: 2D array of amplitudes of the my components.
-    :param list eigenvalues_data: 1D array of all eigenvalues in system.
-    :param bool has_endpoints: Allows for fixed nodes to be included on plot. Useful for visualisation purposes.
-
-    :return: Outputs a single figure.
-
-    """
-    print('Plotting please wait...')
-    eigenmode += - 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
-
-    # Select single mode to plot from imported data.
-    mx_mode = mx_data[:, eigenmode] * -1
-    my_mode = my_data[:, eigenmode] * -1
-
-    # Simulation parameters
-    number_of_spins = len(mx_mode) + 2
-    driving_width = 0.05
-    frequency = eigenvalues_data[eigenmode]  # Convert angular (frequency) eigenvalue to frequency [Hz].
-
-    if has_endpoints:
-        # 0-valued reflects the (P-1) and (N+1) end spins that act as fixed nodes for the system.
-        mx_mode = np.append(np.append([0], mx_mode), [0])
-        my_mode = np.append(np.append([0], my_mode), [0])
-
-    # Generate plot
-    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
-
-    sns.lineplot(x=range(0, len(mx_mode)), y=mx_mode, marker='', ls=':', lw=3, label='Mx', zorder=2)
-    sns.lineplot(x=range(0, len(my_mode)), y=my_mode, color='r', ls='-', lw=3, label='My', zorder=1)
-
-    axes.set(title=f"Eigenmode[{eigenmode + 1}]",
-             xlabel="Site Number", ylabel="Amplitude [arb.]",
-             xlim=(0, number_of_spins),
-             xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 20))
-
-    # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
-    axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                title=f"Frequency [GHz]\n        {frequency:4.2f}\n\n    Component",
-                fontsize=10)
-
-    axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
-
-    axes.grid(color='black', ls='--', alpha=0.1, lw=1)
-
-    plt.tight_layout()
-    fig.savefig(
-        f"/Users/cameronmceleney/CLionProjects/Data/{datestamp}/Outputs/T{timestamp}_eigenmode_{eigenmode + 1}.png")
-    # fig.savefig(f"D:\\Data\\2022-10-20\\Outputs\\eigenmode_{eigenmode+1}.png")
-
-
-def plot_dispersion_relation(key_data, output_filepath):
-    plt.rcParams.update({'savefig.dpi': 300, "figure.dpi": 300})
-
-    h_0 = key_data['staticBiasField']
-    h_ex_1 = key_data['exchangeMinVal']
-    h_ex_2 = key_data['exchangeMaxVal']
-    gamma = key_data['gyroMagRatio']
-
-    h_0_arr = np.linspace(-h_0, h_0, 1000)
-
-    h_a = int(input("Enter the Ha value [T]: "))
-
-    gamma_si = 28  # GHz / T raf
-    he_si = 53  # T
-    ha_si = 0.787  # T
-
-    omega_pos = gamma_si * (np.sqrt(2 * h_ex_1 * h_a + h_a ** 2) + h_ex_1)
-    omega_neg = gamma_si * (np.sqrt(2 * h_ex_1 * h_a + h_a ** 2) - h_ex_1)
-
-    fig = plt.figure(figsize=(6, 6))
-    ax = fig.add_subplot(1, 1, 1)
-
-    ax.plot(h_0_arr, omega_pos, label="$\omega_{pos}$")
-    ax.plot(h_0_arr, omega_neg, label="$\omega_{neg}$")
-
-    ax.set(xlabel="$H_0$[T]", ylabel="$\\frac{\omega}{2 \pi}$ [GHz]")
-
-    ax.legend()
-    fig.tight_layout()
-
-    fig.savefig(f"{output_filepath}_dispersion.png", bbox_inches="tight")
-
-
-# ----------------------------------------------------- Animation -----------------------------------------------------
-def animate_plot(key_data, amplitude_data, path_to_save_gif, file_name):
-    """
-    This function has not been tested, so use at your own risk!
-
-    :param dict key_data: All key simulation parameters imported from csv file.
-    :param Any amplitude_data: Magnetic moment values for site that is being animated.
-    :param str path_to_save_gif: Absolute path to save location. Must end is a \\ or /, and not include the filename.
-    :param str file_name: Filename of the output gif.
-
-    :return: Saves a gif to the target location.
-    """
-    number_of_images = 100
-    step = key_data['stopIterVal'] / number_of_images
-    number_of_spins = key_data['chainSpins']
-
-    fig = plt.figure()
-    ax = plt.axes(xlim=(0, number_of_spins))
-    ax.xaxis.set(major_locator=ticker.MultipleLocator(number_of_spins * 0.25),
-                 minor_locator=ticker.MultipleLocator(number_of_spins * 0.25 / 4))
-    ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                 minor_locator=ticker.AutoMinorLocator())
-    plt.suptitle(f"Animation of data from {file_name}")
-
-    line, = ax.plot([], [], linestyle='-', lw=1)
-    label = ax.text(0.65, 0.90, '', transform=ax.transAxes)
-    ax.set(xlabel="Spin Site", ylabel="Amplitude [arb.]")
-
-    def initialise_animation():
-        line.set_data([], [])
-        return line,
-
-    def animate_animation(i):
-        spinx = np.arange(0, number_of_spins + 1)
-        line.set_xdata(spinx)
-        line.set_ydata(amplitude_data[i, :])
-        label.set_text(f'iteration = {i * step:2.3e}')
-        return line
-
-    anim = FuncAnimation(fig, animate_animation, init_func=initialise_animation,
-                         frames=key_data['stopIterVal'], interval=200, repeat=True, repeat_delay=400)
-
-    anim.save(f"{path_to_save_gif}{file_name}.gif")
