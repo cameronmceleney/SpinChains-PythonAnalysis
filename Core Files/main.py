@@ -33,12 +33,12 @@ def main():
     """
     lg.info(f"Program start...")
 
-    _should_use_eigens = True
+    _should_use_eigens = False
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(has_custom_name=True)
+    system_setup.detect_os(True, "2022-11-23")
 
-    filename_base = str(input("Enter the unique identifier of the file: "))
+    filename_base = '1601'  # str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigens:
         dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                         file_prefix="rk2", file_component='mx', file_identifier="T")

@@ -264,6 +264,12 @@ class PaperFigures:
                        color='#37782c', label=f"{self.sites_array[spin_site]}",
                        markerfacecolor='black', markeredgecolor='black', zorder=1.1)
 
+        self._tick_setter(self.axes, self.max_time / 2, self.max_time / 10, 3, 4)
+
+        ylim_signal = self.amplitude_data[:, spin_site].max() * 1.1
+        self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
+                      xlim=[0, self.max_time], ylim=[-ylim_signal, ylim_signal])
+
         if colour_precursors:
             lower1, upper1 = 3363190, 3430357
             lower2, upper2 = 3228076, 3287423
@@ -296,12 +302,6 @@ class PaperFigures:
             self.axes.text(1.25, -4.5e-3, 'Precursors', ha='center', va='bottom', fontsize=6)
             self.axes.text(3.15, -4.5e-3, 'Shockwave', ha='center', va='bottom', fontsize=6)
             self.axes.text(4.4, -4.5e-3, 'Equilibrium', ha='center', va='bottom', fontsize=6)
-
-        self._tick_setter(self.axes, self.max_time / 2, self.max_time / 10, 3, 4)
-
-        ylim_signal = 1e-6  # self.amplitude_data[:, spin_site].max()
-        self.axes.set(xlabel=f"Time [ns]", ylabel=f"m$_x$ / M$_S$",
-                      xlim=[0, self.max_time], ylim=[-ylim_signal, ylim_signal])
 
         # Use these for paper publication figures
         # self.axes.text(-0.05, 1.02, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', verticalalignment='center',
@@ -397,7 +397,7 @@ class PaperFigures:
         self.axes.grid(visible=False, axis='x', which='both')
         self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
-        self.fig.tight_layout()
+        # self.fig.tight_layout()
         self.axes.set_axisbelow(False)
         self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 

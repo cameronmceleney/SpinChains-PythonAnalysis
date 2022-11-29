@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/SpinChains-PythonAnalysis.iml" filepath="$PROJECT_DIR$/.idea/SpinChains-PythonAnalysis.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/SpinchainsAnalysis.iml" filepath="$PROJECT_DIR$/.idea/SpinchainsAnalysis.iml" />
     </modules>
   </component>
 </project>
