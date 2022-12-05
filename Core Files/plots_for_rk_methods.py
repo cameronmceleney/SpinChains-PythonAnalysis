@@ -82,7 +82,7 @@ class PaperFigures:
         # Attributes for plots
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 1.2e-6  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = 9e-7  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
@@ -187,9 +187,9 @@ class PaperFigures:
                 exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
                                  f"{self.exchange_max} [T]"
             data_string = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
-                          f" = {self.gilbert_factor: 2.2e}\n" \
-                          f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
-                          f"H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n{exchangeString}"
+                                                                                               f" = {self.gilbert_factor: 2.2e}\n" \
+                                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
+                                                                                               f"H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n{exchangeString}"
 
             props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
             # Place text box in upper left in axes coords
@@ -238,7 +238,7 @@ class PaperFigures:
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=1, unit='ms')
+        gif.save(frames, f"{self.output_filepath}.gif", duration=0.5)
 
     def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
                               add_zoomed_region=True, add_info_box=True, add_coloured_regions=True):
@@ -494,7 +494,6 @@ class PaperFigures:
                                    bbox_transform=ax2.figure.transFigure)
             ax1_inset.plot(x, y, lw=0.75, color='#37782c')
 
-
             # Select data (of original) to show in inset through changing axis limits
             ax1_inset.set_xlim(1.25, 2.5)
             ax1_inset.set_ylim(-0.2e-3, 0.2e-3)
@@ -509,13 +508,13 @@ class PaperFigures:
 
             # Add box to indicate the region which is being zoomed into on the main figure
             ax2.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
-            arrow_inset_props= {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+            arrow_inset_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
             ax1_inset.annotate('P1', xy=(2.228, -1.5e-4), xytext=(1.954, -1.5e-4), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
-            ax1_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407,  -1.5e-4), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
-            ax1_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407,  1.5e-4), va='center', ha='center',
-                    arrowprops=arrow_inset_props, fontsize=6)
+                               arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407, -1.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+            ax1_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407, 1.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
 
         # Add spines to all plots (to override any rcParams elsewhere in the code
         for spine in ['top', 'bottom', 'left', 'right']:
@@ -534,8 +533,8 @@ class PaperFigures:
             t = np.linspace(0, duration, sample_rate * duration, endpoint=False)
             y_1 = np.zeros(delay)
             y_2 = np.sin((2 * np.pi * freq) * t[delay:])
-            y = np.concatenate((y_1, y_2))
-            return t, y
+            y_con = np.concatenate((y_1, y_2))
+            return t, y_con
 
         # Generate a 15 GHz sine wave that lasts for 5 seconds
         x1, y1 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 1)
@@ -819,18 +818,18 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     num_dp = simulation_params['numberOfDataPoints']
     # frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
     # frequencies, fourier_transform = fft_data2(amplitude_data[:])
-    lower1, upper1 = 3363190, 3430357
-    lower2, upper2 = 3228076, 3287423
-    lower3, upper3 = 3118177, 3162992
-    frequencies_blob1, fourier_transform_blob1 = fft_data2(amplitude_data[lower1:upper1],
-                                                           simulation_params['maxSimTime'],
-                                                           simulation_params['numberOfDataPoints'])
-    frequencies_blob2, fourier_transform_blob2 = fft_data2(amplitude_data[lower2:upper2],
-                                                           simulation_params['maxSimTime'],
-                                                           simulation_params['numberOfDataPoints'])
-    frequencies_blob3, fourier_transform_blob3 = fft_data2(amplitude_data[lower3:upper3],
-                                                           simulation_params['maxSimTime'],
-                                                           simulation_params['numberOfDataPoints'])
+    # lower1, upper1 = 3363190, 3430357
+    # lower2, upper2 = 3228076, 3287423
+    # lower3, upper3 = 3118177, 3162992
+    # frequencies_blob1, fourier_transform_blob1 = fft_data2(amplitude_data[lower1:upper1],
+    #                                                        simulation_params['maxSimTime'],
+    #                                                        simulation_params['numberOfDataPoints'])
+    # frequencies_blob2, fourier_transform_blob2 = fft_data2(amplitude_data[lower2:upper2],
+    #                                                        simulation_params['maxSimTime'],
+    #                                                        simulation_params['numberOfDataPoints'])
+    # frequencies_blob3, fourier_transform_blob3 = fft_data2(amplitude_data[lower3:upper3],
+    #                                                        simulation_params['maxSimTime'],
+    #                                                        simulation_params['numberOfDataPoints'])
     frequencies_precursors, fourier_transform_precursors = fft_data2(amplitude_data[12:int(num_dp * 0.25)],
                                                                      simulation_params['maxSimTime'],
                                                                      simulation_params['numberOfDataPoints'])
@@ -840,21 +839,21 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     frequencies_dsw2, fourier_transform_dsw2 = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.4)],
                                                          simulation_params['maxSimTime'],
                                                          simulation_params['numberOfDataPoints'])
-    frequencies_eq, fourier_transform_eq = fft_data2(amplitude_data[int(num_dp * 0.7) + 1:int(num_dp * 0.95)],
+    frequencies_eq, fourier_transform_eq = fft_data2(amplitude_data[int(num_dp * 0.6) + 1:int(num_dp * 0.95)],
                                                      simulation_params['maxSimTime'],
                                                      simulation_params['numberOfDataPoints'])
 
     # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
     # Set marker='o' to see each datapoint, else leave as marker= to hide
-    # ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black', markeredgecolor='black',
-    #        label='all data', alpha=0.0)
+    # ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black',
+    # markeredgecolor='black', label='all data', alpha=0.0)
 
-    ax.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
-            markerfacecolor='black', markeredgecolor='black', ls=':', label='Blob 1')
-    ax.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
-            markerfacecolor='black', markeredgecolor='black', ls='--', label='Blob 2')
-    ax.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
-            markerfacecolor='black', markeredgecolor='black', ls='-.', label='Blob 3')
+    # ax.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
+    #        markerfacecolor='black', markeredgecolor='black', ls=':', label='Blob 1')
+    # ax.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
+    #        markerfacecolor='black', markeredgecolor='black', ls='--', label='Blob 2')
+    # ax.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
+    #        markerfacecolor='black', markeredgecolor='black', ls='-.', label='Blob 3')
     ax.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#4fc1e8',
             markerfacecolor='black', markeredgecolor='black', label="Pre-Precursors", zorder=1.5)
     ax.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#a0d568',
@@ -1162,9 +1161,9 @@ def test_3d_plot(mx_data, my_data, mz_data, spin_site):
     y1 = my_data[:, spin_site]
     z1 = mz_data[:, spin_site]
 
-    x2 = mx_data[:, spin_site+1]
-    y2 = my_data[:, spin_site+1]
-    z2 = mz_data[:, spin_site+1]
+    x2 = mx_data[:, spin_site + 1]
+    y2 = my_data[:, spin_site + 1]
+    z2 = mz_data[:, spin_site + 1]
     time = mx_data[:, 0]
 
     fig = plt.figure(figsize=(4, 4))
