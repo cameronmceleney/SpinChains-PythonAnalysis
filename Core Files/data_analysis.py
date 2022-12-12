@@ -545,7 +545,7 @@ class PlotImportedData:
                                         self.full_output_path)
 
         if has_override:
-            pf_selection = override_name
+            pf_selection = override_name.upper()
         else:
             pf_selection = str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
 
@@ -563,55 +563,79 @@ class PlotImportedData:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
                 for row_num in rows_to_plot:
-                    row_num = int(row_num)
-                    if row_num >= 1:
-                        print(f"Generating plot for [#{row_num}]...")
-                        lg.info(f"Generating PV plot for row [#{row_num}]")
-                        paper_fig.create_position_variation(row_num - 1)
-                        lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+                    try:
+                        row_num = int(row_num)
+                    except ValueError:
+                        if row_num.upper() == pf_keywords[4]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
                     else:
-                        print("Exiting PF-PV plotting.")
-                        lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
-                        cont_plotting = False
+                        if row_num >= 0:
+                            print(f"Generating plot for [#{row_num}]...")
+                            lg.info(f"Generating PV plot for row [#{row_num}]")
+                            paper_fig.create_position_variation(row_num)
+                            lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+                        else:
+                            print("Exiting PF-PV plotting.")
+                            lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
+                            cont_plotting = False
 
         elif pf_selection == pf_keywords[1]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
-                    target_site = int(target_site)
-                    if target_site >= 1:
-                        print(f"Generating plot for [#{target_site}]...")
-                        lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                        paper_fig.create_time_variation(target_site - 1, add_zoomed_region=False, add_info_box=False,
-                                                        add_coloured_regions=False)
-                        lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
+                    try:
+                        target_site = int(target_site)
+                    except ValueError:
+                        if target_site.upper() == pf_keywords[4]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
                     else:
-                        print("Exiting PF-TV plotting.")
-                        lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
-                        cont_plotting = False
+                        if target_site >= 1:
+                            print(f"Generating plot for [#{target_site}]...")
+                            lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
+                            paper_fig.create_time_variation(target_site - 1, add_zoomed_region=False,
+                                                            add_info_box=False,
+                                                            add_coloured_regions=False)
+                            lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
+                        else:
+                            print("Exiting PF-TV plotting.")
+                            lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
+                            cont_plotting = False
 
         elif pf_selection == pf_keywords[2]:
             paper_fig.create_gif(number_of_frames=0.01)
+            print("GIF successfully created!")
+            self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
 
         elif pf_selection == pf_keywords[3]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
-                    target_site = int(target_site)
-                    if target_site >= 1:
-                        print(f"Generating plot for [#{target_site}]...")
-
-                        lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
-                        paper_fig.plot_fft(target_site - 1)
-                        lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
-
-                        exit(0)
+                    try:
+                        target_site = int(target_site)
+                    except ValueError:
+                        if target_site.upper() == pf_keywords[4]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
                     else:
-                        print("Exiting PF-FFT plotting.")
-                        lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
-                        cont_plotting = False
+                        if target_site >= 1:
+                            print(f"Generating plot for [#{target_site}]...")
+
+                            lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
+                            paper_fig.plot_fft(target_site - 1)
+                            lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+
+                            exit(0)
+                        else:
+                            print("Exiting PF-FFT plotting.")
+                            lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
+                            cont_plotting = False
 
         elif pf_selection == pf_keywords[4]:
             self.call_methods(True)
