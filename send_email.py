@@ -12,9 +12,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import googleapiclient.discovery
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from os import path
 
 # My packages / Any header files
-# Here
+from time import sleep
 
 """
     Example script of how to send an email. Code inspiration is from 
@@ -70,7 +71,7 @@ def logging_setup():
                    force=True)
 
 
-def send_email(sender_email, receiver_email):
+def send_email(sender_email, receiver_email, custom_msg=''):
     # Get the path to the pickle file
     home_dir = '/Users/cameronmceleney/PycharmProjects/SpinchainsAnalysis/Additional Files'
     pickle_path = os.path.join(home_dir, 'gmail.pickle')
@@ -88,7 +89,10 @@ def send_email(sender_email, receiver_email):
     msg['To'] = f'{receiver_email}'
 
     # Add message contents
-    msgPlain = 'This is my first email!'
+    if custom_msg:
+        msgPlain = custom_msg
+    else:
+        msgPlain = 'This is my first email!'
     # msgHtml = 'This is my first email!!'
     msg.attach(MIMEText(msgPlain, 'plain'))
     # msg.attach(MIMEText(msgHtml, 'html'))
@@ -106,11 +110,36 @@ def send_email(sender_email, receiver_email):
 
 
 def main():
-    lg.info("Program start")
+    path_to_file = './'
+    file_name = 'simulation_metadata.txt'
+    filename_and_path = f'{path_to_file}{file_name}'
 
-    send_email('2235645.desktop@gmail.com', 'cameron.mceleney@gmail.com')
+    should_send_email = True
 
-    lg.info("Program end")
+    senders_address = '2235645.desktop@gmail.com'
+    receivers_address = ['cameron.mceleney@gmail.com']
+
+    if path.exists(filename_and_path):
+        # Metadata file exists and can be sent to the user along with a notification.
+        with open('simulation_metadata.txt') as sim_metadata_file:
+            sim_details = sim_metadata_file.read()
+            print(sim_details)
+
+            if should_send_email:
+                for email_address in receivers_address:
+                    send_email(senders_address, email_address, custom_msg=sim_details)
+
+            os.remove(filename_and_path)
+    else:
+        # Fallback if the metadata file cannot be found; user is still notified of completed simulation.
+        if should_send_email:
+            inform_user = 'Your simulation is complete, but no metadata could be found'
+
+            for email_address in receivers_address:
+                send_email(senders_address, email_address, custom_msg=inform_user)
+
+        print('no file')
+        pass
 
     exit(0)
 
