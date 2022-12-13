@@ -33,10 +33,10 @@ def main():
     """
     lg.info(f"Program start...")
 
-    _should_use_eigens = False
+    _should_use_eigens = True
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(True, "2022-12-01")
+    system_setup.detect_os(True, "2022-12-13")
 
     filename_base = str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigens:
