@@ -82,7 +82,7 @@ class PaperFigures:
         # Attributes for plots
         self.fig = plt.figure(figsize=(3.5, 1.3))
         self.axes = self.fig.add_subplot(111)
-        self.y_axis_limit = 9e-7  # max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
@@ -148,8 +148,8 @@ class PaperFigures:
             plt.gca().add_patch(rectangle_driving_region)
 
         # Change tick markers as needed.
-        xlim_major_ticks = 5000
-        self._tick_setter(self.axes, xlim_major_ticks, int(xlim_major_ticks * 0.2), 3, 4)
+        xlim_major_ticks = 500
+        self._tick_setter(self.axes, xlim_major_ticks, 25, 3, 4)
 
         class ScalarFormatterClass(ticker.ScalarFormatter):
             def _set_format(self):
@@ -876,7 +876,7 @@ class Eigenmodes:
 
         """
         plt.rcParams.update({'savefig.dpi': 300, "figure.dpi": 300})
-        print('Plotting please wait...')
+        print(f'Plotting #{eigenmode}...')
         eigenmode -= 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
 
         # Select single mode to plot from imported data.
@@ -906,7 +906,7 @@ class Eigenmodes:
                  xlabel="Site Number", ylabel="Amplitude [arb.]",
                  xlim=(0, number_of_spins))#,
                  #xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 20))
-        axes.xaxis.set(major_locator=ticker.MultipleLocator(5),
+        axes.xaxis.set(major_locator=ticker.MultipleLocator(10),
                        minor_locator=ticker.MultipleLocator(1))
 
         # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
