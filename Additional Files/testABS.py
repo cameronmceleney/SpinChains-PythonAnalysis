@@ -621,6 +621,104 @@ def afm():
     plt.show()
 # ------------------------------ Implementations ------------------------------
 
+
+def analytic_sine_wave():
+    max_simtime = 2e-9
+    max_dp = 1000
+    n_sites = 200
+    spins_array = np.zeros(n_sites)
+    y1 = np.zeros(n_sites)
+    y2 = np.zeros(n_sites)
+
+    freq1 = 50
+    freq2 = 50
+    lambda1 = 18e-9
+    lambda2 = 18e-9
+    phi1 = 0
+    phi2 = 0
+
+    offset1 = 0
+    offset2 = 0
+
+    w1 = freq1 * 1e9 * 2 * np.pi
+    w2 = freq2 * 1e9 * 2 * np.pi
+    k1 = (2*np.pi) / lambda1
+    k2 = (2*np.pi) / lambda2
+
+
+    for t in np.linspace(0, max_simtime, max_dp):
+        for x in spins_array:
+
+            y1 = np.sin(k1 * (x + phi1) - w1 * t)
+            y2 = np.sin(k2 * (x + phi2) - w2 * t)
+            y = np.add(y1, y2)
+
+
+
+def sine_wave_test():
+    plt.rcParams.update({'savefig.dpi': 100, "figure.dpi": 100})
+
+    interactive = True
+    # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
+    if interactive:
+        fig = plt.figure(figsize=(6, 6))
+
+    num_dp = 5000  # Number of datapoints (min. 1000 for good quality images)
+    max_simtime = 2  # Total simulated time [ns]
+    max_distance = 6000  # Total simulated distance [nm]
+
+    a = 2  # lattice constant [nm]
+
+    # Initialise empty arrays to store data
+    time_array = np.linspace(0, max_simtime, num_dp)
+    x = np.linspace(0, max_distance, num_dp)
+    y = np.zeros(num_dp)
+    y1 = np.zeros(num_dp)
+    y2 = np.zeros(num_dp)
+
+    # Declare parameters
+    freq1 = 50  # First driven frequency [GHz]
+    freq2 = 54  # Second driven frequency [GHz]
+    lambda1 = 18  # Wavelength of first driven wave [nm]
+    lambda2 = 17  # Wavelength of second driven wave [nm]
+    phi1 = 18 * 10 * a  # phase of first wave [nm]
+    phi2 = 0 * a  # phase of second wave [nm]
+
+    # Derive from declared parameters
+    w1 = 2 * np.pi * freq1  # First driven angular frequency
+    w2 = 2 * np.pi * freq2  # Second driven angular frequency
+    k1 = (2*np.pi) / (lambda1 * a)  # wavenumber for first wave
+    k2 = (2*np.pi) / (lambda2 * a)  # wavenumber for second wave
+
+    for i, t in enumerate(time_array):
+        y1 = np.sin(k1*(x + phi1) - w1*t)
+        y2 = np.sin(k2*(x + phi2) - w2*t)
+        y = np.add(y1, y2)
+
+    # Plot output graph
+    # fig = plt.figure(figsize=(4,4))
+    ax = fig.add_subplot(111)
+    ax.plot(x, y1, ls='--', color='red', label=f"{freq1} GHz", zorder=1.2)
+    ax.plot(x, y2, ls=':', color='blue', label=f"{freq2} GHz", zorder=1.1)
+    ax.plot(x, y,  ls='-', color='black', label="Superpos.",zorder=1.3)
+
+    ax.set(title=f"$\phi_1$={phi1/a} & $\phi_2$={phi2/a}\n$\lambda_1$={lambda1} & $\lambda_2$={lambda2} | a={a}",
+           xlabel="Position [nm]", ylabel="Amplitude [arb.]", xlim=[0, 3000])
+    ax.xaxis.set(major_locator=ticker.MultipleLocator(500),
+                   minor_locator=ticker.MultipleLocator(50))
+    ax.legend(loc='lower right')
+    fig.tight_layout()
+    if interactive:
+        # For interactive plots
+        def mouse_event(event):
+            print('x: {} and y: {}'.format(event.xdata, event.ydata))
+
+        fig.canvas.mpl_connect('button_press_event', mouse_event)
+        plt.show()
+    else:
+        plt.show()
+
+
 if __name__ == '__main__':
     # loggingSetup()
     # rc_params_update()
@@ -628,5 +726,7 @@ if __name__ == '__main__':
     # compare_dataset_plots()
     # test()
     # afm_test()
+    sine_wave_test()
+    #analytic_sine_wave()
     exit()
     # main()

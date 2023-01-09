@@ -9,7 +9,10 @@ import seaborn as sns
 
 # Additional libraries
 import csv as csv
-from os import path
+from os import path, makedirs, listdir, rename
+import errno as errno
+import shutil as sh
+import glob as gl
 
 # My packages / Any header files
 import plots_for_rk_methods as plt_rk
@@ -32,7 +35,7 @@ class PlotEigenmodes:
     def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="eigenvalues", file_component="",
                  file_identifier="T"):
 
-        self.input_dir_path = input_dir_path
+        self.parent_dir_path = input_dir_path
         self.output_dir_path = output_dir_path
 
         # Automatically constructs filename
@@ -40,6 +43,8 @@ class PlotEigenmodes:
         self.fp = file_prefix
         self.fc = file_component
         self.fi = file_identifier
+        self.child_dir_name = f"{self.fi}{self.fd}_Eigens"
+        self.input_dir_path = f"{self.parent_dir_path}{self.child_dir_name}/"#  path.join(self.parent_dir_path, self.child_dir_name)
         self.full_filename = f"{self.fp}{self.fc}_{self.fi}{self.fd}"
 
         self.full_output_path = f"{self.output_dir_path}{file_identifier}{file_descriptor}"
@@ -50,6 +55,7 @@ class PlotEigenmodes:
         self.is_input_data_present = [False, False]
         self.is_formatted_data_present = [False, False,
                                           False]  # Tests if each filtered array is in the target directory.
+        self.is_input_dir_present = False
 
         self.input_filenames = [f"eigenvalues_{self.fi}{self.fd}.csv",
                                 f"eigenvectors_{self.fi}{self.fd}.csv"]
@@ -66,7 +72,7 @@ class PlotEigenmodes:
         # Containers to store key information about the returned arrays. Iterating through containers was felt to be
         # easier to read than having many lines of variable declarations and initialisations.
 
-        self._check_if_files_present(True)
+        self._check_directory_tree()
 
         if all(self.is_formatted_data_present):
             # All directories have been found, so can load into memory
@@ -93,8 +99,45 @@ class PlotEigenmodes:
                 except ValueError:
                     lg.info(f"Boolean variable (does_exist) was dtype None.")
                     exit(1)
+                finally:
+                    pass
+                    # self.import_eigenmodes()
 
             return
+
+    def _check_directory_tree(self, should_show_errors=False):
+
+        if path.exists(self.input_dir_path):
+            print(f"Simulation_Data/{self.child_dir_name}: directory found")
+            self.is_input_dir_present = True
+            self._check_if_files_present(True)
+
+        elif path.exists(f"{self.parent_dir_path}{self.fi}{self.fd}/"):
+            # Included to handle legacy files
+            rename(f"{self.parent_dir_path}{self.fi}{self.fd}", self.input_dir_path)
+            print(f"Simulation_Data/{self.fi}{self.fd}: directory found. Name updated to {self.child_dir_name}")
+            self.is_input_dir_present = True
+            self._check_if_files_present(True)
+
+        else:
+            print(f"Simulation_Data/{self.child_dir_name}: not found")
+            try:
+                # Try to create each subdirectory (and parent if needed). Always show instances of dirs being created
+                makedirs(self.input_dir_path, exist_ok=False)
+                print(f"Directory '{self.child_dir_name}' created successfully")
+                self.is_input_dir_present = True
+                self.import_eigenmodes()
+
+            except OSError as exc:
+                if exc.errno != errno.EEXIST:
+                    raise
+
+                # Handles exceptions from raise
+                if should_show_errors:
+                    # User-selected flag in function argument
+                    print(f"Directory '{self.child_dir_name}' already exists.")
+                    self.is_input_dir_present = True
+                    pass
 
     def _check_if_files_present(self, should_check_all=False):
         print('\n---------------------------------------------------------------------------------------')
@@ -114,6 +157,7 @@ class PlotEigenmodes:
                     print(f"{file_description}: not found")
 
         print(f"\nChecking chosen directories for formatted input files...")
+
         for i, (file_description, filename) in enumerate(
                 zip(self.formatted_filename_descriptions, self.formatted_filenames)):
             # Tests if the required files already exist in the target (input data) directory.
@@ -125,8 +169,33 @@ class PlotEigenmodes:
             else:
                 self.is_formatted_data_present[i] = False
                 print(f"{file_description}: not found")
-
         print('---------------------------------------------------------------------------------------')
+
+        if all(item is False for item in self.is_formatted_data_present):
+
+            if len(listdir(self.input_dir_path)) == 0:
+                # Target directory is empty
+                src_folder = self.parent_dir_path
+                dst_folder = self.input_dir_path
+
+                # Search files with .txt extension in source directory
+                pattern = f"/*{self.fi}{self.fd}.csv"
+                files = gl.glob(src_folder + pattern)
+
+                # move the files with txt extension
+                for file in files:
+                    # extract file name form file path
+                    file_name = path.basename(file)
+                    sh.move(file, dst_folder + file_name)
+                    print('Moved:', file)
+            elif all(item is True for item in self.is_input_data_present):
+                for i in range(0, 3):
+                    self._generate_file_that_is_missing(i)
+                    self.import_eigenmodes()
+
+            else:
+                print('Unknown error. Exiting.')
+                exit(1)
 
     def _generate_file_that_is_missing(self, index):
 
@@ -148,6 +217,7 @@ class PlotEigenmodes:
         lg.info(f"Missing Eigenvalues file found. Attempting to generate new file in correct format...")
 
         # 'Raw' refers to the data produces from the C++ code.
+        print(f"Here: {self.input_dir_path}")
         eigenvalues_raw = np.loadtxt(f"{self.input_dir_path}eigenvalues_{self.fi}{self.fd}.csv",
                                      delimiter=",")
 
