@@ -98,7 +98,7 @@ class SystemSetup:
                 self._create_directory(windows_dir_root, self.parent_name)
 
             self.input_data_directory = f"{windows_dir_root}{self.parent_name}/Simulation_Data/"
-            self.output_data_directory = f"{windows_dir_root}{self.parent_name}/Outputs/"
+            self.output_data_directory = f"{windows_dir_root}{self._date_of_today()}/Outputs/"
             self.logging_directory = f"{windows_dir_root}{self.parent_name}/Logs/"
 
         self._logging_setup()
