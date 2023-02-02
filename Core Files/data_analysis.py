@@ -465,7 +465,7 @@ class PlotImportedData:
                       ''')
             print('---------------------------------------------------------------------------------------\n')
 
-            initials_of_method_to_call = input("Which function to use: ").upper()
+            initials_of_method_to_call = "PF" # input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -560,6 +560,11 @@ class PlotImportedData:
 
         lg.info(f"Plotting function selected: Fourier Signal only.")
 
+        #dataset2_full_filename = "rk2_mx_T1614.csv"
+        #dataset2_input_data_path = f"D:/Data/2022-11-30/Simulation_Data/{dataset2_full_filename}"
+        #dataset2 = np.loadtxt(dataset2_input_data_path, delimiter=",", skiprows=11)
+        #dataset2_m_spin_data = dataset2[:, 1:]
+
         has_more_to_plot = True
         while has_more_to_plot:
             # User will plot one spin site at a time, as plotting can take a long time.
@@ -573,8 +578,12 @@ class PlotImportedData:
                     lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
                     plt_rk.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
-                                    self.header_data_params,
-                                    self.full_output_path)
+                                     self.header_data_params,
+                                     self.full_output_path)
+                    #plt_rk.multi_fft_only(self.m_spin_data[:, target_spin_in_data],
+                    #                      dataset2_m_spin_data[:, target_spin_in_data], target_spin,
+                    #                      self.header_data_params,
+                    #                      self.full_output_path)
                     lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
@@ -617,7 +626,7 @@ class PlotImportedData:
         if has_override:
             pf_selection = override_name.upper()
         else:
-            pf_selection = str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
+            pf_selection = "TV" # str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
 
         pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK"]
         while True:
@@ -667,9 +676,9 @@ class PlotImportedData:
                         if target_site >= 1:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation(target_site - 1, add_zoomed_region=False,
-                                                            add_info_box=False,
-                                                            add_coloured_regions=False)
+                            paper_fig.create_time_variation2(target_site - 1, add_zoomed_region=False,
+                                                            annotate_precursors=True, add_info_box=False,
+                                                            colour_precursors=False)
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                         else:
                             print("Exiting PF-TV plotting.")
@@ -698,7 +707,7 @@ class PlotImportedData:
                             print(f"Generating plot for [#{target_site}]...")
 
                             lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
-                            paper_fig.plot_fft(target_site - 1)
+                            paper_fig.plot_fft(target_site - 1, add_zoomed_region=False)
                             lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
 
                             exit(0)
@@ -726,18 +735,18 @@ def rc_params_update():
     ##############################################################################
     # Sets global conditions including font sizes, ticks and sheet style
     # Sets various font size. fsize: general text. lsize: legend. tsize: title. ticksize: numbers next to ticks
-    medium_size = 14
-    small_size = 12
-    large_size = 16
-    smaller_size = 10
-    tiny_size = 10
+    medium_size = 14 * 1.25
+    small_size = 12 * 1.25
+    large_size = 16 * 1.25
+    smaller_size = 10 * 1.25
+    tiny_size = 10 * 1.25
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
     t_dir = 'in'
     # sets the tick size(s) and tick width(w) for the major and minor axes of all plots
-    t_maj_s = 4
+    t_maj_s = 4 * 1.25
     t_min_s = t_maj_s / 2
-    t_maj_w = 0.8
+    t_maj_w = 0.8 * 1.25
     t_min_w = t_maj_w / 2
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
