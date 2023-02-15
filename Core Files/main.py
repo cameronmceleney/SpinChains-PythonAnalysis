@@ -38,7 +38,7 @@ def main():
     system_setup = sp.SystemSetup()
     system_setup.detect_os(True, "2022-11-21")
 
-    filename_base = "1819" # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1819"  # str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigens:
         dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                         file_prefix="rk2", file_component='mx', file_identifier="T")

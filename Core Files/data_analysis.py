@@ -663,7 +663,7 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[1]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+                sites_to_plot = ["1"]#(input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     try:
                         target_site = int(target_site)
@@ -679,6 +679,7 @@ class PlotImportedData:
                             paper_fig.create_time_variation2(target_site - 1, add_zoomed_region=False,
                                                             annotate_precursors=True, add_info_box=False,
                                                             colour_precursors=False)
+                            exit(0)
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                         else:
                             print("Exiting PF-TV plotting.")
@@ -765,5 +766,5 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 1000,
+                         'savefig.dpi': 1000, "figure.dpi": 100,
                          'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})

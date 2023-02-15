@@ -373,13 +373,13 @@ class PaperFigures:
                                arrowprops=arrow_ax1_props, fontsize=small_font)
 
             # Remove tick labels
-            ax2_inset.set_xticks([])
-            ax2_inset.set_yticks([])
-            ax2_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
+            ax1_inset.set_xticks([])
+            ax1_inset.set_yticks([])
+            ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
 
             # Add spines to all plots (to override any rcParams elsewhere in the code
             for spine in ['top', 'bottom', 'left', 'right']:
-                ax2_inset.spines[spine].set_visible(True)
+                ax1_inset.spines[spine].set_visible(True)
                 ax1.spines[spine].set_visible(True)
 
             # mark_inset(ax1, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
@@ -573,7 +573,7 @@ class PaperFigures:
         ax1.text(0.05, 0.88, f"(a)",
                 verticalalignment='center', horizontalalignment='left', transform=ax1.transAxes, fontsize=mid_font)
 
-        ax1_inset = inset_axes(ax1, width=1.6, height=0.6, loc="upper right", bbox_to_anchor=[0.93, 0.91],
+        ax1_inset = inset_axes(ax1, width=1.55, height=0.6, loc="upper right", bbox_to_anchor=[0.93, 0.91],
                                bbox_transform=ax1.transAxes)
         ax1_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1.2)
         ax1_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
@@ -593,15 +593,42 @@ class PaperFigures:
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
 
         freqs = np.loadtxt(f"D:\\Data\\2022-11-11\\Simulation_Data\\eigenvalues_formatted_eigenvalues_T1453.csv")
-        ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
-        ax2.set(ylabel="Frequency [GHz]", xlabel='Mode Number', xlim=[0, 4000])
-        ax2.margins(0)
-        self._tick_setter(ax2, 500, 100, 3, 4, is_fft_plot=False)
+        #ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
+        ax2.scatter(np.arange(1, len(freqs) + 1, 1), (1/2e-9)*np.arcsin(1 - (freqs/(29.2e9*2*np.pi*(13.25+0.1)))), s=0.5, c='red', ls='--')
+        #ax2.set(ylabel="Frequency [THz]", xlabel='Mode Number', xlim=[0, 4000])
+        #ax2.axhline(y=3500, ls='--', lw=2, color='grey', zorder=1.2)
+        #ax2.axhline(y=12000, ls='--', lw=2, color='grey', zorder=1.2)
+        #ax2.margins(0)
+        #self._tick_setter(ax2, 1000, 250, 3, 4, is_fft_plot=False)
         ax2.grid(False)
 
-        ax2.text(0.05, 0.88, f"(b)",
-                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
-        ax2.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+        #ax2.text(0.95, 0.88, r"$\mathcal{I}$",
+        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
+        #ax2.text(0.95, 0.5, r"$\mathcal{II}$",
+        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
+        #ax2.text(0.95, 0.12, r"$\mathcal{III}$",
+        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
+
+        #ax2.text(0.5, 0.88, f"-ve slope",
+        #         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+        #ax2.text(0.375, 0.5, f"linear\nslope",
+        #         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+        #ax2.text(0.5, 0.12, f"+ve slope",
+        #         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+
+        #ax2.text(0.05, 0.88, f"(b)",
+        #         verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
+        #ax2.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+
+        #arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
+        #arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.1", "color": "black"}
+        #arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.1", "color": "black"}
+        #ax2.annotate('', xy=(2400, 9000), xytext=(2000, 6500), va='center', ha='center',
+        #             arrowprops=arrow_ax2_props1, fontsize=mid_font, transform=ax2.transAxes)
+        #ax2.annotate('', xy=(1150, 2300), xytext=(750, 400), va='center', ha='center',
+        #             arrowprops=arrow_ax2_props2, fontsize=mid_font, transform=ax2.transAxes)
+        #ax2.annotate('', xy=(3250, 14750), xytext=(2850, 13000), va='center', ha='center',
+        #             arrowprops=arrow_ax2_props3, fontsize=mid_font, transform=ax2.transAxes)
         for spine in ['top', 'bottom', 'left', 'right']:
             ax1.spines[spine].set_visible(True)
             ax2.spines[spine].set_visible(True)
@@ -613,7 +640,16 @@ class PaperFigures:
         fig.subplots_adjust(wspace=1, hspace=0.3)
         ax1.set_facecolor('white')
         ax2.set_facecolor('white')
-        fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
+
+        if False:
+            # For interactive plots
+            def mouse_event(event):
+                print('x: {} and y: {}'.format(event.xdata, event.ydata))
+
+            fig.canvas.mpl_connect('button_press_event', mouse_event)
+            plt.show()
+        else:
+            fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
     def plot_fft(self, spin_site, add_zoomed_region=False):
         """
         Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
@@ -861,11 +897,11 @@ class PaperFigures:
 
             class ScalarFormatterClass(ticker.ScalarFormatter):
                 def _set_format(self):
-                    self.format = "%1.1f"
+                    self.format = "%2.1f"
 
             yScalarFormatter = ScalarFormatterClass(useMathText=True)
             yScalarFormatter.set_powerlimits((0, 0))
-            ax.xaxis.set_major_formatter(yScalarFormatter)
+            # ax.xaxis.set_major_formatter(yScalarFormatter)
             ax.yaxis.set_major_formatter(yScalarFormatter)
 
             # ax.yaxis.labelpad = -3
