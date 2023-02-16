@@ -36,7 +36,7 @@ def main():
     _should_use_eigens = False
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(True, "2022-11-21")
+    system_setup.detect_os(False, "2022-11-21", "2023-02-15")
 
     filename_base = "1819"  # str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigens:
