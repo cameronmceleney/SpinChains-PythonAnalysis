@@ -51,30 +51,25 @@ class SystemSetup:
         self.output_data_directory = None
         self.logging_directory = None
 
-        self.parent_name = ''
+        self.input_dir_name = ''
+        self.output_dir_name = ''
 
-    def detect_os(self, has_custom_name=False, custom_name=""):
+    def detect_os(self, use_default=True, custom_input_dir_name='', custom_output_dir_name=''):
         """
         Detect the user's operating system.
 
-        :param custom_name: Allows for direct entry of the custom name instead of using console-entry.
-        :param bool has_custom_name: Select if the target parent directory has a customised name. Default is today's
-                                     date.
+        :param bool use_default: Select if the target parent directory has a customised name. Default is today's date.
+        :param str custom_input_dir_name: User-defined name for the input directory.
+        :param str custom_output_dir_name: User-defined name for the output directory.
 
         :return: [0] is the input data directory; this is the read-from location. [1] is the output data directory.
                  All plots and GIFs should be saved here
          """
 
-        if has_custom_name:
-            # Custom directory name usage can lead to bugs - syntax must be correct (YYYY-MM-DD)
-            if custom_name:
-                self.parent_name = custom_name
-            else:
-                self.parent_name = str(input("Enter the name of the parent directory: "))
-        else:
-            self.parent_name = self._date_of_today()
+        self._set_parameters(use_default, custom_input_dir_name, custom_output_dir_name)
 
-        self._is_dir_name_valid(self.parent_name)
+        self._is_dir_name_valid(str_code="input", str_to_test=self.input_dir_name)
+        self._is_dir_name_valid(str_code="output", str_to_test=self.output_dir_name)
 
         if platform == "linux" or platform == "linux2":
             raise SystemError("Detected Linux, which is not yet supported.")
@@ -84,25 +79,44 @@ class SystemSetup:
             mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"
 
             if not self.has_target_dir_been_found:
-                self._create_directory(mac_dir_root, self.parent_name)
+                self._create_directory(mac_dir_root, self.input_dir_name)
 
-            self.input_data_directory = f"{mac_dir_root}{self.parent_name}/Simulation_Data/"
-            self.output_data_directory = f"{mac_dir_root}{self.parent_name}/Outputs/"
-            self.logging_directory = f"{mac_dir_root}{self.parent_name}/Logs/"
+            self.input_data_directory = f"{mac_dir_root}{self.input_dir_name}/Simulation_Data/"
+            self.output_data_directory = f"{mac_dir_root}{self.output_dir_name}/Outputs/"
+            self.logging_directory = f"{mac_dir_root}{self.input_dir_name}/Logs/"
 
         elif platform == "win32" or platform == "win64":
             # Windows. This is the permanent location on my desktop
             windows_dir_root = "D:/Data/"
 
             if not self.has_target_dir_been_found:
-                self._create_directory(windows_dir_root, self.parent_name)
+                self._create_directory(windows_dir_root, self.input_dir_name)
 
-            self.input_data_directory = f"{windows_dir_root}{self.parent_name}/Simulation_Data/"
-            self.output_data_directory = f"{windows_dir_root}{self._date_of_today()}/Outputs/"
-            self.logging_directory = f"{windows_dir_root}{self.parent_name}/Logs/"
+            self.input_data_directory = f"{windows_dir_root}{self.input_dir_name}/Simulation_Data/"
+            self.output_data_directory = f"{windows_dir_root}{self.output_dir_name}/Outputs/"
+            self.logging_directory = f"{windows_dir_root}{self.input_dir_name}/Logs/"
 
         self._logging_setup()
-        lg.info(f"Target (parent) directory is {self.parent_name}.")
+        lg.info(f"Target (parent) directory is {self.input_dir_name}.")
+
+    def _set_parameters(self, use_default, custom_input_dir_name, custom_output_dir_name):
+
+        if use_default:
+            # Guard clause to ensure custom names are implemented
+            self.input_dir_name = self._date_of_today()
+            self.output_dir_name = self._date_of_today()
+            return
+
+        # Custom directory name usage can lead to bugs - syntax must be correct (YYYY-MM-DD)
+        if custom_input_dir_name:
+            self.input_dir_name = custom_input_dir_name
+        else:
+            self.input_dir_name = str(input("Enter the name of the input directory: "))
+
+        if custom_output_dir_name:
+            self.output_dir_name = custom_output_dir_name
+        else:
+            self.output_dir_name = str(input("Enter the name of the output directory: "))
 
     def input_dir(self, should_print=False):
 
@@ -110,8 +124,7 @@ class SystemSetup:
             raise ValueError("input_data_directory was None")
 
         if should_print:
-            print(self.input_data_directory)
-            return
+            return print(self.input_data_directory)
         else:
             return self.input_data_directory
 
@@ -121,8 +134,7 @@ class SystemSetup:
             raise ValueError("output_data_directory was None")
 
         if should_print:
-            print(self.output_data_directory)
-            return
+            return print(self.output_data_directory)
         else:
             return self.output_data_directory
 
@@ -196,7 +208,7 @@ class SystemSetup:
 
         self.has_target_dir_been_found = True
 
-    def _is_dir_name_valid(self, str_to_test=''):
+    def _is_dir_name_valid(self, str_code, str_to_test=''):
         """
         Tests if a given directory exists.
 
@@ -208,8 +220,8 @@ class SystemSetup:
         regex_pattern = re.compile('\d{4}-\d{2}-\d{2}')
 
         if not str_to_test:
-            # Testing self.parent_name is the primary purpose of this function.
-            str_to_test = self.parent_name
+            # Testing self.input_dir_name is the primary purpose of this function.
+            str_to_test = self.input_dir_name
 
         if regex_pattern.match(str_to_test) is not None:
             # Directory is named in the correct format
@@ -220,8 +232,8 @@ class SystemSetup:
 
             dir_accepted_answers = ['Y', 'N']
 
-            dir_response = input('Your directory name is not in the format ####-##-##'
-                                 '\nWas this intentional [Y/N]? ').upper()
+            dir_response = input(f"Your {str_code.upper()} directory ({str_to_test}) is not in the format ####-##-##\n"
+                                  "Was this intentional [Y/N]? ").upper()
 
             while True:
                 if dir_response in dir_accepted_answers:
@@ -230,13 +242,18 @@ class SystemSetup:
 
                     elif dir_response == 'N':
                         # Recursively call until a valid dir name is entered
-                        self.parent_name = input("Enter the name of the parent directory: ")
-                        self._is_dir_name_valid()
+                        if str_code == "input":
+                            self.input_dir_name = input(f"Enter the name of the input directory: ")
+                            self._is_dir_name_valid(str_code="input", str_to_test=self.input_dir_name)
+
+                        if str_code == "output":
+                            self.output_dir_name = input(f"Enter the name of the output directory: ")
+                            self._is_dir_name_valid(str_code="output", str_to_test=self.output_dir_name)
                     break
                 else:
                     # Force user to enter Y/N to above question
                     while dir_response not in dir_accepted_answers:
-                        dir_response = input('Invalid option. Was this intentional [Y/N]? ').upper()
+                        dir_response = input("Invalid option. Was this intentional [Y/N]? ").upper()
 
     def _logging_setup(self):
         """Initialisation of basic logging information."""

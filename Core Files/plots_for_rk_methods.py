@@ -63,7 +63,7 @@ class PaperFigures:
         self.static_field = key_data['staticBiasField']
         self.driving_field1 = key_data['dynamicBiasField1']
         self.driving_field2 = key_data['dynamicBiasField2']
-        self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to [ns].
+        self.driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to (ns).
         self.drLHS = key_data['drivingRegionLHS']
         self.drRHS = key_data['drivingRegionRHS']
         self.driving_width = key_data['drivingRegionWidth']
@@ -113,7 +113,7 @@ class PaperFigures:
 
         # Easier to have time-stamp as label than textbox.
         self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=0.75,
-                       label=f"{self.time_data[plot_row]:2.2f} [ns]", color='#64bb6a')
+                       label=f"{self.time_data[plot_row]:2.2f} (ns)", color='#64bb6a')
 
         self.axes.set(**self.kwargs)
 
@@ -182,14 +182,14 @@ class PaperFigures:
         if should_add_data:
             # Add text to figure with simulation parameters
             if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc. : {self.exchange_min} [T]"
+                exchangeString = f"Uniform Exc. : {self.exchange_min} (T)"
             else:
-                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-                                 f"{self.exchange_max} [T]"
-            data_string = f"H$_{{0}}$ = {self.static_field} [T] | N = {self.chain_spins} | " + r"$\alpha$" \
+                exchangeString = f"J$_{{min}}$ = {self.exchange_min} (T) | J$_{{max}}$ = " \
+                                 f"{self.exchange_max} (T)"
+            data_string = f"H$_{{0}}$ = {self.static_field} (T) | N = {self.chain_spins} | " + r"$\alpha$" \
                                                                                                f" = {self.gilbert_factor: 2.2e}\n" \
-                                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
-                                                                                               f"H$_{{D2}}$ = {self.driving_field2:2.2e} [T] \n{exchangeString}"
+                                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} (T) | " \
+                                                                                               f"H$_{{D2}}$ = {self.driving_field2:2.2e} (T) \n{exchangeString}"
 
             props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
             # Place text box in upper left in axes coords
@@ -393,14 +393,14 @@ class PaperFigures:
 
         if add_info_box:
             if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc. ({self.exchange_min} [T])"
+                exchangeString = f"Uniform Exc. ({self.exchange_min} (T))"
             else:
-                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-                                 f"{self.exchange_max} [T]"
-            textstr = f"H$_{{0}}$ = {self.static_field} [T] | " \
-                      f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
-                      f"H$_{{D2}}$ = {self.driving_field2:2.2e}[T] \n" \
-                      f"f = {self.driving_freq} [GHz] |" \
+                exchangeString = f"J$_{{min}}$ = {self.exchange_min} (T) | J$_{{max}}$ = " \
+                                 f"{self.exchange_max} (T)"
+            textstr = f"H$_{{0}}$ = {self.static_field} (T) | " \
+                      f"H$_{{D1}}$ = {self.driving_field1:2.2e} (T) | " \
+                      f"H$_{{D2}}$ = {self.driving_field2:2.2e}(T) \n" \
+                      f"f = {self.driving_freq} (GHz) |" \
                       f"{exchangeString} | N = {self.chain_spins} | " + r"$\alpha$" + \
                       f" = {self.gilbert_factor: 2.2e}"
 
@@ -409,7 +409,7 @@ class PaperFigures:
             # place a text box in upper left in axes coords
             ax1.text(0.35, -0.22, textstr, transform=ax1.transAxes, fontsize=6,
                            verticalalignment='top', bbox=props, ha='center', va='center')
-            ax1.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
+            ax1.text(0.85, -0.22, "Time (ns)", fontsize=12, ha='center', va='center',
                            transform=ax1.transAxes)
 
         if add_coloured_regions:
@@ -469,7 +469,7 @@ class PaperFigures:
         plot_set_params = {0: {"xlabel": "Time (ns)", "ylabel": "m$_x$ / M$_S$"},
                            1: {"xlabel": "Frequency (THz)", "ylabel": "Amplitude (a.u.)",
                                "xlim": (0, 16), "ylim": (1e-5, 5e-2)},
-                           2: {"xlabel": "Frequency [GHz]"}}
+                           2: {"xlabel": "Frequency (GHz)"}}
 
         ax2.text(0.05, 0.88, f"(b)",
                  verticalalignment='bottom', horizontalalignment='center', fontsize=small_font,
@@ -564,11 +564,9 @@ class PaperFigures:
                 label="0", zorder=1.3)
 
         ax1.set(xlim=(5, 25), ylim=(1e0, 1e4),
-               xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log')
+               xlabel="Frequency (GHz)", ylabel="Amplitude (arb. units)", yscale='log')
         ax1.grid(visible=False, axis='both', which='both')
         ax1.tick_params(top="on", right="on", which="both")
-
-        #ax1.set_ylabel("Amplitude [arb.]\n", x=-10, y=0.)
 
         ax1.text(0.05, 0.88, f"(a)",
                 verticalalignment='center', horizontalalignment='left', transform=ax1.transAxes, fontsize=mid_font)
@@ -579,10 +577,10 @@ class PaperFigures:
         ax1_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
         ax1_inset.grid(visible=False, axis='both', which='both')
         ax1_inset.yaxis.tick_right()
-        ax1_inset.set_xlabel('Time [ns]', fontsize=8)
+        ax1_inset.set_xlabel('Time (ns)', fontsize=8)
         ax1_inset.set(xlim=[0, 2])
         ax1_inset.yaxis.set_label_position("right")
-        ax1_inset.set_ylabel('Amplitude [arb.]', fontsize=8, rotation=-90, labelpad=10)
+        ax1_inset.set_ylabel('Amplitude\n(arb. units)', fontsize=8, rotation=-90, labelpad=20)
         ax1_inset.tick_params(axis='both', labelsize=8)
 
         ax1_inset.patch.set_color("#f9f2e9")
@@ -592,15 +590,49 @@ class PaperFigures:
 
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
 
-        freqs = np.loadtxt(f"D:\\Data\\2022-11-11\\Simulation_Data\\eigenvalues_formatted_eigenvalues_T1453.csv")
+        # freqs = np.loadtxt(f"D:\\Data\\2022-11-11\\Simulation_Data\\eigenvalues_formatted_eigenvalues_T1453.csv")
+        freqs = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/2022-11-11/Simulation_Data/eigenvalues_formatted_eigenvalues_T1453.csv")
+        freqs2 = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/2023-02-15/Simulation_Data/T1606_Eigens/eigenvalues_formatted_T1606.csv") * 2 * np.pi * 1e9
+
         #ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
-        ax2.scatter(np.arange(1, len(freqs) + 1, 1), (1/2e-9)*np.arcsin(1 - (freqs/(29.2e9*2*np.pi*(13.25+0.1)))), s=0.5, c='red', ls='--')
-        #ax2.set(ylabel="Frequency [THz]", xlabel='Mode Number', xlim=[0, 4000])
+        h_ex = 8.26
+        h_0 = 0.057
+        h_eff = h_ex + h_0
+        gamma = 28.01 * 2 * np.pi * 1e9
+        a = 10e-9
+        n = np.arange(1, len(freqs2) + 1, 1)
+        n1 = np.arange(0, 2000, 1)
+        # k = (n1 * np.pi) / ((len(n1) - 1) * a)
+
+        list_of_gamma = [29.2, 28.2, 28.8, 29.2]
+        list_of_gamma = [i * 2 * np.pi * 1e9 for i in  list_of_gamma]
+        list_of_h_ex = [43.5, 21, 13.25, 13.26]
+        list_of_h_0 = [0.1, 0.001, 0.1323, 0.1]
+        list_of_a = [2e-9, 2e-9, 2e-9, 2e-9]
+
+        for i_gamma, i_h_ex, i_h_0, i_a in zip(list_of_gamma, list_of_h_ex, list_of_h_0, list_of_a):
+            k = (n1 * np.pi) / ((len(n1) - 1) * i_a)
+            ax2.plot(k * 1e-9, i_gamma*(2*i_h_ex * (1 - np.cos(k*i_a)) + i_h_0) / 1e12, label=f'{i_h_ex}')
+
+
+
+        # ax2.scatter(np.arange(1, len(freqs) + 1, 1), (1/2e-9)*np.arcsin(1 - (freqs/(29.2e9*2*np.pi*(13.25+0.1)))), s=0.5, c='red', ls='--')
+        # ax2.scatter(np.sqrt( (freqs/gamma - h_0)/(h_ex * a**2) )/1e9, freqs/1e12, s=0.5, c='red', ls='--')
+
+        # These!!
+        #ax2.scatter(np.sqrt( (freqs2/gamma - h_0)/(h_ex * a**2) ), freqs2, s=0.5, c='blue', ls='--', label='sqrt')
+        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5, c='red', label='paper')
+
+        # ax2.scatter(np.arange(1, len(freqs) + 1, 1), np.sqrt( (freqs/gamma - h_0)/(h_ex * a**2) ), s=0.5, c='blue', ls='--')
+        # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
+
+        ax2.set(xlabel="Wave Number (nm$^{-1}$)", ylabel='Angular Frequency (THz)')
         #ax2.axhline(y=3500, ls='--', lw=2, color='grey', zorder=1.2)
         #ax2.axhline(y=12000, ls='--', lw=2, color='grey', zorder=1.2)
         #ax2.margins(0)
         #self._tick_setter(ax2, 1000, 250, 3, 4, is_fft_plot=False)
         ax2.grid(False)
+        ax2.legend()
 
         #ax2.text(0.95, 0.88, r"$\mathcal{I}$",
         #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
@@ -634,7 +666,6 @@ class PaperFigures:
             ax2.spines[spine].set_visible(True)
             ax1_inset.spines[spine].set_visible(True)
 
-        fig.tight_layout()  # has to be here
         ax1.set_axisbelow(False)
         ax2.set_axisbelow(False)
         fig.subplots_adjust(wspace=1, hspace=0.3)
@@ -647,6 +678,7 @@ class PaperFigures:
                 print('x: {} and y: {}'.format(event.xdata, event.ydata))
 
             fig.canvas.mpl_connect('button_press_event', mouse_event)
+            fig.tight_layout()  # has to be here
             plt.show()
         else:
             fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
@@ -659,12 +691,12 @@ class PaperFigures:
 
         :return: A figure containing four sub-plots.
         """
-        # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
+        # Find maximum time in (ns) to the nearest whole (ns), then find how large shaded region should be.
 
         plot_set_params = {0: {"xlabel": "Time (ns)", "ylabel": "m$_x$ / M$_S$"},
                            1: {"xlabel": "Frequency (GHz)", "ylabel": "Amplitude (a.u.)",
                                "xlim": (0, 60), "ylim": (1e-4, 1e1)},
-                           2: {"xlabel": "Frequency [GHz]"}}
+                           2: {"xlabel": "Frequency (GHz)"}}
 
         # Signal that varies in time #37782c
 
@@ -798,11 +830,11 @@ class PaperFigures:
                 label="0", zorder=1.3)
 
         ax.set(xlim=(5, 25), ylim=(1e0, 1e4),
-               xlabel="Frequency [GHz]", yscale='log')
+               xlabel="Frequency (GHz)", yscale='log')
         ax.grid(visible=False, axis='both', which='both')
         ax.tick_params(top="on", right="on", which="both")
 
-        ax.set_ylabel("Amplitude [arb.]\n", x=-10, y=1)
+        ax.set_ylabel("Amplitude (arb. units)\n", x=-10, y=1)
 
         ax.text(0.04, 0.88, f"(b)",
                 verticalalignment='center', horizontalalignment='left', transform=ax.transAxes, fontsize=8)
@@ -815,10 +847,10 @@ class PaperFigures:
         ax2_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
         ax2_inset.grid(visible=False, axis='both', which='both')
         ax2_inset.yaxis.tick_right()
-        ax2_inset.set_xlabel('Time [ns]', fontsize=8)
+        ax2_inset.set_xlabel('Time (ns)', fontsize=8)
         ax2_inset.set(xlim=[0, 2])
         ax2_inset.yaxis.set_label_position("right")
-        ax2_inset.set_ylabel('Amplitude [arb.]', fontsize=8, rotation=-90, labelpad=10)
+        ax2_inset.set_ylabel('Amplitude (arb. units)', fontsize=8, rotation=-90, labelpad=10)
         ax2_inset.tick_params(axis='both', labelsize=8)
 
         ax2_inset.patch.set_color("#f9f2e9")
@@ -836,7 +868,7 @@ class PaperFigures:
         ax.set_axisbelow(False)
         ax2_inset.set_axisbelow(False)
 
-        # ax.legend(title="$\Delta t$ [ns]", ncol=1, loc="upper left",
+        # ax.legend(title="$\Delta t$ (ns)", ncol=1, loc="upper left",
         #          frameon=False, fancybox=False, facecolor='white', edgecolor='black',
         #          fontsize=8, title_fontsize=10,
         #          bbox_to_anchor=(0.14, 0.475), bbox_transform=ax.figure.transFigure
@@ -1088,7 +1120,7 @@ class Eigenmodes:
                      marker='o', label='Right', zorder=1.1)
 
         # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
-        ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) [GHz]', ylabel='Fourier coefficient',
+        ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) (GHz)', ylabel='Fourier coefficient',
                xlim=[lower, upper], yscale='log', ylim=[1e-3, 1e-1],
                xticks=list(range(lower, upper + 1, step)),
                xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 3)])
@@ -1146,7 +1178,7 @@ class Eigenmodes:
         sns.lineplot(x=range(0, len(my_mode)), y=my_mode, color='r', ls='-', lw=3, label='My', zorder=1.1)
 
         axes.set(title=f"Eigenmode #{eigenmode}",
-                 xlabel="Site Number", ylabel="Amplitude [arb.]",
+                 xlabel="Site Number", ylabel="Amplitude (arb. units)",
                  xlim=(0, number_of_spins))  # ,
         # xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 20))
         axes.xaxis.set(major_locator=ticker.MultipleLocator(10),
@@ -1155,7 +1187,7 @@ class Eigenmodes:
         # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
         axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
                     frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                    title=f"Frequency [GHz]\n        {frequency:4.2f}\n\n    Component",
+                    title=f"Frequency (GHz)\n        {frequency:4.2f}\n\n    Component",
                     fontsize=10)
 
         axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
@@ -1171,7 +1203,7 @@ class Eigenmodes:
         fig = plt.figure(figsize=(6, 6))
         ax = fig.add_subplot(1, 1, 1)
         ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
-        ax.set(ylabel="Frequency [GHz]", xlabel='Mode Number')
+        ax.set(ylabel="Frequency (GHz)", xlabel='Mode Number')
 
         fig.tight_layout()
 
@@ -1250,7 +1282,7 @@ def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to
             label_counter += 1
 
     for axes in [plot_pane_1, plot_pane_2, plot_pane_3]:
-        axes.set(xlabel='Time [ns]', ylabel="m$_x$")  # xlim=[0, key_data['maxSimTime']]
+        axes.set(xlabel='Time (ns)', ylabel="m$_x$")  # xlim=[0, key_data['maxSimTime']]
         axes.legend(loc=1, frameon=True)
         # axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.1),
         #                minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.05))
@@ -1369,10 +1401,10 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     ax.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#ed5564',
             markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.1)
 
-    ax.set(xlabel="Frequency [GHz]", ylabel="Amplitude [arb.]", yscale='log', xlim=[0, 16000], ylim=[1e-7, 1e-0])
+    ax.set(xlabel="Frequency (GHz)", ylabel="Amplitude (arb. units)", yscale='log', xlim=[0, 16000], ylim=[1e-7, 1e-0])
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title=f'Freq. List [GHz]\nDriving - {12500} GHz', fontsize=12)
+              title=f'Freq. List (GHz)\nDriving - {12500} GHz', fontsize=12)
 
     # ax.xaxis.set_major_locator(MultipleLocator(5))
     # ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -1384,13 +1416,13 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     ax.grid(False)
 
     if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
-        exchangeString = f"Uniform = True ({simulation_params['exchangeMinVal']}) [T]"
+        exchangeString = f"Uniform = True ({simulation_params['exchangeMinVal']}) (T)"
     else:
-        exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} [T] | J$_{{max}}$ = " \
-                         f"{simulation_params['exchangeMaxVal']} [T]"
-    textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} [T] | " \
-              f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} [T] | " \
-              f"\nH$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}[T]" \
+        exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} (T) | J$_{{max}}$ = " \
+                         f"{simulation_params['exchangeMaxVal']} (T)"
+    textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | " \
+              f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} (T) | " \
+              f"\nH$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}(T)" \
               f" | {exchangeString} | N = {simulation_params['totalSpins']}"
 
     props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
@@ -1421,19 +1453,19 @@ def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params,
 
     :return: A figure containing four sub-plots.
     """
-    # Find maximum time in [ns] to the nearest whole [ns], then find how large shaded region should be.
+    # Find maximum time in (ns) to the nearest whole (ns), then find how large shaded region should be.
     temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
     x_scaling = 0.1
     fft_shaded_box_width = 10  # In GHz
     offset = 0  # Zero by default
     t_shaded_xlim = temporal_xlim * x_scaling + offset
 
-    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time [ns]", "ylabel": "Amplitude [arb.]",
+    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time (ns)", "ylabel": "Amplitude (arb. units)",
                            "xlim": (offset, temporal_xlim)},
-                       1: {"title": "Shaded Region", "xlabel": "Time [ns]", "xlim": (offset, t_shaded_xlim)},
-                       2: {"title": "Showing All Artefacts", "xlabel": "Frequency [GHz]", "ylabel": "Amplitude [arb.]",
+                       1: {"title": "Shaded Region", "xlabel": "Time (ns)", "xlim": (offset, t_shaded_xlim)},
+                       2: {"title": "Showing All Artefacts", "xlabel": "Frequency (GHz)", "ylabel": "Amplitude (arb. units)",
                            "xlim": (0, 60)},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency [GHz]", "xlim": (0, fft_shaded_box_width)}}
+                       3: {"title": "Shaded Region", "xlabel": "Frequency (GHz)", "xlim": (0, fft_shaded_box_width)}}
 
     fig = plt.figure(figsize=(16, 12), constrained_layout=True)
 
@@ -1533,13 +1565,13 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
         # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
     else:
         if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
-            exchangeString = f"Uniform Exc. ({simulation_params['exchangeMinVal']} [T])"
+            exchangeString = f"Uniform Exc. ({simulation_params['exchangeMinVal']} (T))"
         else:
-            exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} [T] | J$_{{max}}$ = " \
-                             f"{simulation_params['exchangeMaxVal']} [T]"
-        textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} [T] | " \
-                  f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} [T] | " \
-                  f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}[T] \n" \
+            exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} (T) | J$_{{max}}$ = " \
+                             f"{simulation_params['exchangeMaxVal']} (T)"
+        textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | " \
+                  f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} (T) | " \
+                  f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}(T) \n" \
                   f"{exchangeString} | N = {simulation_params['chainSpins']} | " + r"$\alpha$" + \
                   f" = {simulation_params['gilbertFactor']: 2.2e}"
 
@@ -1551,7 +1583,7 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
         # ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
 
     ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title='Freq. List [GHz]', fontsize=12)
+              title='Freq. List (GHz)', fontsize=12)
 
     ax.grid(color='white')
     ax.grid(False)
