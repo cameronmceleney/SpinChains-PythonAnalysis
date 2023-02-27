@@ -140,7 +140,7 @@ class PlotEigenmodes:
                     pass
 
     def _check_if_files_present(self, should_check_all=False):
-        print('\n---------------------------------------------------------------------------------------')
+        print('\n--------------------------------------------------------------------------------')
         print(f"Checking chosen directories for raw input files...")
 
         if should_check_all is True:
@@ -169,7 +169,7 @@ class PlotEigenmodes:
             else:
                 self.is_formatted_data_present[i] = False
                 print(f"{file_description}: not found")
-        print('---------------------------------------------------------------------------------------')
+        print('--------------------------------------------------------------------------------')
 
         if all(item is False for item in self.is_formatted_data_present):
 
@@ -264,10 +264,94 @@ class PlotEigenmodes:
     def plot_eigenmodes(self):
         lg.info(f"Invoking functions to plot data...")
 
+        """
+        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used to
+        replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to plot
+        the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
+        paper.
+
+        :return: A figure (png).
+
+        """
         handle_eigenmodes = plt_rk.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
                                               self._arrays_to_output[2], f"{self.fi}{self.fd}",
                                               self.input_dir_path, self.full_output_path)
-        handle_eigenmodes.eigenmodes()
+
+        print('--------------------------------------------------------------------------------')
+        print('''
+        This will plot the eigenmodes of the selected data. Input the requested 
+        modes as single values, or as a space-separated list. Unique [keywords] include:
+            *   Exit [EXIT] (Quit the program)
+            *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
+            *   Dispersion Relation [DIS] (Plot the dispersion relation)
+
+        Note: None of the keywords are case-sensitive.
+              ''')
+        print('--------------------------------------------------------------------------------')
+
+        upper_limit_mode = 4000 # len(self._arrays_to_output[0])  # The largest mode which can be plotted for the given data.
+        previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
+
+        # Take in first user input. Assume input is valid, until an error is raised.
+        modes_to_plot = input("Enter mode(s) to plot: ").split()
+        has_valid_modes = True
+
+        while True:
+            # Plots eigenmodes as long as the user enters a valid input.
+            for test_mode in modes_to_plot:
+
+                try:
+                    if not 1 <= int(test_mode) <= upper_limit_mode:
+                        # Check mode is in the range held by the dataset
+                        print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
+                        break
+
+                    if set(previously_plotted_modes) & set(modes_to_plot):
+                        # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
+                        has_valid_modes = False
+                        print(
+                            f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
+                        break
+
+                except ValueError:
+                    # If the current tested mode is within the range, then it is either a keyword, or invalid.
+                    if test_mode.upper() == 'EXIT':
+                        exit(0)
+
+                    elif test_mode.upper() == 'FRC':
+                        handle_eigenmodes.generalised_fourier_coefficients(True)
+                        has_valid_modes = False
+                        break
+
+                    elif test_mode.upper() == 'DIS':
+                        handle_eigenmodes.plot_dispersion_relation()
+                        has_valid_modes = False
+                        break
+
+                    has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
+                    while True:
+
+                        if has_more_plots == 'Y':
+                            has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
+                            break
+
+                        elif has_more_plots == 'N':
+                            print("Exiting program...")
+                            exit(0)
+
+                        else:
+                            while has_more_plots not in 'YN':
+                                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
+
+                if has_valid_modes:
+                    handle_eigenmodes.plot_single_eigenmode(int(test_mode))
+
+                else:
+                    has_valid_modes = True  # Reset condition
+                    continue
+
+            previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
+            modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
 
 
 class PlotImportedData:
@@ -447,7 +531,7 @@ class PlotImportedData:
 
         lg.info(f"Invoking functions to plot data...")
 
-        print('\n---------------------------------------------------------------------------------------')
+        print('\n--------------------------------------------------------------------------------')
         if input_only:
             initials_of_method_to_call = input("Choose another function to use: ").upper()
         else:
@@ -463,7 +547,7 @@ class PlotImportedData:
             The terms within the square brackets are the keys for each function. 
             If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
                       ''')
-            print('---------------------------------------------------------------------------------------\n')
+            print('--------------------------------------------------------------------------------\n')
 
             initials_of_method_to_call = "PF" # input("Which function to use: ").upper()
 

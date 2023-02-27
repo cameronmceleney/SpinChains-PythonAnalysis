@@ -549,13 +549,10 @@ class PaperFigures:
         x2, y2 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 0)
         from scipy.fft import rfft, rfftfreq
         # Number of samples in normalized_tone
-        n1 = int(SAMPLE_RATE * DURATION)
-        n2 = int(SAMPLE_RATE * DURATION)
+        n1 = n2 = int(SAMPLE_RATE * DURATION)
 
-        y1f = rfft(y1)
-        y2f = rfft(y2)
-        x1f = rfftfreq(n1, 1 / SAMPLE_RATE)
-        x2f = rfftfreq(n2, 1 / SAMPLE_RATE)
+        y1f, y2f = rfft(y1), rfft(y2)
+        x1f, x2f = rfftfreq(n1, 1 / SAMPLE_RATE), rfftfreq(n2, 1 / SAMPLE_RATE)
 
         ax1.plot(x1f, np.abs(y1f), marker='', lw=1.0, color='#ffb55a', markerfacecolor='black', markeredgecolor='black',
                 label="1", zorder=1.2)
@@ -565,112 +562,146 @@ class PaperFigures:
 
         ax1.set(xlim=(5, 25), ylim=(1e0, 1e4),
                xlabel="Frequency (GHz)", ylabel="Amplitude (arb. units)", yscale='log')
-        ax1.grid(visible=False, axis='both', which='both')
-        ax1.tick_params(top="on", right="on", which="both")
 
-        ax1.text(0.05, 0.88, f"(a)",
-                verticalalignment='center', horizontalalignment='left', transform=ax1.transAxes, fontsize=mid_font)
+        self._tick_setter(ax1, 5, 1, 3, 4, is_fft_plot=True)
 
-        ax1_inset = inset_axes(ax1, width=1.55, height=0.6, loc="upper right", bbox_to_anchor=[0.93, 0.91],
+        ########################################
+
+        ax1_inset = inset_axes(ax1, width=1.65, height=0.725, loc="upper right", bbox_to_anchor=[0.99, 0.98],
                                bbox_transform=ax1.transAxes)
         ax1_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1.2)
         ax1_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
-        ax1_inset.grid(visible=False, axis='both', which='both')
-        ax1_inset.yaxis.tick_right()
-        ax1_inset.set_xlabel('Time (ns)', fontsize=8)
+
         ax1_inset.set(xlim=[0, 2])
-        ax1_inset.yaxis.set_label_position("right")
-        ax1_inset.set_ylabel('Amplitude\n(arb. units)', fontsize=8, rotation=-90, labelpad=20)
-        ax1_inset.tick_params(axis='both', labelsize=8)
+        ax1_inset.set_xlabel('Time (ns)', fontsize=mid_font)
+        ax1_inset.yaxis.tick_left()
+        ax1_inset.yaxis.set_label_position("left")
+        ax1_inset.set_ylabel('Amplitude\n(arb. units)', fontsize=mid_font, rotation=90, labelpad=20)
+        ax1_inset.tick_params(axis='both', labelsize=mid_font)
 
         ax1_inset.patch.set_color("#f9f2e9")
-
-        self._tick_setter(ax1, 5, 1, 3, 4, is_fft_plot=True)
+        ax1_inset.yaxis.labelpad = 0
         ax1_inset.xaxis.labelpad = -0.5
+
+        self._tick_setter(ax1_inset, 1.0, 0.25, 3, 2, is_fft_plot=False)
+
+        ########################################
 
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
 
-        # freqs = np.loadtxt(f"D:\\Data\\2022-11-11\\Simulation_Data\\eigenvalues_formatted_eigenvalues_T1453.csv")
-        freqs = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/2022-11-11/Simulation_Data/eigenvalues_formatted_eigenvalues_T1453.csv")
-        freqs2 = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/2023-02-15/Simulation_Data/T1606_Eigens/eigenvalues_formatted_T1606.csv") * 2 * np.pi * 1e9
-
         #ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
-        h_ex = 8.26
-        h_0 = 0.057
-        h_eff = h_ex + h_0
-        gamma = 28.01 * 2 * np.pi * 1e9
-        a = 10e-9
-        n = np.arange(1, len(freqs2) + 1, 1)
-        n1 = np.arange(0, 2000, 1)
-        # k = (n1 * np.pi) / ((len(n1) - 1) * a)
+        exchange_field = 13.25
+        external_field = 0.1
+        gyromag_ratio = 28.8 * 1e9
+        lattice_constant = 2e-9
+        num_spins_array = np.arange(0, 5000, 1)
+        wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
+        freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
+                                          + external_field)
 
-        list_of_gamma = [29.2, 28.2, 28.8, 29.2]
-        list_of_gamma = [i * 2 * np.pi * 1e9 for i in  list_of_gamma]
-        list_of_h_ex = [43.5, 21, 13.25, 13.26]
-        list_of_h_0 = [0.1, 0.001, 0.1323, 0.1]
-        list_of_a = [2e-9, 2e-9, 2e-9, 2e-9]
-
-        for i_gamma, i_h_ex, i_h_0, i_a in zip(list_of_gamma, list_of_h_ex, list_of_h_0, list_of_a):
-            k = (n1 * np.pi) / ((len(n1) - 1) * i_a)
-            ax2.plot(k * 1e-9, i_gamma*(2*i_h_ex * (1 - np.cos(k*i_a)) + i_h_0) / 1e12, label=f'{i_h_ex}')
-
-
-
-        # ax2.scatter(np.arange(1, len(freqs) + 1, 1), (1/2e-9)*np.arcsin(1 - (freqs/(29.2e9*2*np.pi*(13.25+0.1)))), s=0.5, c='red', ls='--')
-        # ax2.scatter(np.sqrt( (freqs/gamma - h_0)/(h_ex * a**2) )/1e9, freqs/1e12, s=0.5, c='red', ls='--')
+        ax2.plot(wave_number_array * 1e-9, freq_array * 1e-12, color='red', ls='-', label=f'Dataset 1')
 
         # These!!
-        #ax2.scatter(np.sqrt( (freqs2/gamma - h_0)/(h_ex * a**2) ), freqs2, s=0.5, c='blue', ls='--', label='sqrt')
         # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5, c='red', label='paper')
-
-        # ax2.scatter(np.arange(1, len(freqs) + 1, 1), np.sqrt( (freqs/gamma - h_0)/(h_ex * a**2) ), s=0.5, c='blue', ls='--')
         # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
-        ax2.set(xlabel="Wave Number (nm$^{-1}$)", ylabel='Angular Frequency (THz)')
-        #ax2.axhline(y=3500, ls='--', lw=2, color='grey', zorder=1.2)
-        #ax2.axhline(y=12000, ls='--', lw=2, color='grey', zorder=1.2)
-        #ax2.margins(0)
-        #self._tick_setter(ax2, 1000, 250, 3, 4, is_fft_plot=False)
+        ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)')
+        self._tick_setter(ax2, 0.4, 0.1, 3, 4, is_fft_plot=False, xaxis_num_decimals=2, yaxis_num_decimals=2)
         ax2.grid(False)
-        ax2.legend()
 
-        #ax2.text(0.95, 0.88, r"$\mathcal{I}$",
-        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
-        #ax2.text(0.95, 0.5, r"$\mathcal{II}$",
-        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
-        #ax2.text(0.95, 0.12, r"$\mathcal{III}$",
-        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
+        ax2.axhline(y=0.33, xmax=0.31, ls='--', lw=1, color='grey', zorder=0.9)
+        ax2.axhline(y=1.18, xmax=0.68, ls='--', lw=1, color='grey', zorder=0.9)
+        ax2.margins(0)
 
-        #ax2.text(0.5, 0.88, f"-ve slope",
-        #         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
-        #ax2.text(0.375, 0.5, f"linear\nslope",
-        #         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
-        #ax2.text(0.5, 0.12, f"+ve slope",
-        #         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+        ax2.text(0.995, -0.1, r"$\mathrm{\dfrac{\pi}{a}}$",
+                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
 
-        #ax2.text(0.05, 0.88, f"(b)",
-        #         verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
-        #ax2.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+        ax2.text(0.02, 0.88, r"$\mathcal{I}$",
+                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
+        ax2.text(0.02, 0.5, r"$\mathcal{II}$",
+                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
+        ax2.text(0.02, 0.12, r"$\mathcal{III}$",
+                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=mid_font)
 
-        #arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
-        #arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.1", "color": "black"}
-        #arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.1", "color": "black"}
+        ax2.text(0.625, 0.88, f"-ve slope",
+                 verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+        ax2.text(0.375, 0.5, f"linear\nslope",
+                verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+        ax2.text(0.375, 0.12, f"+ve slope",
+                 verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=mid_font)
+
+        arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
+        arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.1", "color": "black"}
+        arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.1", "color": "black"}
         #ax2.annotate('', xy=(2400, 9000), xytext=(2000, 6500), va='center', ha='center',
         #             arrowprops=arrow_ax2_props1, fontsize=mid_font, transform=ax2.transAxes)
         #ax2.annotate('', xy=(1150, 2300), xytext=(750, 400), va='center', ha='center',
         #             arrowprops=arrow_ax2_props2, fontsize=mid_font, transform=ax2.transAxes)
         #ax2.annotate('', xy=(3250, 14750), xytext=(2850, 13000), va='center', ha='center',
         #             arrowprops=arrow_ax2_props3, fontsize=mid_font, transform=ax2.transAxes)
-        for spine in ['top', 'bottom', 'left', 'right']:
-            ax1.spines[spine].set_visible(True)
-            ax2.spines[spine].set_visible(True)
-            ax1_inset.spines[spine].set_visible(True)
 
-        ax1.set_axisbelow(False)
-        ax2.set_axisbelow(False)
+        ########################################
+
+        ax2_inset = inset_axes(ax2, width=1.9, height=0.8, loc="lower right", bbox_to_anchor=[0.99, 0.02],
+                               bbox_transform=ax2.transAxes)
+        a1 = 2e-9
+        a2 = 6.324555320336759e-10
+
+        D_b = 5.3e-17
+
+        j_to_meV = 6.24150934190e21
+        num_spins_array1 = np.arange(0, 5000, 1)
+        num_spins_array2 = np.arange(0, 15811, 1)
+        wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
+        wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
+
+        ax2_inset.plot(wave_number_array1 * 1e-9,
+                       (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * 1e-12, lw=1.5, ls='--', color='purple', label='$a=0.2$ nm',
+                       zorder=1.3)
+        ax2_inset.plot(wave_number_array2 * 1e-9,
+                       (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * 1e-12, lw=1.5, ls='-', label='$a=0.63$ nm',
+                       zorder=1.2)
+
+        ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=mid_font)
+        #ax2_inset.set_xlim(0, 0.157)
+        #ax2_inset.set_ylim(0, 35)
+        ax2_inset.xaxis.tick_top()
+        ax2_inset.xaxis.set_label_position("top")
+        ax2_inset.yaxis.set_label_position("left")
+        ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=mid_font, rotation=90, labelpad=20)
+        ax2_inset.tick_params(axis='both', labelsize=mid_font)
+        ax2.margins(0)
+
+        ax2_inset.patch.set_color("#f9f2e9")
+        ax2_inset.yaxis.labelpad = 5
+        ax2_inset.xaxis.labelpad = 2.5
+
+        self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
+        ax2_inset.ticklabel_format(axis='y', style='plain')
+        ax2_inset.legend(fontsize=small_font, frameon=False)
+
+        ########################################
+
+        ax1.text(0.025, 0.88, f"(a)",
+                verticalalignment='center', horizontalalignment='left', transform=ax1.transAxes, fontsize=mid_font)
+
+        ax2.text(0.975, 0.88, f"(b)",
+                 verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes, fontsize=mid_font)
+
+        for ax in [ax1, ax2, ax1_inset, ax2_inset]:
+
+            for spine in ["top", "bottom", "left", "right"]:
+                ax.spines[spine].set_visible(True)
+
+            ax.grid(False)
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            ax.set_axisbelow(False)
+
+            if ax == ax1 or ax == ax2 or ax == ax2_inset:
+                ax.set_facecolor("white")
+
+
         fig.subplots_adjust(wspace=1, hspace=0.3)
-        ax1.set_facecolor('white')
-        ax2.set_facecolor('white')
 
         if False:
             # For interactive plots
@@ -904,7 +935,8 @@ class PaperFigures:
 
         return frequencies, fourier_transform
 
-    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
+    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False,
+                     xaxis_num_decimals=1, yaxis_num_decimals=1):
 
         if ax is None:
             ax = plt.gca()
@@ -921,15 +953,15 @@ class PaperFigures:
             # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
         else:
             ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
-                         major_formatter=ticker.FormatStrFormatter("%.1f"),
+                         major_formatter=ticker.FormatStrFormatter(f"%.{xaxis_num_decimals}f"),
                          minor_locator=ticker.MultipleLocator(x_minor))
             ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'),
-                         major_formatter=ticker.FormatStrFormatter("%1.1f"),
+                         major_formatter=ticker.FormatStrFormatter(f"%.{yaxis_num_decimals}f"),
                          minor_locator=ticker.AutoMinorLocator(y_minor))
 
             class ScalarFormatterClass(ticker.ScalarFormatter):
                 def _set_format(self):
-                    self.format = "%2.1f"
+                    self.format = f"%.{yaxis_num_decimals}f"
 
             yScalarFormatter = ScalarFormatterClass(useMathText=True)
             yScalarFormatter.set_powerlimits((0, 0))
@@ -955,92 +987,6 @@ class Eigenmodes:
         self.input_filename = filename_ending
         self.input_filepath = input_filepath
         self.output_filepath = output_filepath
-
-    def eigenmodes(self):
-        """
-        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used to
-        replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to plot
-        the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
-        paper.
-
-        :return: A figure (png).
-
-        """
-        print('---------------------------------------------------------------------------------------')
-        print('''
-        This will plot the eigenmodes of the selected data. Input the requested 
-        modes as single values, or as a space-separated list. Unique [keywords] include:
-            *   Exit [EXIT] (Quit the program)
-            *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
-            *   Dispersion Relation [DIS] (Plot the dispersion relation)
-
-        Note: None of the keywords are case-sensitive.
-              ''')
-        print('---------------------------------------------------------------------------------------')
-
-        upper_limit_mode = len(self.mx_data)  # The largest mode which can be plotted for the given data.
-        previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
-
-        # Take in first user input. Assume input is valid, until an error is raised.
-        modes_to_plot = input("Enter mode(s) to plot: ").split()
-        has_valid_modes = True
-
-        while True:
-            # Plots eigenmodes as long as the user enters a valid input.
-            for test_mode in modes_to_plot:
-
-                try:
-                    if not 1 <= int(test_mode) <= upper_limit_mode:
-                        # Check mode is in the range held by the dataset
-                        print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
-                        break
-
-                    if set(previously_plotted_modes) & set(modes_to_plot):
-                        # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
-                        has_valid_modes = False
-                        print(
-                            f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
-                        break
-
-                except ValueError:
-                    # If the current tested mode is within the range, then it is either a keyword, or invalid.
-                    if test_mode.upper() == 'EXIT':
-                        sys.exit(0)
-
-                    elif test_mode.upper() == 'FRC':
-                        self.generalised_fourier_coefficients(True)
-                        has_valid_modes = False
-                        break
-
-                    elif test_mode.upper() == 'DIS':
-                        self.plot_dispersion_relation()
-                        has_valid_modes = False
-                        break
-
-                    has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-                    while True:
-
-                        if has_more_plots == 'Y':
-                            has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
-                            break
-
-                        elif has_more_plots == 'N':
-                            print("Exiting program...")
-                            exit(0)
-
-                        else:
-                            while has_more_plots not in 'YN':
-                                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-
-                if has_valid_modes:
-                    self.plot_single_eigenmode(int(test_mode))
-
-                else:
-                    has_valid_modes = True  # Reset condition
-                    continue
-
-            previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
-            modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
 
     def generalised_fourier_coefficients(self, use_defaults=True, are_eigens_angular_freqs=False):
         """
@@ -1197,17 +1143,69 @@ class Eigenmodes:
         plt.tight_layout()
         fig.savefig(f"{self.output_filepath}_eigenmode_{eigenmode}.png")
 
-    def plot_dispersion_relation(self):
-        freqs = np.loadtxt(f"{self.input_filepath}eigenvalues_formatted_{self.input_filename}.csv")
+    def plot_dispersion_relation(self, has_data_file=False):
 
-        fig = plt.figure(figsize=(6, 6))
+        fig = plt.figure(figsize=(4.4, 2.0))
         ax = fig.add_subplot(1, 1, 1)
-        ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
-        ax.set(ylabel="Frequency (GHz)", xlabel='Mode Number')
 
-        fig.tight_layout()
+        if has_data_file:
+            freqs = np.loadtxt(
+                f"/Users/cameronmceleney/CLionProjects/Data/2023-02-15/Simulation_Data/T1606_Eigens/eigenvalues_formatted_T1606.csv")
+            ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
+            ax.set(xlabel='Mode Number', ylabel="Frequency (GHz)")
+            fig.tight_layout()
 
-        fig.savefig(f"{self.output_filepath}_dispersion_relation.png", bbox_inches="tight")
+        else:
+            generate_plot = False
+            num_datasets = 1
+
+            while generate_plot is False:
+
+                print("----------------------------------------"
+                      f"\n\t\t Dataset {num_datasets}", end="\n\n")
+
+                if num_datasets == 1:
+                    print("Enter the following parameters ... ")
+
+                exchange_field = float(input("\t\t- exchange stiffness D_b (in T): "))
+                external_field = float(input("\t\t- external field H_0 (in T): "))
+
+                gyromag_ratio = float(input("\t\t- gyromagnetic ratio (in GHz / T rad): ")) * 2 * np.pi * 1e9
+                lattice_constant = float(input("\t\t- lattice constant (in m): "))
+                num_sites = float(input("\t\t- number of sites in the system: "))
+
+                num_sites_array = np.arange(0, num_sites, 1)
+                wave_number = (num_sites_array * np.pi) / ((len(num_sites_array) - 1) * lattice_constant)
+                frequency = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number * lattice_constant))
+                                             + external_field)
+
+                plot_label = input("\nEnter the label for this Dispersion Relation: ")
+
+                ax.plot(wave_number * 1e-9, frequency / 1e12, ls='-', lw=2, label=f"{plot_label}")
+
+                has_another_plot = input("Plot another dataset? [Y/N]: ").upper()
+
+                if has_another_plot == 'Y':
+                    num_datasets += 1
+                elif has_another_plot == 'N':
+                    generate_plot = True
+
+            print("\nGenerating figure...")
+
+            ax.set(xlabel="Wave Number (nm$^{-1}$)", ylabel="Angular Frequency (THz)")
+            ax.margins(x=0)
+            ax.grid(False)
+            ax.legend(frameon=False)
+
+            for spine in ["top", "bottom", "left", "right"]:
+                ax.spines[spine].set_visible(True)
+
+            ax.set_axisbelow(False)
+            ax.set_facecolor("white")
+
+        fig.savefig(f"{self.output_filepath}_DispersionRelation.png", bbox_inches="tight")
+
+        print("--------------------------------------------------------------------------------")
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
