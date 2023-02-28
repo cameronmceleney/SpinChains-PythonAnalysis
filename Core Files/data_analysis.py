@@ -747,7 +747,7 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[1]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = ["1"]#(input("Plot which site (-ve to exit): ")).split()
+                sites_to_plot = ["0"]#(input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     try:
                         target_site = int(target_site)
@@ -757,13 +757,14 @@ class PlotImportedData:
                         else:
                             print("ValueError. Please enter a valid string.")
                     else:
-                        if target_site >= 1:
+                        if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation2(target_site - 1, add_zoomed_region=False,
+                            paper_fig.create_time_variation(target_site, add_zoomed_region=True,
                                                             annotate_precursors=True, add_info_box=False,
                                                             colour_precursors=False)
                             exit(0)
+
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                         else:
                             print("Exiting PF-TV plotting.")
