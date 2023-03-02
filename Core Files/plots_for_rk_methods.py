@@ -266,33 +266,40 @@ class PaperFigures:
         ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2), colspan=num_cols)
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
 
-        xlim_signal_lower = 0
-        xlim_signal = 4  # ns
-        xlim_max = 4  # ns
-        ax1_yaxis_exponent = '-6'
+        ax1_xlim_lower, ax1_xlim_upper = 1.55, 1.75
+        ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
+        xlim_min, xlim_max = 0, self.max_time  # ns
+
+        ax1_yaxis_base, ax1_yaxis_exponent = 6, '-5'
         ax1_yaxis_order = float('1e'+ax1_yaxis_exponent)
-        scaled_max = (xlim_signal - xlim_signal_lower) / xlim_max
+        scaled_max = (ax1_xlim_upper - ax1_xlim_lower) / xlim_max
 
-        lower1, upper1 = 0.0, 0.528
-        lower2, upper2 = upper1, 0.65
-        lower3, upper3 = upper2, 1.0
+        lower1, upper1 = 1.6, 1.65
+        lower2, upper2 = upper1, 1.675
+        lower3, upper3 = upper2, ax1_xlim_upper
+        ax1_inset_lower = lower1
 
-        lower1_blob, upper1_blob = 0.481, 0.502
-        lower2_blob, upper2_blob = 0.461, 0.48
-        lower3_blob, upper3_blob = 0.442, 0.4605
+        lower1_blob, upper1_blob = 0.8, 0.81#0.481, 0.502
+        lower2_blob, upper2_blob = 0.8, 0.81#0.461, 0.48
+        lower3_blob, upper3_blob = 0.8, 0.81#0.442, 0.4605
 
         ax1.set(xlabel=f"Time (ns)", ylabel=f"Magnetisation (T)",
-                xlim=[xlim_signal_lower, xlim_signal], ylim=[-6 * ax1_yaxis_order, 6 * ax1_yaxis_order])
-        # self.time_data = 1000 * self.time_data
+                xlim=[ax1_xlim_lower, ax1_xlim_upper],
+                ylim=[-ax1_yaxis_base * ax1_yaxis_order, ax1_yaxis_base * ax1_yaxis_order])
+
         ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)",
-                xlim=[0, 16e3], ylim=[1e-7 , 1e-1], yscale='log')
+                xlim=[0, 1.5e3], ylim=[1e-5 , 1e1], yscale='log')
 
-        self._tick_setter(ax1, 1, 0.5, 3, 4, xaxis_num_decimals=2)
-        self._tick_setter(ax2, 4e3, 1e3, 6, None, is_fft_plot=True)
+        self._tick_setter(ax1, ax1_xlim_range*0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=2)
+        self._tick_setter(ax2, 5e2, 1e2, 6, None, is_fft_plot=True)
 
-        def convert_norm(a):
-            return int(self.data_points * (2 * xlim_signal_lower + ( a * (xlim_signal - xlim_signal_lower) / xlim_max )))
+        line_height = -4 * ax1_yaxis_order
 
+        ########################################
+
+        def convert_norm(val, a=0, b=1):
+            # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) / xlim_max )))  # original
+            return int(self.data_points * ((b - a) * ((val - xlim_min) / (xlim_max - xlim_min)) + a))
 
         lower1_signal, upper1_signal = convert_norm(lower1), convert_norm(upper1)
         lower2_signal, upper2_signal = convert_norm(lower2), convert_norm(upper2)
@@ -302,11 +309,10 @@ class PaperFigures:
         lower2_precursor, upper2_precursor = convert_norm(lower2_blob), convert_norm(upper2_blob)
         lower3_precursor, upper3_precursor = convert_norm(lower3_blob), convert_norm(upper3_blob)
 
-        ax1.plot(self.time_data[lower1_signal:upper1_signal],
-                 self.amplitude_data[lower1_signal:upper1_signal, spin_site], ls='-', lw=0.75,
-                 color='#37782c',
+        ax1.plot(self.time_data[:],
+                 self.amplitude_data[:, spin_site], ls='-', lw=0.75,
+                 color='#37782c', alpha=0.5,
                  markerfacecolor='black', markeredgecolor='black', zorder=1.01)
-
         ax1.plot(self.time_data[lower1_signal:upper1_signal],
                  self.amplitude_data[lower1_signal:upper1_signal, spin_site], ls='-', lw=0.75,
                  color='#37782c', label=f"{self.sites_array[spin_site]}",
@@ -337,8 +343,7 @@ class PaperFigures:
                      markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
 
         if basic_annotations:
-            line_height = -3.25 * ax1_yaxis_order
-            text_height = line_height - 0.75 * ax1_yaxis_order
+            text_height = line_height - ax1_yaxis_base * 0.2 * ax1_yaxis_order
             axes_props1 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#37782c", 'lw': 0.8}
             axes_props2 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#64bb6a", 'lw': 0.8}
             axes_props3 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#9fd983", 'lw': 0.8}
@@ -350,11 +355,9 @@ class PaperFigures:
                      va='center', ha='center', fontsize=mid_font,
                      transform=ax2.transAxes)
 
-            def text_scaling(a):
-                return xlim_signal_lower +  a * (xlim_signal - xlim_signal_lower)
-            pre_text_lhs, pre_text_rhs = text_scaling(lower1), text_scaling(upper1)
-            shock_text_lhs, shock_text_rhs = text_scaling(lower2), text_scaling(upper2)
-            equib_text_lhs, equib_text_rhs = text_scaling(lower3), text_scaling(upper3)
+            pre_text_lhs, pre_text_rhs = lower1, upper1
+            shock_text_lhs, shock_text_rhs = (lower2), (upper2)
+            equib_text_lhs, equib_text_rhs = (lower3), (upper3)
 
             ax1.annotate('', xy=(pre_text_lhs, line_height), xytext=(pre_text_rhs, line_height),
                          va='center', ha='center', arrowprops=axes_props1, fontsize=small_font)
@@ -402,8 +405,8 @@ class PaperFigures:
 
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 4 * ax1_yaxis_order * 1e-1  # float(input("Enter ylim: "))
-            ax1_inset.set_xlim(0.18, scaled_max * upper1)
+            ylim_in = 2 * ax1_yaxis_order * 1e0  # float(input("Enter ylim: "))
+            ax1_inset.set_xlim(ax1_inset_lower, upper1)
             ax1_inset.set_ylim(-ylim_in, ylim_in)
 
             arrow_ax1_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=60', "color": "black",
@@ -478,7 +481,7 @@ class PaperFigures:
         frequencies_dsw, fourier_transform_dsw = self._fft_data(
             self.amplitude_data[lower2_signal:upper2_signal, spin_site])
         frequencies_eq, fourier_transform_eq = self._fft_data(
-            self.amplitude_data[lower3_signal:upper3_signal, spin_site])
+            self.amplitude_data[lower3_signal:convert_norm(xlim_max), spin_site])
 
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
