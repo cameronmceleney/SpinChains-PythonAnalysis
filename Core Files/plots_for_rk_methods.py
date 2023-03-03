@@ -240,7 +240,8 @@ class PaperFigures:
 
         gif.save(frames, f"{self.output_filepath}.gif", duration=0.5)
 
-    def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False, basic_annotations=False,
+    def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
+                              basic_annotations=False,
                               add_zoomed_region=False, add_info_box=False, add_coloured_regions=False):
         """
         Plot the magnetisation of a site against time.
@@ -266,36 +267,39 @@ class PaperFigures:
         ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2), colspan=num_cols)
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
 
-        ax1_xlim_lower, ax1_xlim_upper = 1.55, 1.75
+        ########################################
+
+        ax1_xlim_lower, ax1_xlim_upper = 0.0, 0.5
         ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
         xlim_min, xlim_max = 0, self.max_time  # ns
 
-        ax1_yaxis_base, ax1_yaxis_exponent = 6, '-5'
-        ax1_yaxis_order = float('1e'+ax1_yaxis_exponent)
-        scaled_max = (ax1_xlim_upper - ax1_xlim_lower) / xlim_max
+        ax1_yaxis_base, ax1_yaxis_exponent = 3, '-5'
+        ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
 
-        lower1, upper1 = 1.6, 1.65
-        lower2, upper2 = upper1, 1.675
+        lower1, upper1 = 0.155, 0.159
+        lower2, upper2 = upper1, 0.168
         lower3, upper3 = upper2, ax1_xlim_upper
         ax1_inset_lower = lower1
 
-        lower1_blob, upper1_blob = 0.8, 0.81#0.481, 0.502
-        lower2_blob, upper2_blob = 0.8, 0.81#0.461, 0.48
-        lower3_blob, upper3_blob = 0.8, 0.81#0.442, 0.4605
+        lower1_blob, upper1_blob = 0.8, 0.81  # 0.481, 0.502
+        lower2_blob, upper2_blob = 0.8, 0.81  # 0.461, 0.48
+        lower3_blob, upper3_blob = 0.8, 0.81  # 0.442, 0.4605
 
         ax1.set(xlabel=f"Time (ns)", ylabel=f"Magnetisation (T)",
                 xlim=[ax1_xlim_lower, ax1_xlim_upper],
-                ylim=[-ax1_yaxis_base * ax1_yaxis_order, ax1_yaxis_base * ax1_yaxis_order])
+                ylim=[-ax1_yaxis_base * ax1_yaxis_order * 1.4, ax1_yaxis_base * ax1_yaxis_order])
 
         ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)",
-                xlim=[0, 1.5e3], ylim=[1e-5 , 1e1], yscale='log')
+                xlim=[0, 16e3], ylim=[1e-5, 1e1], yscale='log')
 
-        self._tick_setter(ax1, ax1_xlim_range*0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=2)
-        self._tick_setter(ax2, 5e2, 1e2, 6, None, is_fft_plot=True)
+        self._tick_setter(ax1, ax1_xlim_range * 0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=2)
+        self._tick_setter(ax2, 4e3, 1e3, 6, None, is_fft_plot=True)
 
-        line_height = -4 * ax1_yaxis_order
+        line_height = -8 * ax1_yaxis_order * 1e-1
 
         ########################################
+
+        if ax1_xlim_lower > ax1_xlim_upper: exit(0)
 
         def convert_norm(val, a=0, b=1):
             # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) / xlim_max )))  # original
@@ -326,9 +330,7 @@ class PaperFigures:
                  color='#9fd983', label=f"{self.sites_array[spin_site]}",
                  markerfacecolor='black', markeredgecolor='black', zorder=1.1)
 
-
         if colour_precursors:
-
             ax1.plot(self.time_data[lower1_precursor:upper1_precursor],
                      self.amplitude_data[lower1_precursor:upper1_precursor, spin_site], marker='',
                      lw=0.75, color='purple',
@@ -373,8 +375,9 @@ class PaperFigures:
                      fontsize=small_font)
 
         # Use these for paper publication figures
-        ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + ax1_yaxis_exponent + r'}}}$', verticalalignment='center',
-                 horizontalalignment='center', transform=ax1.transAxes, fontsize=mid_font)
+        #ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(-1 + int(ax1_yaxis_exponent)) + r'}}}$',
+        #         verticalalignment='center',
+        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=mid_font)
         # ax1.text(0.04, 0.1, f"(a) 15 GHz", verticalalignment='center', horizontalalignment='left',
         #               transform=ax1.transAxes, fontsize=6)
 
@@ -391,18 +394,17 @@ class PaperFigures:
 
             if colour_precursors:
                 ax1_inset.plot(x[lower1_precursor:upper1_precursor],
-                         y[lower1_precursor:upper1_precursor], marker='',
-                         lw=0.75, color='purple',
-                         markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
+                               y[lower1_precursor:upper1_precursor], marker='',
+                               lw=0.75, color='purple',
+                               markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
                 ax1_inset.plot(self.time_data[lower2_precursor:upper2_precursor],
-                         self.amplitude_data[lower2_precursor:upper2_precursor, spin_site], marker='',
-                         lw=0.75, color='red',
-                         markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
+                               self.amplitude_data[lower2_precursor:upper2_precursor, spin_site], marker='',
+                               lw=0.75, color='red',
+                               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
                 ax1_inset.plot(self.time_data[lower3_precursor:upper3_precursor],
-                         self.amplitude_data[lower3_precursor:upper3_precursor, spin_site], marker='',
-                         lw=0.75, color='blue',
-                         markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-
+                               self.amplitude_data[lower3_precursor:upper3_precursor, spin_site], marker='',
+                               lw=0.75, color='blue',
+                               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
 
             # Select data (of original) to show in inset through changing axis limits
             ylim_in = 2 * ax1_yaxis_order * 1e0  # float(input("Enter ylim: "))
@@ -507,14 +509,14 @@ class PaperFigures:
 
             arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
             ax2.annotate('P1', xy=(24.22, 0.4), xytext=(27.71, 4), va='center', ha='center',
-                        arrowprops=arrow_ax2_props, fontsize=mid_font)
+                         arrowprops=arrow_ax2_props, fontsize=mid_font)
             ax2.annotate('P2', xy=(50.0, 0.08), xytext=(53.5, 1.0), va='center', ha='center',
-                        arrowprops=arrow_ax2_props, fontsize=mid_font)
+                         arrowprops=arrow_ax2_props, fontsize=mid_font)
             ax2.annotate('P3', xy=(80.0, 0.03), xytext=(83.5, 0.4), va='center', ha='center',
-                        arrowprops=arrow_ax2_props, fontsize=mid_font)
+                         arrowprops=arrow_ax2_props, fontsize=mid_font)
 
         ax2.legend(ncol=1, fontsize=small_font, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
-                   bbox_to_anchor=[0.80, 0.60], bbox_transform=ax2.transAxes)
+                   bbox_to_anchor=[0.78, 0.60], bbox_transform=ax2.transAxes)
 
         for ax in [ax1, ax2]:
             ax.xaxis.grid(False)
@@ -532,7 +534,8 @@ class PaperFigures:
         fig.subplots_adjust(wspace=1, hspace=0.3)
         fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 
-    def create_time_variation2(self, spin_site, colour_precursors=False, annotate_precursors=False, basic_annotations=False,
+    def create_time_variation2(self, spin_site, colour_precursors=False, annotate_precursors=False,
+                               basic_annotations=False,
                                add_zoomed_region=False, add_info_box=False, add_coloured_regions=False):
         """
         Plot the magnetisation of a site against time.
@@ -615,7 +618,7 @@ class PaperFigures:
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
 
         # ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
-        exchange_field = 21
+        exchange_field = 13.25
         external_field = 0.1
         gyromag_ratio = 28.8 * 1e9
         lattice_constant = 2e-9
@@ -629,11 +632,14 @@ class PaperFigures:
 
         ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', ls='-', label=f'Dataset 1')
 
+        ax2.plot(wave_number_array * hz_2_GHz,
+                 gyromag_ratio * (external_field + 5.3e-17 * wave_number_array ** 2) * hz_2_THz, lw=1.5, ls='-', label='Dk$^2$',
+                 color='red', alpha=0.25, zorder=1.2)
         # These!!
         # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5, c='red', label='paper')
         # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
-        ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)')
+        ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 1.6])
         # self._tick_setter(ax2, 0.4, 0.1, 3, 4, is_fft_plot=False, xaxis_num_decimals=2, yaxis_num_decimals=2)
         ax2.grid(False)
 
@@ -683,20 +689,17 @@ class PaperFigures:
         wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
 
         ax2_inset.plot(wave_number_array1 * hz_2_GHz,
-                       (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_GHz, lw=1.5, ls='--', color='purple',
+                       (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5, ls='--', color='purple',
                        label='$a=0.2$ nm',
                        zorder=1.3)
         ax2_inset.plot(wave_number_array2 * hz_2_GHz,
-                       (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_GHz, lw=1.5, ls='-', label='$a=0.63$ nm',
+                       (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_THz, lw=1.5, ls='-',
+                       label='$a=0.63$ nm',
                        zorder=1.2)
 
-        ax2_inset.plot(wave_number_array2 * hz_2_GHz,
-                       gyromag_ratio * D_b  * wave_number_array2 ** 2 * hz_2_GHz, lw=1.5, ls='-', label='Dk$^2$',
-                       zorder=1.2)                                                                                     
-
         ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=mid_font)
-        ax2_inset.set_xlim(0, 0.2)
-        ax2_inset.set_ylim(0, 50)
+        ax2_inset.set_xlim(0, 2)
+        ax2_inset.set_ylim(0, 10)
         ax2_inset.xaxis.tick_top()
         ax2_inset.xaxis.set_label_position("top")
         ax2_inset.yaxis.set_label_position("left")
@@ -708,7 +711,7 @@ class PaperFigures:
         ax2_inset.yaxis.labelpad = 5
         ax2_inset.xaxis.labelpad = 2.5
 
-        #self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
+        # self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
         ax2_inset.ticklabel_format(axis='y', style='plain')
         ax2_inset.legend(fontsize=small_font, frameon=False)
 
@@ -1002,7 +1005,7 @@ class PaperFigures:
 
             # ax.yaxis.labelpad = -3
 
-            ax.yaxis.get_offset_text().set_visible(False)
+            ax.yaxis.get_offset_text().set_visible(True)
             ax.yaxis.get_offset_text().set_fontsize(8)
             t = ax.yaxis.get_offset_text()
             t.set_x(-0.045)
