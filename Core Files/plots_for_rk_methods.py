@@ -269,34 +269,34 @@ class PaperFigures:
 
         ########################################
 
-        ax1_xlim_lower, ax1_xlim_upper = 0.0, 5
-        ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
+        ax1_xlim_lower, ax1_xlim_upper = 0.155, 0.18
+        ax1_xlim_range = 0.01
         xlim_min, xlim_max = 0, self.max_time  # ns
 
-        ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
+        ax1_yaxis_base, ax1_yaxis_exponent = 8, '-6'
         ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
 
-        lower1, upper1 = 0, 2.6
-        lower2, upper2 = upper1, 3.76
+        lower1, upper1 = ax1_xlim_lower, 0.1595
+        lower2, upper2 = upper1, 0.17067
         lower3, upper3 = upper2, ax1_xlim_upper
 
         ax1_inset_lower = 0.7
 
-        lower1_blob, upper1_blob = 1.75, upper1  # 0.481, 0.502
-        lower2_blob, upper2_blob = 1.3, 1.7  # 0.461, 0.48
-        lower3_blob, upper3_blob = 1.05, 1.275  # 0.442, 0.4605
+        lower1_blob, upper1_blob = 0, 0.01  # 0.481, 0.502
+        lower2_blob, upper2_blob = 0, 0.01  # 0.461, 0.48
+        lower3_blob, upper3_blob = 0, 0.01  # 0.442, 0.4605
 
         ax1.set(xlabel=f"Time (ns)", ylabel=f"Magnetisation (T)",
                 xlim=[ax1_xlim_lower, ax1_xlim_upper],
-                ylim=[-ax1_yaxis_base * ax1_yaxis_order * 1.4, ax1_yaxis_base * ax1_yaxis_order])
+                ylim=[-ax1_yaxis_base * ax1_yaxis_order * 1.2, ax1_yaxis_base * ax1_yaxis_order])
 
-        ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)",
-                xlim=[0, 100], ylim=[1e-1, 1e3], yscale='log')
+        ax2.set(xlabel=f"Frequency (THz)", ylabel=f"Amplitude (arb. units)",
+                xlim=[0, 16], ylim=[1e-3, 1e1], yscale='log')
 
-        self._tick_setter(ax1, ax1_xlim_range * 0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=2)
-        self._tick_setter(ax2, 20, 5, 6, None, is_fft_plot=True)
+        self._tick_setter(ax1, ax1_xlim_range, ax1_xlim_range * 0.5, 3, 4, xaxis_num_decimals=2)
+        self._tick_setter(ax2, 4, 1, 4, None, is_fft_plot=True)
 
-        line_height = -3.15 * ax1_yaxis_order
+        line_height = 7.5 * ax1_yaxis_order * -1
 
         ########################################
 
@@ -306,9 +306,9 @@ class PaperFigures:
             # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) / xlim_max )))  # original
             return int(self.data_points * ((b - a) * ((val - xlim_min) / (xlim_max - xlim_min)) + a))
 
-        lower1_signal, upper1_signal = convert_norm(lower1), convert_norm(upper1)
+        lower1_signal, upper1_signal = convert_norm(xlim_min), convert_norm(upper1)
         lower2_signal, upper2_signal = convert_norm(lower2), convert_norm(upper2)
-        lower3_signal, upper3_signal = convert_norm(lower3), convert_norm(upper3)
+        lower3_signal, upper3_signal = convert_norm(lower3), convert_norm(xlim_max)
 
         lower1_precursor, upper1_precursor = convert_norm(lower1_blob), convert_norm(upper1_blob)
         lower2_precursor, upper2_precursor = convert_norm(lower2_blob), convert_norm(upper2_blob)
@@ -351,10 +351,10 @@ class PaperFigures:
             axes_props2 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#64bb6a", 'lw': 0.8}
             axes_props3 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#9fd983", 'lw': 0.8}
 
-            ax1.text(0.95, 0.9, f"(b)",
+            ax1.text(0.05, 0.9, f"(a)", # 0.95, 0.9
                      va='center', ha='center', fontsize=mid_font, transform=ax1.transAxes)
 
-            ax2.text(0.05, 0.9, f"(c)",
+            ax2.text(0.05, 0.9, f"(b)",
                      va='center', ha='center', fontsize=mid_font,
                      transform=ax2.transAxes)
 
@@ -486,11 +486,11 @@ class PaperFigures:
         frequencies_eq, fourier_transform_eq = self._fft_data(
             self.amplitude_data[lower3_signal:convert_norm(xlim_max), spin_site])
 
-        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
+        ax2.plot(frequencies_precursors * 1e-3, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
+        ax2.plot(frequencies_dsw * 1e-3, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
                  markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
-        ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
+        ax2.plot(frequencies_eq * 1e-3, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
                  markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
 
         if annotate_precursors:
@@ -543,7 +543,7 @@ class PaperFigures:
             fig.tight_layout()  # has to be here
             plt.show()
         else:
-            fig.savefig(f"{self.output_filepath}_site{spin_site}.pdf", bbox_inches="tight")
+            fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 
     def create_time_variation2(self, spin_site, colour_precursors=False, annotate_precursors=False,
                                basic_annotations=False,
@@ -756,7 +756,7 @@ class PaperFigures:
             fig.tight_layout()  # has to be here
             plt.show()
         else:
-            fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
+            fig.savefig(f"{self.output_filepath}_dispersion.pdf", bbox_inches="tight")
 
     def plot_fft(self, spin_site, add_zoomed_region=False):
         """
@@ -1058,11 +1058,11 @@ class Eigenmodes:
 
         # use_defaults is a testing flag to speed up the process of running sims.
         if use_defaults:
-            step = 20
-            lower = 0
-            upper = 240
-            width_ones = 0.05
-            width_zeros = 0.95
+            step = 5
+            lower = 130
+            upper = 170
+            width_ones = 0.023529411764705882
+            width_zeros = 1 - 0.023529411764705882
 
         else:
             step = int(input("Enter step: "))
@@ -1115,7 +1115,7 @@ class Eigenmodes:
 
         # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
         ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) (GHz)', ylabel='Fourier coefficient',
-               xlim=[lower, upper], yscale='log', ylim=[1e-3, 1e-1],
+               xlim=[lower, upper], yscale='log', ylim=[1e-4, 1e-2],
                xticks=list(range(lower, upper + 1, step)),
                xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 3)])
 
