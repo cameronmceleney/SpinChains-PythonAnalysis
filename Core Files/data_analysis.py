@@ -319,7 +319,7 @@ class PlotEigenmodes:
                         exit(0)
 
                     elif test_mode.upper() == 'FRC':
-                        handle_eigenmodes.generalised_fourier_coefficients(True)
+                        handle_eigenmodes.generalised_fourier_coefficients(use_defaults=False)
                         has_valid_modes = False
                         break
 
@@ -760,7 +760,7 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation(target_site, add_zoomed_region=True, basic_annotations=True,
+                            paper_fig.create_time_variation2(target_site, add_zoomed_region=False, basic_annotations=True,
                                                             annotate_precursors=True, add_info_box=False,
                                                             colour_precursors=False)
                             exit(0)
