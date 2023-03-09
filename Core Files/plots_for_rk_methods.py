@@ -269,15 +269,15 @@ class PaperFigures:
 
         ########################################
 
-        ax1_xlim_lower, ax1_xlim_upper = 0.155, 0.18
-        ax1_xlim_range = 0.01
+        ax1_xlim_lower, ax1_xlim_upper = 0.15, 0.3
+        ax1_xlim_range = 0.05
         xlim_min, xlim_max = 0, self.max_time  # ns
 
-        ax1_yaxis_base, ax1_yaxis_exponent = 8, '-6'
+        ax1_yaxis_base, ax1_yaxis_exponent = 6.75, '-6'
         ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
 
-        lower1, upper1 = ax1_xlim_lower, 0.1595
-        lower2, upper2 = upper1, 0.17067
+        lower1, upper1 = 0.1604, 0.206
+        lower2, upper2 = upper1, 0.2558
         lower3, upper3 = upper2, ax1_xlim_upper
 
         ax1_inset_lower = 0.7
@@ -296,7 +296,7 @@ class PaperFigures:
         self._tick_setter(ax1, ax1_xlim_range, ax1_xlim_range * 0.5, 3, 4, xaxis_num_decimals=2)
         self._tick_setter(ax2, 4, 1, 4, None, is_fft_plot=True)
 
-        line_height = 7.5 * ax1_yaxis_order * -1
+        line_height = 6.5 * ax1_yaxis_order * -1
 
         ########################################
 
@@ -354,7 +354,7 @@ class PaperFigures:
             ax1.text(0.05, 0.9, f"(a)", # 0.95, 0.9
                      va='center', ha='center', fontsize=mid_font, transform=ax1.transAxes)
 
-            ax2.text(0.05, 0.9, f"(b)",
+            ax2.text(0.95, 0.9, f"(b)",
                      va='center', ha='center', fontsize=mid_font,
                      transform=ax2.transAxes)
 
@@ -516,8 +516,8 @@ class PaperFigures:
             ax2.annotate('P3', xy=(78.29, 1.25e0), xytext=(81.78, 6.66e0), va='center', ha='center',
                          arrowprops=arrow_ax2_props, fontsize=mid_font)
 
-        ax2.legend(ncol=1, fontsize=small_font, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
-                   bbox_to_anchor=[0.78, 0.60], bbox_transform=ax2.transAxes)
+        ax2.legend(ncol=1, loc='upper left', fontsize=small_font, frameon=False, fancybox=True, facecolor=None,
+                   edgecolor=None, bbox_to_anchor=[0.05, 0.92], bbox_transform=ax2.transAxes)
 
         for ax in [ax1, ax2]:
             ax.xaxis.grid(False)
@@ -1024,6 +1024,85 @@ class PaperFigures:
             t.set_x(-0.045)
 
         return ax
+
+    def ricardo_paper(self):
+        """
+        Plot the magnetisation of a site against time.
+
+        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+
+        :param annotate_precursors: Add arrows to denote precursors.
+        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
+        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
+        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
+        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
+        :param int spin_site: The number of the spin site to be plotted.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+        small_font = 6 * 1.25
+        mid_font = 8 * 1.25
+        self.axes.clear()
+        self.axes.set_aspect('auto')
+        num_rows = 2
+        num_cols = 2
+        fig = plt.figure(figsize=(3.375, 3.375/2))
+        ax1 = fig.add_subplot(111)
+
+        ########################################
+        datanum = 4
+        filename_and_path = f"/Users/cameronmceleney/CLionProjects/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{datanum}.csv"
+        dataset = np.loadtxt(filename_and_path, skiprows=1, delimiter=',', dtype='float')
+        data_time = dataset[:, 0]
+        data_core = dataset[:, 1]
+
+        ########################################
+
+        ax1.set(xlabel=r"$Time Increment\tau$", ylabel=r"$\Delta d_{cores}$",
+                xlim=[0, 8000],
+                ylim=[0, 60])
+
+
+        #self._tick_setter(ax1, 4e3, 1e3, 3, 4, xaxis_num_decimals=2)
+
+        ########################################
+
+        ax1.plot(data_time,
+                 data_core, ls='-', lw=1, color='#82AB7B', alpha=1,
+                 marker='o', markersize=2, markerfacecolor='#37782c', markeredgecolor='None',
+                 zorder=1.01)
+
+        # Use these for paper publication figures
+        #ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
+        #         verticalalignment='center',
+        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=mid_font)
+
+        #ax1.legend(ncol=1, loc='upper left', fontsize=small_font, frameon=False, fancybox=True, facecolor=None,
+        #           edgecolor=None, bbox_to_anchor=[0.05, 0.92], bbox_transform=ax1.transAxes)
+
+        for ax in [ax1]:
+            ax.xaxis.grid(False)
+            ax.yaxis.grid(False)
+            # ax.set_facecolor('#f4f4f5')
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
+
+            # Add spines to all plots (to override any rcParams elsewhere in the code
+            for spine in ['top', 'bottom', 'left', 'right']:
+                ax.spines[spine].set_visible(True)
+
+            ax.set_axisbelow(False)
+            ax.set_facecolor('white')
+
+        if False:
+            # For interactive plots
+            def mouse_event(event):
+                print('x: {} and y: {}'.format(event.xdata, event.ydata))
+
+            fig.canvas.mpl_connect('button_press_event', mouse_event)
+            fig.tight_layout()  # has to be here
+            plt.show()
+        else:
+            fig.savefig(f"{self.output_filepath}_data{datanum}.png", bbox_inches="tight")
 
 
 class Eigenmodes:

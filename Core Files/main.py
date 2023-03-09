@@ -33,12 +33,12 @@ def main():
     """
     lg.info(f"Program start...")
 
-    _should_use_eigens = True
+    _should_use_eigens = False
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2023-03-07", "2023-03-07")
+    system_setup.detect_os(False, "2023-03-08", "2023-03-08")
 
-    filename_base = "1217"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1717" # str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigens:
         dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                         file_prefix="rk2", file_component='mx', file_identifier="T")
@@ -46,7 +46,7 @@ def main():
 
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
-        dataset2.import_eigenmodes()
+        # dataset2.import_eigenmodes()
         dataset2.plot_eigenmodes()  # only this line if raw files don't need imported or converted
 
     exit(0)
