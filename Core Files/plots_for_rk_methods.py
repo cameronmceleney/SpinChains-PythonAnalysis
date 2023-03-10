@@ -351,7 +351,7 @@ class PaperFigures:
             axes_props2 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#64bb6a", 'lw': 0.8}
             axes_props3 = {"arrowstyle": '|-|, widthA =0.3, widthB=0.3', "color": "#9fd983", 'lw': 0.8}
 
-            ax1.text(0.05, 0.9, f"(a)", # 0.95, 0.9
+            ax1.text(0.05, 0.9, f"(a)",  # 0.95, 0.9
                      va='center', ha='center', fontsize=mid_font, transform=ax1.transAxes)
 
             ax2.text(0.95, 0.9, f"(b)",
@@ -642,15 +642,18 @@ class PaperFigures:
         hz_2_THz = 1e-12
         hz_2_GHz = 1e-9
 
-        ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz,color='red', ls='-', label=f'Dataset 1')
-        ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (external_field + exchange_field * lattice_constant**2 * wave_number_array**2) * hz_2_THz, color='red', alpha=0.25, ls='-', label=f'Dataset 1')
+        ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', ls='-', label=f'Dataset 1')
+        ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (
+                external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * hz_2_THz,
+                 color='red', alpha=0.25, ls='-', label=f'Dataset 1')
 
         # These!!
         # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5, c='red', label='paper')
         # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
         ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
-        self._tick_setter(ax2, 2, 0.5, 3, 4, is_fft_plot=False, xaxis_num_decimals=2, yaxis_num_decimals=0, yscale_type='p')
+        self._tick_setter(ax2, 2, 0.5, 3, 4, is_fft_plot=False, xaxis_num_decimals=2, yaxis_num_decimals=0,
+                          yscale_type='p')
         ax2.grid(False)
 
         ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.31
@@ -699,7 +702,8 @@ class PaperFigures:
             wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
 
             ax2_inset.plot(wave_number_array1 * hz_2_GHz,
-                           (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5, ls='--', color='purple',
+                           (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5, ls='--',
+                           color='purple',
                            label='$a=0.2$ nm',
                            zorder=1.3)
             ax2_inset.plot(wave_number_array2 * hz_2_GHz,
@@ -1046,39 +1050,118 @@ class PaperFigures:
         self.axes.set_aspect('auto')
         num_rows = 2
         num_cols = 2
-        fig = plt.figure(figsize=(3.375, 3.375/2))
+        fig = plt.figure(figsize=(3.375, 3.375 / 2))
         ax1 = fig.add_subplot(111)
 
         ########################################
-        datanum = 4
-        filename_and_path = f"/Users/cameronmceleney/CLionProjects/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{datanum}.csv"
+        datanum = 6
+        filename_and_path = f"D:/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{datanum}.csv"
         dataset = np.loadtxt(filename_and_path, skiprows=1, delimiter=',', dtype='float')
-        data_time = dataset[:, 0]
-        data_core = dataset[:, 1]
+        if datanum == 4:
+            data_time = dataset[:, 0]
+            data_core = dataset[:, 1]
 
-        ########################################
+            ########################################
 
-        ax1.set(xlabel=r"$Time Increment\tau$", ylabel=r"$\Delta d_{cores}$",
-                xlim=[0, 8000],
-                ylim=[0, 60])
+            ax1.set(xlabel=r"Time Increment $\mathrm{\tau}$", ylabel=r"$\Delta d_{cores}$ (nm)",
+                    xlim=[0, 7999.9],
+                    ylim=[0, 60])
+            ax1.yaxis.labelpad = 0
 
+            self._tick_setter(ax1, 2e3, 1e3, 2, 4,
+                              xaxis_num_decimals=0, yaxis_num_decimals=0, yscale_type='p')
 
-        #self._tick_setter(ax1, 4e3, 1e3, 3, 4, xaxis_num_decimals=2)
+            ########################################
 
-        ########################################
+            ax1.scatter(data_time, data_core,
+                        color='#4C6FCB',
+                        marker='o', s=8, fc='#4C6FCB', ec='None',
+                        zorder=1.01)
 
-        ax1.plot(data_time,
-                 data_core, ls='-', lw=1, color='#82AB7B', alpha=1,
-                 marker='o', markersize=2, markerfacecolor='#37782c', markeredgecolor='None',
-                 zorder=1.01)
+            ax1.plot(data_time, data_core, ls='-', lw=1.5, color='#4C6FCB', alpha=0.5,
+                     zorder=1.01)
+        elif datanum == 5:
+            data_frequency = dataset[:, 0]
+            data_velocity_bloch = dataset[:, 1]
+            data_velocity_neel = dataset[:, 2]
 
-        # Use these for paper publication figures
-        #ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
-        #         verticalalignment='center',
-        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=mid_font)
+            ########################################
 
-        #ax1.legend(ncol=1, loc='upper left', fontsize=small_font, frameon=False, fancybox=True, facecolor=None,
-        #           edgecolor=None, bbox_to_anchor=[0.05, 0.92], bbox_transform=ax1.transAxes)
+            ax1.set(xlabel=r"Angular Frequency (1)", ylabel="Avg. Velocity (1)",
+                    xlim=[0.095, 0.355])
+            # ylim=[0, 60])
+
+            self._tick_setter(ax1, 0.1, 0.05, 3, 2,
+                              xaxis_num_decimals=1, yaxis_num_decimals=0, yscale_type='')
+
+            ax1.text(-0.02, 1.05, r'$\times \mathcal{10}^{{\mathcal{' + str(int(-3)) + r'}}}$',
+                     verticalalignment='center',
+                     horizontalalignment='center', transform=ax1.transAxes, fontsize=mid_font)
+
+            ########################################
+            ax1_lw = 3
+            ax1_ms = 6
+
+           # ax1.scatter(data_frequency,
+           #          data_velocity_bloch, ls='-', lw=ax1_lw, color='#4C6FCB', alpha=1,
+           #          marker='o', s=36, fc='#4C6FCB', ec='None',
+           #          label='Bloch', zorder=1.01)
+#
+           # ax1.plot(data_frequency,
+           #          data_velocity_bloch, ls='-', lw=ax1_lw, color='#4C6FCB', alpha=0.5,
+           #          label='Bloch', zorder=1.01)
+
+            ax1.plot(data_frequency,
+                     data_velocity_bloch, ls='-', lw=ax1_lw, color='#4C6FCB', alpha=1,
+                     marker='o', markersize=ax1_ms, markerfacecolor='#4C6FCB', markeredgecolor='None',
+                     label='Bloch', zorder=1.01)
+
+            ax1.plot(data_frequency,
+                     data_velocity_neel, ls='-', lw=ax1_lw, color='#A32910', alpha=1,
+                     marker='o', markersize=ax1_ms, markerfacecolor='#A32910', markeredgecolor='None',
+                     label='Néel', zorder=1.01)
+
+            ax1.legend(ncol=1, loc="upper right",
+                       frameon=False, fancybox=False, facecolor='None', edgecolor='black',
+                       fontsize=small_font,
+                       bbox_to_anchor=(0.96, 0.95), bbox_transform=ax1.transAxes).set_zorder(4)
+        elif datanum == 6:
+            data_applied_field = dataset[:, 0]
+            data_velocity_bloch = dataset[:, 1]
+            data_velocity_neel = dataset[:, 2]
+
+            ########################################
+
+            ax1.set(xlabel=r"Pumping Field (1)", ylabel="Avg. Velocity (1)",
+                    xlim=[0.1425, 0.3075],
+                    ylim=[0.00185, 0.0081])
+
+            self._tick_setter(ax1, 0.1, 0.025, 4, 2,
+                              xaxis_num_decimals=1, yaxis_num_decimals=0, yscale_type='')
+
+            ax1.text(-0.02, 1.075, r'$\times \mathcal{10}^{{\mathcal{' + str(int(-3)) + r'}}}$',
+                     verticalalignment='center',
+                     horizontalalignment='center', transform=ax1.transAxes, fontsize=mid_font)
+
+            ########################################
+            ax1_lw = 3
+            ax1_ms = 6
+
+            ax1.plot(data_applied_field,
+                     data_velocity_bloch, ls='-', lw=ax1_lw, color='#4C6FCB', alpha=1,
+                     marker='o', markersize=ax1_ms, markerfacecolor='#4C6FCB', markeredgecolor='None',
+                     label='Bloch', zorder=1.01)
+
+            ax1.plot(data_applied_field,
+                     data_velocity_neel, ls='-', lw=ax1_lw, color='#A32910', alpha=1,
+                     marker='o', markersize=ax1_ms, markerfacecolor='#A32910', markeredgecolor='None',
+                     label='Néel', zorder=1.01)
+
+            ax1.legend(ncol=1, loc="upper left",
+                       frameon=False, fancybox=False, facecolor='None', edgecolor='black',
+                       fontsize=small_font,
+                       bbox_to_anchor=(0.04, 0.95), bbox_transform=ax1.transAxes).set_zorder(4)
+
 
         for ax in [ax1]:
             ax.xaxis.grid(False)
@@ -1133,7 +1216,7 @@ class Eigenmodes:
 
         :return: Single figure plot.
         """
-        number_of_spins = len(self.mx_data[:, 0])
+        number_of_spins = self.mx_data[:, 0].size
 
         # use_defaults is a testing flag to speed up the process of running sims.
         if use_defaults:
@@ -1158,7 +1241,7 @@ class Eigenmodes:
             # No need for further data processing
             eigenvalues = np.append([0], self.eigenvalues_data)
 
-        x_axis_limits = range(0, number_of_spins)
+        x_axis_limits = range(0, number_of_spins, 1)
 
         # Find widths of each component of the driving regions.
         g_ones = [1] * int(number_of_spins * width_ones)
@@ -1192,6 +1275,8 @@ class Eigenmodes:
         sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
                      marker='o', label='Right', zorder=1.1)
 
+        np.savetxt("D:/Data/2023-03-06/Simulation_Data/T1115_Eigens/test.csv", zip(x_axis_limits,np.abs(fourier_coefficents_lhs)))
+        exit(0)
         # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
         ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) (GHz)', ylabel='Fourier coefficient',
                xlim=[lower, upper], yscale='log', ylim=[1e-4, 1e-2],

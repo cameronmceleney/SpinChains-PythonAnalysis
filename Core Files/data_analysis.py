@@ -289,7 +289,7 @@ class PlotEigenmodes:
               ''')
         print('--------------------------------------------------------------------------------')
 
-        upper_limit_mode = 4000 # len(self._arrays_to_output[0])  # The largest mode which can be plotted for the given data.
+        upper_limit_mode = self._arrays_to_output[0].size  # The largest mode which can be plotted for the given data.
         previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
 
         # Take in first user input. Assume input is valid, until an error is raised.
@@ -827,8 +827,8 @@ def rc_params_update():
     medium_size = 14 * 1.25
     small_size = 12 * 1.25
     large_size = 16 * 1.25
-    smaller_size = 10 * 1.25
-    tiny_size = 10 * 1.25
+    smaller_size = 8 * 1.25
+    tiny_size = 8 * 1.25
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
     t_dir = 'in'
