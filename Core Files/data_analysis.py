@@ -760,7 +760,7 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation(target_site, add_zoomed_region=False, basic_annotations=True,
+                            paper_fig.create_time_variation(target_site, add_zoomed_region=True, basic_annotations=True,
                                                             annotate_precursors=True, add_info_box=False,
                                                             colour_precursors=False)
                             exit(0)
@@ -824,25 +824,26 @@ def rc_params_update():
     ##############################################################################
     # Sets global conditions including font sizes, ticks and sheet style
     # Sets various font size. fsize: general text. lsize: legend. tsize: title. ticksize: numbers next to ticks
-    medium_size = 14 * 1.25
-    small_size = 12 * 1.25
-    large_size = 16 * 1.25
-    smaller_size = 8 * 1.25
-    tiny_size = 8 * 1.25
+    medium_size = 14
+    small_size = 12
+    large_size = 20
+    smaller_size = 10
+    tiny_size = 8
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
     t_dir = 'in'
     # sets the tick size(s) and tick width(w) for the major and minor axes of all plots
-    t_maj_s = 4 * 1.25
+    t_maj_s = 5
     t_min_s = t_maj_s / 2
-    t_maj_w = 0.8 * 1.25
+    t_maj_w = 1
     t_min_w = t_maj_w / 2
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': smaller_size, 'font.size': small_size,
-                         'legend.fontsize': tiny_size,
+    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': small_size, 'font.size': small_size,
+                         'legend.fontsize': small_size,
                          'figure.titlesize': large_size,
-                         'xtick.labelsize': tiny_size, 'ytick.labelsize': tiny_size,
+                         'font.family': 'arial',
+                         'xtick.labelsize': smaller_size, 'ytick.labelsize': smaller_size,
                          'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
                          "xtick.bottom": True, "ytick.left": True,
                          'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
