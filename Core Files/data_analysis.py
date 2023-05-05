@@ -44,7 +44,7 @@ class PlotEigenmodes:
         self.fc = file_component
         self.fi = file_identifier
         self.child_dir_name = f"{self.fi}{self.fd}_Eigens"
-        self.input_dir_path = f"{self.parent_dir_path}{self.child_dir_name}/"#  path.join(self.parent_dir_path, self.child_dir_name)
+        self.input_dir_path = f"{self.parent_dir_path}{self.child_dir_name}/"  # path.join(self.parent_dir_path, self.child_dir_name)
         self.full_filename = f"{self.fp}{self.fc}_{self.fi}{self.fd}"
 
         self.full_output_path = f"{self.output_dir_path}{file_identifier}{file_descriptor}"
@@ -344,7 +344,7 @@ class PlotEigenmodes:
                                 has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
 
                 if has_valid_modes:
-                    handle_eigenmodes.plot_single_eigenmode(int(test_mode))
+                    handle_eigenmodes.plot_single_eigenmode(int(test_mode), has_endpoints=False)
 
                 else:
                     has_valid_modes = True  # Reset condition
@@ -549,7 +549,7 @@ class PlotImportedData:
                       ''')
             print('--------------------------------------------------------------------------------\n')
 
-            initials_of_method_to_call = "PF" # input("Which function to use: ").upper()
+            initials_of_method_to_call = "PF"  # input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -644,10 +644,10 @@ class PlotImportedData:
 
         lg.info(f"Plotting function selected: Fourier Signal only.")
 
-        #dataset2_full_filename = "rk2_mx_T1614.csv"
-        #dataset2_input_data_path = f"D:/Data/2022-11-30/Simulation_Data/{dataset2_full_filename}"
-        #dataset2 = np.loadtxt(dataset2_input_data_path, delimiter=",", skiprows=11)
-        #dataset2_m_spin_data = dataset2[:, 1:]
+        # dataset2_full_filename = "rk2_mx_T1614.csv"
+        # dataset2_input_data_path = f"D:/Data/2022-11-30/Simulation_Data/{dataset2_full_filename}"
+        # dataset2 = np.loadtxt(dataset2_input_data_path, delimiter=",", skiprows=11)
+        # dataset2_m_spin_data = dataset2[:, 1:]
 
         has_more_to_plot = True
         while has_more_to_plot:
@@ -662,9 +662,9 @@ class PlotImportedData:
                     lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
                     plt_rk.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
-                                     self.header_data_params,
-                                     self.full_output_path)
-                    #plt_rk.multi_fft_only(self.m_spin_data[:, target_spin_in_data],
+                                    self.header_data_params,
+                                    self.full_output_path)
+                    # plt_rk.multi_fft_only(self.m_spin_data[:, target_spin_in_data],
                     #                      dataset2_m_spin_data[:, target_spin_in_data], target_spin,
                     #                      self.header_data_params,
                     #                      self.full_output_path)
@@ -710,7 +710,7 @@ class PlotImportedData:
         if has_override:
             pf_selection = override_name.upper()
         else:
-            pf_selection = "RIC" # str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
+            pf_selection = "TV"  # str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
 
         pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK", "RIC"]
         while True:
@@ -747,7 +747,7 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[1]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = ["0"]#(input("Plot which site (-ve to exit): ")).split()
+                sites_to_plot = ["0"]  # (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     try:
                         target_site = int(target_site)
@@ -760,9 +760,10 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation(target_site, add_zoomed_region=True, basic_annotations=True,
-                                                            annotate_precursors=True, add_info_box=False,
-                                                            colour_precursors=False)
+                            paper_fig.create_time_variation1(target_site, add_zoomed_region=True,
+                                                             basic_annotations=True,
+                                                             annotate_precursors=True, add_info_box=False,
+                                                             colour_precursors=False)
                             exit(0)
 
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
@@ -774,6 +775,7 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[2]:
             paper_fig.create_gif(number_of_frames=0.01)
             print("GIF successfully created!")
+            exit(0)
             self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
 
         elif pf_selection == pf_keywords[3]:
@@ -855,5 +857,5 @@ def rc_params_update():
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
                          'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
                          'axes.spines.right': False,
-                         'savefig.dpi': 1000, "figure.dpi": 100,
+                         'savefig.dpi': 1200, "figure.dpi": 100,
                          'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
