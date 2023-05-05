@@ -1648,7 +1648,8 @@ class PaperFigures:
 
         ########################################
         for val in [4, 5, 6]:
-            filename = f"D:/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{val}.csv"
+            # filename = f"D:/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{val}.csv"
+            filename = f'/Users/cameronmceleney/CLionProjects/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{val}.csv'
             dataset = np.loadtxt(filename, skiprows=1, delimiter=',', dtype='float')
 
             fig = plt.figure(figsize=(3.375, 3.375 / 2))
@@ -1662,7 +1663,7 @@ class PaperFigures:
             label1, label2 = None, None
             leg_loc, leg_pos = None, None
 
-            ax_lw = 3
+            ax_lw = 2.25
             ax_s = 10
 
             if val == 4:
