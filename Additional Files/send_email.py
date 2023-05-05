@@ -73,7 +73,7 @@ def logging_setup():
 
 def send_email(sender_email, receiver_email, custom_msg=''):
     # Get the path to the pickle file
-    home_dir = '/Users/cameronmceleney/PycharmProjects/SpinchainsAnalysis/Additional Files'
+    home_dir = '/Additional Files'
     pickle_path = os.path.join(home_dir, 'gmail.pickle')
 
     # Load our pickled credentials
@@ -110,7 +110,7 @@ def send_email(sender_email, receiver_email, custom_msg=''):
 
 
 def main():
-    path_to_file = './'
+    path_to_file = '../'
     file_name = 'simulation_metadata.txt'
     filename_and_path = f'{path_to_file}{file_name}'
 
