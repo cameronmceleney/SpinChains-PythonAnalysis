@@ -84,9 +84,81 @@ class PaperFigures:
         self.axes = self.fig.add_subplot(111)
         self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
-                       "xlim": [500, self.number_spins - 300], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+                       "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
+        """
+        Private method to plot the given row of data, and create a single figure.
+
+        If no figure param is passed, then the method will use the class' __init__ attributes.
+
+        :param int plot_row: Given row in dataset to plot.
+        :param bool has_single_figure: Flag to ensure that class
+        attribute is used for single figure case, to allow for the saving of the figure out with this method.
+
+        :return: No return statement. Method will output a figure to wherever the method was invoked.
+        """
+        if has_single_figure:
+            # For single images, may want to further alter plot outside this method.
+            self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
+            self.axes = self.fig.add_subplot(111)
+        else:
+            # For GIFs. Each frame requires a new fig to prevent stuttering. Each subplot will be the same so no need
+            # to access ax outside of method.
+            cm = 1 / 2.54
+            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))
+            self.axes = self.fig.add_subplot(111)
+
+        self.axes.set_aspect("auto")
+
+        # Easier to have time-stamp as label than textbox.
+        self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=2 * 0.75,
+                       label=f"{self.time_data[plot_row]:2.2f} (ns)", color='#64bb6a')
+
+        self.axes.set(**self.kwargs)
+
+        # self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', verticalalignment='center',
+        # horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
+        # self.axes.text(0.88, 0.88, f"(c) {self.time_data[plot_row]:2.3f} ns",
+        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes,
+        #               fontsize=6)
+
+        self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+
+        if draw_regions_of_interest:
+            left, bottom, width, height = (
+                [0, (self.number_spins - self.dampedSpins), (self.drLHS + self.dampedSpins)],
+                self.axes.get_ylim()[0] * 2,
+                (self.dampedSpins, self.driving_width),
+                4 * self.axes.get_ylim()[1])
+
+            rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height,
+                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
+
+            rectangle_rhs = mpatches.Rectangle((left[1], bottom), width[0], height,
+                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
+
+            rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height,
+                                                          alpha=0.25, facecolor="grey", edgecolor=None, lw=0)
+
+            plt.gca().add_patch(rectangle_lhs)
+            plt.gca().add_patch(rectangle_rhs)
+            plt.gca().add_patch(rectangle_driving_region)
+
+        # Change tick markers as needed.
+        self._tick_setter(self.axes, self.number_spins / 4, self.number_spins / 8, 3, 4)
+        class ScalarFormatterClass(ticker.ScalarFormatter):
+            def _set_format(self):
+                self.format = "%1.1f"
+
+        yScalarFormatter = ScalarFormatterClass(useMathText=True)
+        yScalarFormatter.set_powerlimits((0, 0))
+        self.axes.xaxis.set_major_formatter(yScalarFormatter)
+        self.axes.yaxis.set_major_formatter(yScalarFormatter)
+
+        self.fig.tight_layout()
+
+    def _draw_figure1(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
         Private method to plot the given row of data, and create a single figure.
 
@@ -208,7 +280,7 @@ class PaperFigures:
         for spine in ['top', 'bottom', 'left', 'right']:
             self.axes.spines[spine].set_visible(True)
 
-        self.axes.grid(visible=False, axis='both', which='both')
+        self.axes.grid(visible=True, axis='both', which='both')
 
         self.fig.savefig(f"{self.output_filepath}_row{row_number}.png", bbox_inches="tight")
 
