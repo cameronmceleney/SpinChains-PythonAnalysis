@@ -549,7 +549,7 @@ class PlotImportedData:
                       ''')
             print('--------------------------------------------------------------------------------\n')
 
-            initials_of_method_to_call = "PF"  # input("Which function to use: ").upper()
+            initials_of_method_to_call = input("Which function to use: ").upper()
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -710,7 +710,8 @@ class PlotImportedData:
         if has_override:
             pf_selection = override_name.upper()
         else:
-            pf_selection = "TV"  # str(input("Which figure (PV [Position]/TV [Time]/GIF/FFT) should be created: ")).upper()
+            pf_selection = str(input("To return type 'BACK'. Which figure (PV [Position]/TV [Time]/GIF/FFT/RIC) "
+                                     "should be created: ")).upper()
 
         pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK", "RIC"]
         while True:
@@ -747,7 +748,7 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[1]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = ["0"]  # (input("Plot which site (-ve to exit): ")).split()
+                sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
                 for target_site in sites_to_plot:
                     try:
                         target_site = int(target_site)
@@ -764,7 +765,6 @@ class PlotImportedData:
                                                              basic_annotations=True,
                                                              annotate_precursors=True, add_info_box=False,
                                                              colour_precursors=False)
-                            exit(0)
 
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                         else:
@@ -775,7 +775,6 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[2]:
             paper_fig.create_gif(number_of_frames=0.01)
             print("GIF successfully created!")
-            exit(0)
             self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
 
         elif pf_selection == pf_keywords[3]:
