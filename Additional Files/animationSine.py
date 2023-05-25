@@ -16,7 +16,7 @@ line1, = ax.plot([], [], color= '#64bb6a', lw=3, zorder=1.1)
 line2, = ax.plot([], [], color='#37782c', lw=2, zorder=1.05)
 ax.set_xlim(-0.2, 4.2)
 ax.set_ylim(-0.51, 1.2)
-ax.axis('off')
+#ax.axis('off')
 #ax.set_xlabel('t /s')
 #ax.set_ylabel('M (arb. units)')
 
@@ -29,8 +29,7 @@ ax.text(4.15, 0.42, 'B', fontsize=16)
 ax.text(-0.3, 0.0, 'OFF', va='center', ha='center', fontsize=12)
 ax.text(-0.3, 1.0, 'ON', va='center', ha='center', fontsize=12)
 
-
-def animate(i):
+def animate1(i):
     """Draw the frame i of the animation."""
 
     global t, M, N
@@ -38,10 +37,29 @@ def animate(i):
     _t = i*dt
     A = 0.5
     t.append(_t)
-    tv = np.sign(A*np.sin(2 * np.pi * f * _t))
-    if tv < 0:
+    sinusoid = A*np.sin(2 * np.pi * f * _t)
+    if sinusoid < 0:
        tv = 0
-    elif tv > 1:
+    else:
+       tv = 1
+
+    M.append(sinusoid)
+    N.append(tv)
+    line1.set_data(t, M)
+    line2.set_data(t, N)
+def animate(i):
+    """Draw the frame i of the animation."""
+
+    global t, M, N
+    # Append this time point and its data and set the plotted line data.
+    _t = i*dt
+    A = 0.5
+    lim = 0.4
+    t.append(_t)
+    tv = A*np.sin(2 * np.pi * f * _t)
+    if tv < lim:
+       tv = 0
+    elif tv >= lim :
        tv = 1
 
     M.append(A*np.sin(2*np.pi*f*_t))
@@ -52,6 +70,6 @@ def animate(i):
 # Interval between frames in ms, total number of frames to use.
 interval, nframes = 1000 * dt, int(tmax / dt)
 # Animate once (set repeat=False so the animation doesn't loop).
-ani = animation.FuncAnimation(fig, animate, frames=nframes, repeat=False,
+ani = animation.FuncAnimation(fig, animate1, frames=nframes, repeat=False,
                               interval=interval)
 plt.show()

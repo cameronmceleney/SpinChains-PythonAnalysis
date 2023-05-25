@@ -761,7 +761,7 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation1(target_site, add_zoomed_region=True,
+                            paper_fig.create_time_variation3(target_site, add_zoomed_region=True,
                                                              basic_annotations=True,
                                                              annotate_precursors=True, add_info_box=False,
                                                              colour_precursors=False)
