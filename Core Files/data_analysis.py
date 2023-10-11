@@ -44,7 +44,7 @@ class PlotEigenmodes:
         self.fc = file_component
         self.fi = file_identifier
         self.child_dir_name = f"{self.fi}{self.fd}_Eigens"
-        self.input_dir_path = f"{self.parent_dir_path}{self.child_dir_name}/"  # path.join(self.parent_dir_path, self.child_dir_name)
+        self.input_dir_path = f"{self.parent_dir_path}{self.child_dir_name}/"
         self.full_filename = f"{self.fp}{self.fc}_{self.fi}{self.fd}"
 
         self.full_output_path = f"{self.output_dir_path}{file_identifier}{file_descriptor}"
@@ -265,9 +265,9 @@ class PlotEigenmodes:
         lg.info(f"Invoking functions to plot data...")
 
         """
-        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used to
-        replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to plot
-        the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
+        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used
+        to replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to
+        plot the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
         paper.
 
         :return: A figure (png).
@@ -310,7 +310,8 @@ class PlotEigenmodes:
                         # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
                         has_valid_modes = False
                         print(
-                            f"You have already printed a mode in {previously_plotted_modes}. Please make another choice.")
+                            f"You have already printed a mode in {previously_plotted_modes}. Please make "
+                            f"another choice.")
                         break
 
                 except ValueError:
@@ -391,8 +392,7 @@ class PlotImportedData:
         """
         lg.info(f"Importing data points...")
 
-        all_data_without_header = None
-        # Loads all input data
+        # Loads all input data without the header
         try:
             is_file_present_in_dir = path.exists(input_data_path)
             if not is_file_present_in_dir:
@@ -402,11 +402,8 @@ class PlotImportedData:
             lg.error(f"File {filename} was not found")
             exit(1)
         else:
-            all_data_without_header = np.loadtxt(input_data_path, delimiter=",", skiprows=11)
-
-        lg.info(f"Data points imported!")
-
-        return all_data_without_header
+            lg.info(f"Data points imported!")
+            return np.loadtxt(input_data_path, delimiter=",", skiprows=11)
 
     def import_headers_from_file(self):
         """
@@ -605,7 +602,7 @@ class PlotImportedData:
         sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
 
         print("Generating plot...")
-        plt_rk.three_panes(self.m_spin_data[:, :], self.header_data_params, self.header_data_sites,
+        plt_rk.three_panes(self.m_spin_data[:, :], self.header_data_params,
                            self.full_output_path, sites_to_compare)
         lg.info(f"Plotting 3P complete!")
 
@@ -761,10 +758,7 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation3(target_site, add_zoomed_region=True,
-                                                             basic_annotations=True,
-                                                             annotate_precursors=True, add_info_box=False,
-                                                             colour_precursors=False)
+                            paper_fig.create_time_variation3(target_site)
 
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
                         else:
@@ -829,7 +823,7 @@ def rc_params_update():
     small_size = 12
     large_size = 20
     smaller_size = 10
-    tiny_size = 8
+    # tiny_size = 8
 
     # sets the tick direction. Options: 'in', 'out', 'inout'
     t_dir = 'in'

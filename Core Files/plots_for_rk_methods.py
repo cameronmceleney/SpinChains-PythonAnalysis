@@ -1,29 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import matplotlib
+import matplotlib as mpl
 # For interactive plots on Mac
-# import matplotlib
 # matplotlib.use('macosx')
 
 # Standard modules (common)
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import sys as sys
 
 # Third party modules (uncommon)
-from matplotlib.animation import FuncAnimation
-from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, inset_axes
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
-import matplotlib.transforms as mtrans
-from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap, BoundaryNorm
 import gif as gif
 from scipy.fft import rfft, rfftfreq
-
-from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+from typing import Any
 
 # My packages / Any header files
 
@@ -68,7 +60,7 @@ class PaperFigures:
         self.drRHS = key_data['drivingRegionRHS']
         self.driving_width = key_data['drivingRegionWidth']
         self.max_time = key_data['maxSimTime'] * 1e9
-        self.stop_itervals = key_data['stopIterVal']
+        self.stop_iteration_value = key_data['stopIterVal']
         self.exchange_min = key_data['exchangeMinVal']
         self.exchange_max = key_data['exchangeMaxVal']
         self.data_points = key_data['numberOfDataPoints']
@@ -80,11 +72,18 @@ class PaperFigures:
         self.gyro_mag_ratio = key_data['gyroMagRatio']
 
         # Attributes for plots
-        self.fig = plt.figure(figsize=(3.375, 3.375 / 3))
-        self.axes = self.fig.add_subplot(111)
+        self.fig = None
+        self.axes = None
         self.y_axis_limit = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
+
+        self.large_size = 20
+        self.medium_size = 14
+        self.small_size = 11
+        self.smaller_size = 10
+        self.tiny_size = 8
+        self.mini_size = 7
 
     def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
         """
@@ -98,22 +97,25 @@ class PaperFigures:
 
         :return: No return statement. Method will output a figure to wherever the method was invoked.
         """
-        if has_single_figure:
-            # For single images, may want to further alter plot outside this method.
-            self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
-            self.axes = self.fig.add_subplot(111)
+        if self.fig is None:
+            if has_single_figure:
+                # For single images, may want to further alter plot outside this method.
+                self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
+                self.axes = self.fig.add_subplot(111)
+            else:
+                # For GIFs. Each frame requires a new fig to prevent stuttering. Each subplot will be the same
+                # so no need to access ax outside of method.
+                cm = 1 / 2.54
+                self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))
+                self.axes = self.fig.add_subplot(111)
         else:
-            # For GIFs. Each frame requires a new fig to prevent stuttering. Each subplot will be the same so no need
-            # to access ax outside of method.
-            cm = 1 / 2.54
-            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))
-            self.axes = self.fig.add_subplot(111)
+            self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
 
         self.axes.set_aspect("auto")
 
         # Easier to have time-stamp as label than textbox.
         self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=2 * 0.75,
-                       label=f"{self.time_data[plot_row]:2.2f} (ns)", color='#64bb6a')
+                       label=f"{self.time_data[plot_row]: 2.2f} (ns)", color='#64bb6a')
 
         self.axes.set(**self.kwargs)
 
@@ -147,6 +149,7 @@ class PaperFigures:
 
         # Change tick markers as needed.
         self._tick_setter(self.axes, self.number_spins / 4, self.number_spins / 8, 3, 4)
+
         class ScalarFormatterClass(ticker.ScalarFormatter):
             def _set_format(self):
                 self.format = "%1.1f"
@@ -186,7 +189,7 @@ class PaperFigures:
 
         # Easier to have time-stamp as label than textbox.
         self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=2 * 0.75,
-                       label=f"{self.time_data[plot_row]:2.2f} (ns)", color='#64bb6a')
+                       label=f"{self.time_data[plot_row]: 2.2f} (ns)", color='#64bb6a')
 
         self.axes.set(**self.kwargs)
 
@@ -254,7 +257,6 @@ class PaperFigures:
 
         :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
         """
-        self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
         self._draw_figure(row_number)
 
         self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
@@ -262,15 +264,13 @@ class PaperFigures:
         if should_add_data:
             # Add text to figure with simulation parameters
             if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc. : {self.exchange_min} (T)"
+                exchangeString = f"Uniform Exc.: {self.exchange_min} (T)"
             else:
                 exchangeString = f"J$_{{min}}$ = {self.exchange_min} (T) | J$_{{max}}$ = " \
                                  f"{self.exchange_max} (T)"
-            data_string = f"H$_{{0}}$ = {self.static_field} (T) | N = {self.chain_spins} | " + r"$\alpha$" \
-                                                                                               f" = {self.gilbert_factor: 2.2e}\n" \
-                                                                                               f"H$_{{D1}}$ = {self.driving_field1:2.2e} (T) | " \
-                                                                                               f"H$_{{D2}}$ = {self.driving_field2:2.2e} (T) \n{exchangeString}"
-
+            data_string = (f"H$_{{0}}$ = {self.static_field} (T) | N = {self.chain_spins} | " + r"$\alpha$"
+                           f" = {self.gilbert_factor: 2.2e}\nH$_{{D1}}$ = {self.driving_field1: 2.2e} (T) | "
+                           f" H$_{{D2}}$ = {self.driving_field2: 2.2e} (T) \n{exchangeString}")
             props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
             # Place text box in upper left in axes coords
             self.axes.text(0.05, 1.2, data_string, transform=self.axes.transAxes, fontsize=12,
@@ -321,13 +321,15 @@ class PaperFigures:
         gif.save(frames, f"{self.output_filepath}.gif", duration=0.5)
 
     def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                              basic_annotations=False,
-                              add_zoomed_region=False, add_info_box=False, add_coloured_regions=False):
+                              basic_annotations=False, add_zoomed_region=False, add_info_box=False,
+                              add_coloured_regions=False, interactive_plot=False):
         """
         Plot the magnetisation of a site against time.
 
         One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
 
+        :param interactive_plot: Allow plot to be interactive
+        :param basic_annotations: NEED DOCSTRING
         :param annotate_precursors: Add arrows to denote precursors.
         :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
         :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
@@ -337,19 +339,15 @@ class PaperFigures:
 
         :return: Saves a .png image to the designated output folder.
         """
-        medium_size = 14
-        small_size = 11
-        large_size = 20
-        smaller_size = 10
-        tiny_size = 8
-        mini_size = 7
-        self.axes.clear()
-        self.axes.set_aspect('auto')
-        fig = plt.figure(figsize=(4.5, 3.375))
+
+        if self.fig is None:
+            self.fig = plt.figure(figsize=(4.5, 3.375))
         num_rows = 2
         num_cols = 3
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2), colspan=num_cols)
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+                               colspan=num_cols, fig=self.fig)
+        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
+                               rowspan=num_rows, colspan=num_cols, fig=self.fig)
 
         ax1.xaxis.labelpad = -1
         ax2.xaxis.labelpad = -1
@@ -387,10 +385,12 @@ class PaperFigures:
 
         ########################################
 
-        if ax1_xlim_lower > ax1_xlim_upper: exit(0)
+        if ax1_xlim_lower > ax1_xlim_upper:
+            exit(0)
 
         def convert_norm(val, a=0, b=1):
-            # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) / xlim_max )))  # original
+            # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) /
+            # xlim_max )))  # original
             return int(self.data_points * ((b - a) * ((val - xlim_min) / (xlim_max - xlim_min)) + a))
 
         lower1_signal, upper1_signal = convert_norm(lower1), convert_norm(upper1)
@@ -439,33 +439,33 @@ class PaperFigures:
             axes_props3 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#9fd983", 'lw': 1.0}
 
             ax1.text(0.95, 0.9, f"(b)",
-                     va='center', ha='center', fontsize=smaller_size, transform=ax1.transAxes)
+                     va='center', ha='center', fontsize=self.smaller_size, transform=ax1.transAxes)
 
             ax2.text(0.05, 0.9, f"(c)",
-                     va='center', ha='center', fontsize=smaller_size,
+                     va='center', ha='center', fontsize=self.smaller_size,
                      transform=ax2.transAxes)
 
             pre_text_lhs, pre_text_rhs = lower1, upper1
-            shock_text_lhs, shock_text_rhs = (lower2), (upper2)
-            equib_text_lhs, equib_text_rhs = (lower3), (upper3)
+            shock_text_lhs, shock_text_rhs = lower2, upper2
+            equil_text_lhs, equil_text_rhs = lower3, upper3
 
             ax1.annotate('', xy=(pre_text_lhs, line_height), xytext=(pre_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props1, fontsize=tiny_size)
+                         va='center', ha='center', arrowprops=axes_props1, fontsize=self.tiny_size)
             ax1.annotate('', xy=(shock_text_lhs, line_height), xytext=(shock_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props2, fontsize=tiny_size)
-            ax1.annotate('', xy=(equib_text_lhs, line_height), xytext=(equib_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props3, fontsize=tiny_size)
+                         va='center', ha='center', arrowprops=axes_props2, fontsize=self.tiny_size)
+            ax1.annotate('', xy=(equil_text_lhs, line_height), xytext=(equil_text_rhs, line_height),
+                         va='center', ha='center', arrowprops=axes_props3, fontsize=self.tiny_size)
             ax1.text((pre_text_lhs + pre_text_rhs) / 2, text_height, 'Precursors', ha='center', va='bottom',
-                     fontsize=tiny_size)
+                     fontsize=self.tiny_size)
             ax1.text((shock_text_lhs + shock_text_rhs) / 2, text_height, 'Shockwave', ha='center', va='bottom',
-                     fontsize=tiny_size)
-            ax1.text((equib_text_lhs + equib_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
-                     fontsize=tiny_size)
+                     fontsize=self.tiny_size)
+            ax1.text((equil_text_lhs + equil_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
+                     fontsize=self.tiny_size)
 
         # Use these for paper publication figures
         # ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
         #         verticalalignment='center',
-        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=smaller_size)
+        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=self.smaller_size)
         # ax1.text(0.04, 0.1, f"(a) 15 GHz", verticalalignment='center', horizontalalignment='left',
         #               transform=ax1.transAxes, fontsize=6)
 
@@ -505,11 +505,11 @@ class PaperFigures:
                                 "color": "black", 'lw': 0.8}
 
             ax1_inset.annotate('P1', xy=(1.9, -8e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=tiny_size)
+                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
             ax1_inset.annotate('P2', xy=(1.5, 7e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props2, fontsize=tiny_size)
+                               arrowprops=arrow_ax1_props2, fontsize=self.tiny_size)
             ax1_inset.annotate('P3', xy=(1.2, -2e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=tiny_size)
+                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
 
             # Remove tick labels
             ax1_inset.set_xticks([])
@@ -536,17 +536,15 @@ class PaperFigures:
             else:
                 exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
                                  f"{self.exchange_max} [T]"
-            textstr = f"H$_{{0}}$ = {self.static_field} [T] | " \
-                      f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
-                      f"H$_{{D2}}$ = {self.driving_field2:2.2e}[T] \n" \
-                      f"f = {self.driving_freq} [GHz] |" \
-                      f"{exchangeString} | N = {self.chain_spins} | " + r"$\alpha$" + \
-                      f" = {self.gilbert_factor: 2.2e}"
+            text_string = ((f"H$_{{0}}$ = {self.static_field} [T] | H$_{{D1}}$ = {self.driving_field1: 2.2e} [T] | "
+                           f"H$_{{D2}}$ = {self.driving_field2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
+                           f"{exchangeString} | N = {self.chain_spins} | ") + r"$\alpha$" +
+                           f" = {self.gilbert_factor: 2.2e}")
 
             props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
 
             # place a text box in upper left in axes coords
-            ax1.text(0.35, -0.22, textstr, transform=ax1.transAxes, fontsize=6,
+            ax1.text(0.35, -0.22, text_string, transform=ax1.transAxes, fontsize=6,
                      verticalalignment='top', bbox=props, ha='center', va='center')
             ax1.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
                      transform=ax1.transAxes)
@@ -597,13 +595,13 @@ class PaperFigures:
 
             arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
             ax2.annotate('P1', xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=smaller_size)
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
             ax2.annotate('P2', xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=smaller_size)
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
             ax2.annotate('P3', xy=(78.29, 1.25e0), xytext=(83.9, 5.5), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=smaller_size)
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
 
-        ax2.legend(ncol=1, loc='upper right', fontsize=tiny_size, frameon=False, fancybox=True, facecolor=None,
+        ax2.legend(ncol=1, loc='upper right', fontsize=self.tiny_size, frameon=False, fancybox=True, facecolor=None,
                    edgecolor=None,
                    bbox_to_anchor=[0.975, 0.95], bbox_transform=ax2.transAxes)
 
@@ -620,26 +618,29 @@ class PaperFigures:
             ax.set_axisbelow(False)
             ax.set_facecolor('white')
 
-        fig.subplots_adjust(wspace=1, hspace=0.35)
+        self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
-        if False:
+        if interactive_plot:
             # For interactive plots
-            def mouse_event(event):
-                print('x: {} and y: {}'.format(event.xdata, event.ydata))
+            def mouse_event(event: Any):
+                print(f'x: {event.xdata} and y: {event.ydata}')
 
-            fig.canvas.mpl_connect('button_press_event', mouse_event)
-            fig.tight_layout()  # has to be here
+            self.fig.canvas.mpl_connect('button_press_event', mouse_event)
+            self.fig.tight_layout()  # has to be here
             plt.show()
         else:
-            fig.savefig(f"{self.output_filepath}_site{spin_site}.pdf", bbox_inches="tight")
+            self.fig.savefig(f"{self.output_filepath}_site{spin_site}.pdf", bbox_inches="tight")
+
     def create_time_variation1(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                               basic_annotations=False,
-                               add_zoomed_region=False, add_info_box=False, add_coloured_regions=False):
+                               basic_annotations=False, add_zoomed_region=False, add_info_box=False,
+                               add_coloured_regions=False, interactive_plot=False):
         """
         Plot the magnetisation of a site against time.
 
         One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
 
+        :param interactive_plot: NEED DOCSTRING
+        :param basic_annotations: NEED DOCSTRING
         :param annotate_precursors: Add arrows to denote precursors.
         :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
         :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
@@ -651,19 +652,14 @@ class PaperFigures:
         """
         # Data at 2023-03-06/rrk2_mx_T1118
 
-        medium_size = 14
-        small_size = 11
-        large_size = 20
-        smaller_size = 10
-        tiny_size = 8
-        mini_size = 7
-        self.axes.clear()
-        self.axes.set_aspect('auto')
-        fig = plt.figure(figsize=(4.5, 3.375))
+        if self.fig is None:
+            self.fig = plt.figure(figsize=(4.5, 3.375))
         num_rows = 2
         num_cols = 3
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2), colspan=num_cols)
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+                               colspan=num_cols, fig=self.fig)
+        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows,
+                               colspan=num_cols, fig=self.fig)
 
         ax1.xaxis.labelpad = -1
         ax2.xaxis.labelpad = -1
@@ -701,10 +697,10 @@ class PaperFigures:
 
         ########################################
 
-        if ax1_xlim_lower > ax1_xlim_upper: exit(0)
+        if ax1_xlim_lower > ax1_xlim_upper:
+            exit(0)
 
         def convert_norm(val, a=0, b=1):
-            # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) / xlim_max )))  # original
             return int(self.data_points * ((b - a) * ((val - xlim_min) / (xlim_max - xlim_min)) + a))
 
         lower1_signal, upper1_signal = convert_norm(lower1), convert_norm(upper1)
@@ -715,11 +711,11 @@ class PaperFigures:
         lower2_precursor, upper2_precursor = convert_norm(lower2_blob), convert_norm(upper2_blob)
         lower3_precursor, upper3_precursor = convert_norm(lower3_blob), convert_norm(upper3_blob)
 
-        color_gen = "#73B741" # gr #73B741 dg #8C8E8D" # dg "#80BE53"
+        color_gen = "#73B741"  # gr #73B741 dg #8C8E8D" # dg "#80BE53"
         color_gen1 = "#F77D6A"
         color_precursors = "#CD331B"
-        color_shockwave = "#B896B0" # cy 3EB8A1
-        color_equilib = "#3775B2" #B79549
+        color_shockwave = "#B896B0"  # cy 3EB8A1
+        color_equilib = "#3775B2"  # B79549
         # 37782c, 64bb6a, 9fd983
         ax1.plot(self.time_data[:],
                  self.amplitude_data[:, spin_site], ls='-', lw=0.75,
@@ -758,34 +754,34 @@ class PaperFigures:
             axes_props2 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{color_shockwave}", 'lw': 1.0}
             axes_props3 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{color_equilib}", 'lw': 1.0}
 
-            #ax1.text(0.95, 0.9, f"(b)",
-            #         va='center', ha='center', fontsize=smaller_size, transform=ax1.transAxes)
+            # ax1.text(0.95, 0.9, f"(b)",
+            #         va='center', ha='center', fontsize=self.smaller_size, transform=ax1.transAxes)
             #
-            #ax2.text(0.05, 0.9, f"(c)",
-            #         va='center', ha='center', fontsize=smaller_size,
+            # ax2.text(0.05, 0.9, f"(c)",
+            #         va='center', ha='center', fontsize=self.smaller_size,
             #         transform=ax2.transAxes)
 
             pre_text_lhs, pre_text_rhs = lower1, upper1
-            shock_text_lhs, shock_text_rhs = (lower2), (upper2)
-            equib_text_lhs, equib_text_rhs = (lower3), (upper3)
+            shock_text_lhs, shock_text_rhs = lower2, upper2
+            equil_text_lhs, equil_text_rhs = lower3, upper3
 
             ax1.annotate('', xy=(pre_text_lhs, line_height), xytext=(pre_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props1, fontsize=tiny_size)
+                         va='center', ha='center', arrowprops=axes_props1, fontsize=self.tiny_size)
             ax1.annotate('', xy=(shock_text_lhs, line_height), xytext=(shock_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props2, fontsize=tiny_size)
-            ax1.annotate('', xy=(equib_text_lhs, line_height), xytext=(equib_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props3, fontsize=tiny_size)
+                         va='center', ha='center', arrowprops=axes_props2, fontsize=self.tiny_size)
+            ax1.annotate('', xy=(equil_text_lhs, line_height), xytext=(equil_text_rhs, line_height),
+                         va='center', ha='center', arrowprops=axes_props3, fontsize=self.tiny_size)
             ax1.text((pre_text_lhs + pre_text_rhs) / 2, text_height, 'Precursors', ha='center', va='bottom',
-                     fontsize=tiny_size)
+                     fontsize=self.tiny_size)
             ax1.text((shock_text_lhs + shock_text_rhs) / 2, text_height, 'Shockwave', ha='center', va='bottom',
-                     fontsize=tiny_size)
-            ax1.text((equib_text_lhs + equib_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
-                     fontsize=tiny_size)
+                     fontsize=self.tiny_size)
+            ax1.text((equil_text_lhs + equil_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
+                     fontsize=self.tiny_size)
 
         # Use these for paper publication figures
         # ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
         #         verticalalignment='center',
-        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=smaller_size)
+        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=self.smaller_size)
         # ax1.text(0.04, 0.1, f"(a) 15 GHz", verticalalignment='center', horizontalalignment='left',
         #               transform=ax1.transAxes, fontsize=6)
 
@@ -825,11 +821,11 @@ class PaperFigures:
                                 "color": "black", 'lw': 0.8}
 
             ax1_inset.annotate('P1', xy=(1.85, -6e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=tiny_size)
+                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
             ax1_inset.annotate('P2', xy=(1.45, 6e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props2, fontsize=tiny_size)
+                               arrowprops=arrow_ax1_props2, fontsize=self.tiny_size)
             ax1_inset.annotate('P3', xy=(1.15, -3e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=tiny_size)
+                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
 
             # Remove tick labels
             ax1_inset.set_xticks([])
@@ -844,9 +840,10 @@ class PaperFigures:
             # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
 
             # Add box to indicate the region which is being zoomed into on the main figure
-            #ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
+            # ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
             #                        zorder=1)
-            rect = matplotlib.patches.Rectangle((0.7, -6e-4), 1.91, 1.2e-3, lw=1, edgecolor='black', facecolor='#f9f2e9')
+            rect = mpl.patches.Rectangle((0.7, -6e-4), 1.91, 1.2e-3, lw=1, edgecolor='black',
+                                         facecolor='#f9f2e9')
             ax1.add_patch(rect)
         elif add_zoomed_region is False:
             for spine in ['top', 'bottom', 'left', 'right']:
@@ -858,17 +855,15 @@ class PaperFigures:
             else:
                 exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
                                  f"{self.exchange_max} [T]"
-            textstr = f"H$_{{0}}$ = {self.static_field} [T] | " \
-                      f"H$_{{D1}}$ = {self.driving_field1:2.2e} [T] | " \
-                      f"H$_{{D2}}$ = {self.driving_field2:2.2e}[T] \n" \
-                      f"f = {self.driving_freq} [GHz] |" \
-                      f"{exchangeString} | N = {self.chain_spins} | " + r"$\alpha$" + \
-                      f" = {self.gilbert_factor: 2.2e}"
+            text_string = ((f"H$_{{0}}$ = {self.static_field} [T] | H$_{{D1}}$ = {self.driving_field1: 2.2e} [T] | "
+                           f"H$_{{D2}}$ = {self.driving_field2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
+                           f"{exchangeString} | N = {self.chain_spins} | ") + r"$\alpha$" +
+                           f" = {self.gilbert_factor: 2.2e}")
 
             props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
 
             # place a text box in upper left in axes coords
-            ax1.text(0.35, -0.22, textstr, transform=ax1.transAxes, fontsize=6,
+            ax1.text(0.35, -0.22, text_string, transform=ax1.transAxes, fontsize=6,
                      verticalalignment='top', bbox=props, ha='center', va='center')
             ax1.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
                      transform=ax1.transAxes)
@@ -895,8 +890,9 @@ class PaperFigures:
         frequencies_eq, fourier_transform_eq = self._fft_data(
             self.amplitude_data[lower3_signal:convert_norm(xlim_max), spin_site])
 
-        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color=f"{color_precursors}",
-                 markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.5)
+        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1,
+                 color=f"{color_precursors}", markerfacecolor='black', markeredgecolor='black',
+                 label="Precursors", zorder=1.5)
         ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color=f'{color_shockwave}',
                  markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
         ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color=f'{color_equilib}',
@@ -919,13 +915,13 @@ class PaperFigures:
 
             arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
             ax2.annotate('P1', xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=smaller_size)
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
             ax2.annotate('P2', xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=smaller_size)
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
             ax2.annotate('P3', xy=(78.29, 1.25e0), xytext=(83.9, 7.5), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=smaller_size)
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
 
-        ax2.legend(ncol=1, loc='upper right', fontsize=tiny_size, frameon=False, fancybox=True, facecolor=None,
+        ax2.legend(ncol=1, loc='upper right', fontsize=self.tiny_size, frameon=False, fancybox=True, facecolor=None,
                    edgecolor=None,
                    bbox_to_anchor=[0.99, 0.975], bbox_transform=ax2.transAxes)
 
@@ -942,49 +938,35 @@ class PaperFigures:
             ax.set_axisbelow(False)
             ax.set_facecolor('white')
 
-        fig.subplots_adjust(wspace=1, hspace=0.35)
+        self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
-        if False:
+        if interactive_plot:
             # For interactive plots
-            def mouse_event(event):
-                print('x: {} and y: {}'.format(event.xdata, event.ydata))
+            def mouse_event(event: Any):
+                print(f'x: {event.xdata} and y: {event.ydata}')
 
-            fig.canvas.mpl_connect('button_press_event', mouse_event)
-            fig.tight_layout()  # has to be here
+            self.fig.canvas.mpl_connect('button_press_event', mouse_event)
+            self.fig.tight_layout()  # has to be here
             plt.show()
         else:
-            fig.savefig(f"{self.output_filepath}_site{spin_site}2.eps", bbox_inches="tight")
-    def create_time_variation2(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                               basic_annotations=False,
-                               add_zoomed_region=False, add_info_box=False, add_coloured_regions=False):
+            self.fig.savefig(f"{self.output_filepath}_site{spin_site}2.eps", bbox_inches="tight")
+
+    def create_time_variation2(self, use_inset=False, interactive_plot=False):
         """
         Plot the magnetisation of a site against time.
 
         One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
 
-        :param annotate_precursors: Add arrows to denote precursors.
-        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
-        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
-        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
-        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
-        :param int spin_site: The number of the spin site to be plotted.
-
         :return: Saves a .png image to the designated output folder.
         """
-        medium_size = 14
-        small_size = 11
-        large_size = 20
-        smaller_size = 10
-        tiny_size = 8
-        mini_size = 7
 
-        self.axes.clear()
-        self.axes.set_aspect('auto')
-        fig = plt.figure(figsize=(4.5, 3.375))
+        if self.fig is None:
+            self.fig = plt.figure(figsize=(4.5, 3.375))
         num_rows = 2
         num_cols = 3
 
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2), colspan=num_cols)
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+                               colspan=num_cols, fig=self.fig)
 
         SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
         DURATION = int(40)  # Nanoseconds
@@ -1034,28 +1016,29 @@ class PaperFigures:
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
 
             if ax == ax1_inset:
-                ax.set_xlabel('Time (ns)', fontsize=tiny_size)
+                ax.set_xlabel('Time (ns)', fontsize=self.tiny_size)
                 ax.yaxis.tick_left()
                 ax.yaxis.set_label_position("left")
-                ax.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=tiny_size, rotation=90, labelpad=20)
+                ax.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=self.tiny_size, rotation=90, labelpad=20)
                 ax.yaxis.set_label_coords(-.2, 1.15)
                 ax.xaxis.labelpad = -1
 
             if ax == ax1_inset2:
                 ax.tick_params(axis='x', which='both', labelbottom=False)
-            ax.tick_params(axis='both', labelsize=mini_size)
+            ax.tick_params(axis='both', labelsize=self.mini_size)
 
             # ax1_inset.patch.set_color("#f9f2e9")
 
             for spine in ["top", "bottom", "left", "right"]:
                 ax.spines[spine].set_visible(True)
 
-            self._tick_setter(ax, 1.0, 0.5, 1, 0.5, yaxis_ML=True, is_fft_plot=False, yaxis_num_decimals=1,
+            self._tick_setter(ax, 1.0, 0.5, 1, 0.5, yaxis_multi_loc=True, is_fft_plot=False, yaxis_num_decimals=1,
                               yscale_type='p')
 
         ########################################
 
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
+        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
+                               rowspan=num_rows, colspan=num_cols, fig=self.fig)
 
         # ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
         external_field, exchange_field = 0.1, 132.5
@@ -1077,7 +1060,8 @@ class PaperFigures:
                  color='red', lw=1., alpha=0.4, ls='--', label=f'Dataset 1')
 
         # These!!
-        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5, c='red', label='paper')
+        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+        #             s=0.5, c='red', label='paper')
         # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
         ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
@@ -1092,41 +1076,41 @@ class PaperFigures:
 
         ax2.text(0.997, -0.13, r"$\mathrm{\dfrac{\pi}{a}}$",
                  verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes,
-                 fontsize=smaller_size)
+                 fontsize=self.smaller_size)
 
-        ax2.text(0.02, 0.88, r"$\mathcal{III}$",
-                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=smaller_size)
-        ax2.text(0.02, 0.5, r"$\mathcal{II}$",
-                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=smaller_size)
-        ax2.text(0.02, 0.12, r"$\mathcal{I}$",
-                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=smaller_size)
+        ax2.text(0.02, 0.88, r"$\mathcal{III}$", verticalalignment='center', horizontalalignment='left',
+                 transform=ax2.transAxes, fontsize=self.smaller_size)
+        ax2.text(0.02, 0.5, r"$\mathcal{II}$", verticalalignment='center', horizontalalignment='left',
+                 transform=ax2.transAxes, fontsize=self.smaller_size)
+        ax2.text(0.02, 0.12, r"$\mathcal{I}$", verticalalignment='center', horizontalalignment='left',
+                 transform=ax2.transAxes, fontsize=self.smaller_size)
 
-        ax2.text(0.91, 0.82, f"Decreasing",
-                 verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=tiny_size)
-        ax2.text(0.60, 0.425, f"Constant",
-                 verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=tiny_size)
-        ax2.text(0.41, 0.12, f"Increasing",
-                 verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=tiny_size)
+        ax2.text(0.91, 0.82, f"Decreasing", verticalalignment='center', horizontalalignment='center',
+                 transform=ax2.transAxes, fontsize=self.tiny_size)
+        ax2.text(0.60, 0.425, f"Constant", verticalalignment='center', horizontalalignment='center',
+                 transform=ax2.transAxes, fontsize=self.tiny_size)
+        ax2.text(0.41, 0.12, f"Increasing", verticalalignment='center', horizontalalignment='center',
+                 transform=ax2.transAxes, fontsize=self.tiny_size)
 
         arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.075", "color": "black"}
         arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
         arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.075", "color": "black"}
         ax2.annotate('', xy=(1.665, 2.961), xytext=(1.147, 1.027), va='center', ha='center',
-                     arrowprops=arrow_ax2_props1, fontsize=tiny_size, transform=ax2.transAxes)
+                     arrowprops=arrow_ax2_props1, fontsize=self.tiny_size, transform=ax2.transAxes)
         ax2.annotate('', xy=(3.058, 9.406), xytext=(2.154, 5.098), va='center', ha='center',
-                     arrowprops=arrow_ax2_props2, fontsize=tiny_size, transform=ax2.transAxes)
+                     arrowprops=arrow_ax2_props2, fontsize=self.tiny_size, transform=ax2.transAxes)
         ax2.annotate('', xy=(4.155, 13.213), xytext=(3.553, 11.342), va='center', ha='center',
-                     arrowprops=arrow_ax2_props3, fontsize=tiny_size, transform=ax2.transAxes)
+                     arrowprops=arrow_ax2_props3, fontsize=self.tiny_size, transform=ax2.transAxes)
 
         ########################################
-        if False:
+        if use_inset:
             ax2_inset = inset_axes(ax2, width=1.9, height=0.8, loc="lower right", bbox_to_anchor=[0.99, 0.02],
                                    bbox_transform=ax2.transAxes)
             D_b = 5.3e-17
             a1 = lattice_constant
             a2 = np.sqrt(D_b / 132.5)
 
-            j_to_meV = 6.24150934190e21
+            # j_to_meV = 6.24150934190e21
             num_spins_array1 = np.arange(0, 5000, 1)
             num_spins_array2 = np.arange(0, 15811, 1)
             wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
@@ -1142,14 +1126,14 @@ class PaperFigures:
                            label='$a=0.63$ nm',
                            zorder=1.2)
 
-            ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=tiny_size)
+            ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=self.tiny_size)
             ax2_inset.set_xlim(0, 2)
             ax2_inset.set_ylim(0, 10)
             ax2_inset.xaxis.tick_top()
             ax2_inset.xaxis.set_label_position("top")
             ax2_inset.yaxis.set_label_position("left")
-            ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=tiny_size, rotation=90, labelpad=20)
-            ax2_inset.tick_params(axis='both', labelsize=tiny_size)
+            ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=self.tiny_size, rotation=90, labelpad=20)
+            ax2_inset.tick_params(axis='both', labelsize=self.tiny_size)
             ax2.margins(0)
 
             ax2_inset.patch.set_color("#f9f2e9")
@@ -1158,16 +1142,15 @@ class PaperFigures:
 
             # self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
             ax2_inset.ticklabel_format(axis='y', style='plain')
-            ax2_inset.legend(fontsize=tiny_size, frameon=False)
+            ax2_inset.legend(fontsize=self.tiny_size, frameon=False)
 
         ########################################
 
-        ax1.text(0.025, 0.88, f"(a)",
-                 verticalalignment='center', horizontalalignment='left', transform=ax1.transAxes, fontsize=smaller_size)
+        ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
+                 transform=ax1.transAxes, fontsize=self.smaller_size)
 
-        ax2.text(0.975, 0.12, f"(b)",
-                 verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes,
-                 fontsize=smaller_size)
+        ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+                 transform=ax2.transAxes, fontsize=self.smaller_size)
 
         for ax in [ax1, ax2]:
 
@@ -1181,51 +1164,36 @@ class PaperFigures:
             if ax == ax1 or ax == ax2:
                 ax.set_facecolor("white")
 
-        fig.subplots_adjust(wspace=1, hspace=0.35)
+        self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
-        if False:
+        if interactive_plot:
             # For interactive plots
-            def mouse_event(event):
-                print('x: {} and y: {}'.format(event.xdata, event.ydata))
+            def mouse_event(event: Any):
+                print(f'x: {event.xdata} and y: {event.ydata}')
 
-            fig.canvas.mpl_connect('button_press_event', mouse_event)
-            fig.tight_layout()  # has to be here
+            self.fig.canvas.mpl_connect('button_press_event', mouse_event)
+            self.fig.tight_layout()  # has to be here
             plt.show()
         else:
-            fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
+            self.fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
 
-    def create_time_variation3(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                              basic_annotations=False,
-                              add_zoomed_region=False, add_info_box=False, add_coloured_regions=False):
+    def create_time_variation3(self, use_inset=False, interactive_plot=False):
         """
         Plot the magnetisation of a site against time.
 
         One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
 
-        :param annotate_precursors: Add arrows to denote precursors.
-        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
-        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
-        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
-        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
-        :param int spin_site: The number of the spin site to be plotted.
-
         :return: Saves a .png image to the designated output folder.
         """
 
-        medium_size = 14
-        small_size = 11
-        large_size = 20
-        smaller_size = 10
-        tiny_size = 8
-        mini_size = 7
+        if self.fig is None:
+            self.fig = plt.figure(figsize=(4.5, 3.375))
 
-        self.axes.clear()
-        self.axes.set_aspect('auto')
-        fig = plt.figure(figsize=(4.5/2, 3.375))
         num_rows = 2
         num_cols = 3
 
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2), colspan=num_cols)
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+                               colspan=num_cols, fig=self.fig)
 
         SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
         DURATION = int(40)  # Nanoseconds
@@ -1248,39 +1216,37 @@ class PaperFigures:
         y1f, y2f = rfft(y1), rfft(y2)
         x1f, x2f = rfftfreq(n1, 1 / SAMPLE_RATE), rfftfreq(n2, 1 / SAMPLE_RATE)
 
-        #ax1.plot(x1f, np.abs(y1f), marker='', lw=2.0, color='#0289F7', markerfacecolor='black', markeredgecolor='black',
-        #         label="1", zorder=1.2)
+        # ax1.plot(x1f, np.abs(y1f), marker='', lw=2.0, color='#0289F7', markerfacecolor='black',
+        # markeredgecolor='black', label="1", zorder=1.2)
         ax1.plot(x2f, np.abs(y2f), marker='', lw=1.5, ls='-', color='#64bb6a', markerfacecolor='black',
                  markeredgecolor='black', label="0", zorder=1.3)
 
         ax1.set(xlim=(5.001, 24.999), ylim=(1e-13, 1e4),
                 xlabel="Frequency (GHz)", ylabel="Amplitude\n(arb. units)", yscale='log')
 
-        #ax1.plot(x1, y1, lw=2, color='#0289F7', zorder=1.2)
-        #ax1.plot(x2, y2, lw=2, ls='-', color='#64bb6a', zorder=1.1)
-        #ax1.set(xlim=(0, 2), ylim=(-1, 1),
-        #        xlabel="Time (ns)", ylabel="Amplitude\n(arb. units)")
-        #self._tick_setter(ax1, 1.0, 0.25, 3, 2, is_fft_plot=False, yaxis_num_decimals=1, yscale_type='p')
-
+        # ax1.plot(x1, y1, lw=2, color='#0289F7', zorder=1.2)
+        # ax1.plot(x2, y2, lw=2, ls='-', color='#64bb6a', zorder=1.1)
+        # ax1.set(xlim=(0, 2), ylim=(-1, 1),
+        #         xlabel="Time (ns)", ylabel="Amplitude\n(arb. units)")
+        # self._tick_setter(ax1, 1.0, 0.25, 3, 2, is_fft_plot=False, yaxis_num_decimals=1, yscale_type='p')
 
         ax1.xaxis.labelpad = -2
         ax1.yaxis.labelpad = -0
         self._tick_setter(ax1, 5, 1, 4, 4, is_fft_plot=True)
 
-
         ########################################
-        if False:
+        if use_inset:
             ax1_inset = inset_axes(ax1, width=1.3, height=0.72, loc="upper right", bbox_to_anchor=[0.995, 1.175],
                                    bbox_transform=ax1.transAxes)
             ax1_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1.2)
             ax1_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
 
             ax1_inset.set(xlim=[0, 2], ylim=[-1, 1])
-            ax1_inset.set_xlabel('Time (ns)', fontsize=tiny_size)
+            ax1_inset.set_xlabel('Time (ns)', fontsize=self.tiny_size)
             ax1_inset.yaxis.tick_left()
             ax1_inset.yaxis.set_label_position("left")
-            ax1_inset.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=tiny_size, rotation=90, labelpad=20)
-            ax1_inset.tick_params(axis='both', labelsize=mini_size)
+            ax1_inset.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=self.tiny_size, rotation=90, labelpad=20)
+            ax1_inset.tick_params(axis='both', labelsize=self.mini_size)
 
             ax1_inset.patch.set_color("#f9f2e9")
             ax1_inset.yaxis.labelpad = 0
@@ -1290,7 +1256,8 @@ class PaperFigures:
 
         ########################################
 
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0), rowspan=num_rows, colspan=num_cols)
+        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
+                               rowspan=num_rows, colspan=num_cols, fig=self.fig)
 
         # ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
         external_field, exchange_field = 0.1, 132.5
@@ -1312,7 +1279,8 @@ class PaperFigures:
                  color='red', alpha=0.4, ls='-', label=f'Dataset 1')
 
         # These!!
-        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5, c='red', label='paper')
+        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5,
+        # c='red', label='paper')
         # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
         ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', xlim=[0, 2], ylim=[0, 5])  # [0, 15.4]
@@ -1320,48 +1288,49 @@ class PaperFigures:
                           yscale_type='p')
         ax2.grid(False)
 
-        # ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.31
+        # ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9) # xmax=0.31
         # ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
         ax2.margins(0)
         ax2.xaxis.labelpad = -2
 
         # ax2.text(0.997, -0.13, r"$\mathrm{\dfrac{\pi}{a}}$",
         #          verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes,
-        #          fontsize=smaller_size)
+        #          fontsize=self.smaller_size)
 
-        # ax2.text(0.02, 0.88, r"$\mathcal{III}$",
-        #          verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=smaller_size)
-        # ax2.text(0.02, 0.5, r"$\mathcal{II}$",
-        #          verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=smaller_size)
-        # ax2.text(0.02, 0.12, r"$\mathcal{I}$",
-        #          verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=smaller_size)
+        # ax2.text(0.02, 0.88, r"$\mathcal{III}$", verticalalignment='center', horizontalalignment='left',
+        #          transform=ax2.transAxes, fontsize=self.smaller_size)
+        # ax2.text(0.02, 0.5, r"$\mathcal{II}$", verticalalignment='center', horizontalalignment='left',
+        #          transform=ax2.transAxes, fontsize=self.smaller_size)
+        # ax2.text(0.02, 0.12, r"$\mathcal{I}$", verticalalignment='center', horizontalalignment='left',
+        #          transform=ax2.transAxes, fontsize=self.smaller_size)
 #
-        # ax2.text(0.91, 0.82, f"Decreasing",
-        #          verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=tiny_size)
-        # ax2.text(0.60, 0.425, f"Linear",
-        #          verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=tiny_size)
-        # ax2.text(0.41, 0.12, f"Increasing",
-        #          verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes, fontsize=tiny_size)
+        # ax2.text(0.91, 0.82, f"Decreasing", verticalalignment='center', horizontalalignment='center',
+        #          transform=ax2.transAxes, fontsize=self.tiny_size)
+        # ax2.text(0.60, 0.425, f"Linear", verticalalignment='center', horizontalalignment='center',
+        #          transform=ax2.transAxes, fontsize=self.tiny_size)
+        # ax2.text(0.41, 0.12, f"Increasing", verticalalignment='center', horizontalalignment='center',
+        #          transform=ax2.transAxes, fontsize=self.tiny_size)
 
         # arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.075", "color": "black"}
         # arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
         # arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.075", "color": "black"}
         # ax2.annotate('', xy=(1.665, 2.961), xytext=(1.147, 1.027), va='center', ha='center',
-        #              arrowprops=arrow_ax2_props1, fontsize=tiny_size, transform=ax2.transAxes)
+        #              arrowprops=arrow_ax2_props1, fontsize=self.tiny_size, transform=ax2.transAxes)
         # ax2.annotate('', xy=(3.058, 9.406), xytext=(2.154, 5.098), va='center', ha='center',
-        #              arrowprops=arrow_ax2_props2, fontsize=tiny_size, transform=ax2.transAxes)
+        #              arrowprops=arrow_ax2_props2, fontsize=self.tiny_size, transform=ax2.transAxes)
         # ax2.annotate('', xy=(4.155, 13.213), xytext=(3.553, 11.342), va='center', ha='center',
-        #              arrowprops=arrow_ax2_props3, fontsize=tiny_size, transform=ax2.transAxes)
+        #              arrowprops=arrow_ax2_props3, fontsize=self.tiny_size, transform=ax2.transAxes)
 
         ########################################
-        if False:
+        early_exit = True
+        if early_exit is False:
             ax2_inset = inset_axes(ax2, width=1.9, height=0.8, loc="lower right", bbox_to_anchor=[0.99, 0.02],
                                    bbox_transform=ax2.transAxes)
             D_b = 5.3e-17
             a1 = lattice_constant
             a2 = np.sqrt(D_b / 132.5)
 
-            j_to_meV = 6.24150934190e21
+            # j_to_meV = 6.24150934190e21
             num_spins_array1 = np.arange(0, 5000, 1)
             num_spins_array2 = np.arange(0, 15811, 1)
             wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
@@ -1377,14 +1346,14 @@ class PaperFigures:
                            label='$a=0.63$ nm',
                            zorder=1.2)
 
-            ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=tiny_size)
+            ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=self.tiny_size)
             ax2_inset.set_xlim(0, 2)
             ax2_inset.set_ylim(0, 10)
             ax2_inset.xaxis.tick_top()
             ax2_inset.xaxis.set_label_position("top")
             ax2_inset.yaxis.set_label_position("left")
-            ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=tiny_size, rotation=90, labelpad=20)
-            ax2_inset.tick_params(axis='both', labelsize=tiny_size)
+            ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=self.tiny_size, rotation=90, labelpad=20)
+            ax2_inset.tick_params(axis='both', labelsize=self.tiny_size)
             ax2.margins(0)
 
             ax2_inset.patch.set_color("#f9f2e9")
@@ -1393,16 +1362,16 @@ class PaperFigures:
 
             # self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
             ax2_inset.ticklabel_format(axis='y', style='plain')
-            ax2_inset.legend(fontsize=tiny_size, frameon=False)
+            ax2_inset.legend(fontsize=self.tiny_size, frameon=False)
 
         ########################################
 
-        #ax1.text(0.025, 0.88, f"(a)",
-        #         verticalalignment='center', horizontalalignment='left', transform=ax1.transAxes, fontsize=smaller_size)
+        # ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
+        #          transform=ax1.transAxes, fontsize=self.smaller_size)
 
-        #ax2.text(0.975, 0.12, f"(b)",
+        # ax2.text(0.975, 0.12, f"(b)",
         #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes,
-        #         fontsize=smaller_size)
+        #         fontsize=self.smaller_size)
 
         for ax in [ax1, ax2]:
 
@@ -1416,18 +1385,18 @@ class PaperFigures:
             if ax == ax1 or ax == ax2:
                 ax.set_facecolor("white")
 
-        fig.subplots_adjust(wspace=1, hspace=0.35)
+        self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
-        if False:
+        if interactive_plot:
             # For interactive plots
-            def mouse_event(event):
-                print('x: {} and y: {}'.format(event.xdata, event.ydata))
+            def mouse_event(event: Any):
+                print(f'x: {event.xdata} and y: {event.ydata}')
 
-            fig.canvas.mpl_connect('button_press_event', mouse_event)
-            fig.tight_layout()  # has to be here
+            self.fig.canvas.mpl_connect('button_press_event', mouse_event)
+            self.fig.tight_layout()  # has to be here
             plt.show()
         else:
-            fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
+            self.fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
 
     def plot_fft(self, spin_site, add_zoomed_region=False):
         """
@@ -1544,7 +1513,11 @@ class PaperFigures:
 
         ax2.set_axisbelow(False)
         fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
-        exit(0)
+
+        early_exit = True
+        if early_exit:
+            exit(0)
+
         ax = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
         SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
         DURATION = int(15)  # Nanoseconds
@@ -1651,7 +1624,7 @@ class PaperFigures:
 
         return frequencies, fourier_transform
 
-    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_ML=False, is_fft_plot=False,
+    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
                      xaxis_num_decimals=1, yaxis_num_decimals=1, yscale_type='f'):
 
         if ax is None:
@@ -1675,7 +1648,7 @@ class PaperFigures:
                          major_formatter=ticker.FormatStrFormatter(f"%.{yaxis_num_decimals}f"),
                          minor_locator=ticker.AutoMinorLocator(y_minor))
 
-            if yaxis_ML:
+            if yaxis_multi_loc:
                 ax.yaxis.set(major_locator=ticker.MultipleLocator(y_major),
                              major_formatter=ticker.FormatStrFormatter(f"%.{yaxis_num_decimals}f"),
                              minor_locator=ticker.MultipleLocator(y_minor))
@@ -1701,28 +1674,20 @@ class PaperFigures:
 
         return ax
 
-    def ricardo_paper(self):
+    def ricardo_paper(self, interactive_plot=False):
         """
         Plot the magnetisation of a site against time.
 
         One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
 
-        :param annotate_precursors: Add arrows to denote precursors.
-        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
-        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
-        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
-        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
-        :param int spin_site: The number of the spin site to be plotted.
-
         :return: Saves a .png image to the designated output folder.
         """
-        smaller_size = 10
-        tiny_size = 8
 
         ########################################
         for val in [4, 5, 6]:
             # filename = f"D:/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{val}.csv"
-            filename = f'/Users/cameronmceleney/CLionProjects/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{val}.csv'
+            filename = (f'/Users/cameronmceleney/CLionProjects/Data/2023-03-08/Simulation_Data/'
+                        f'Ricardo Data/dataFig{val}.csv')
             dataset = np.loadtxt(filename, skiprows=1, delimiter=',', dtype='float')
 
             fig = plt.figure(figsize=(3.375, 3.375 / 2))
@@ -1745,7 +1710,8 @@ class PaperFigures:
 
                 ax.yaxis.labelpad = 0
 
-                # ax.text(0.925, 0.1, '(a)', va='center', ha='center', transform=ax.transAxes, fontsize=smaller_size)
+                # ax.text(0.925, 0.1, '(a)', va='center', ha='center',
+                #         transform=ax.transAxes, fontsize=self.smaller_size)
 
                 self._tick_setter(ax, 2e3, 1e3, 4, 2,
                                   xaxis_num_decimals=0, yaxis_num_decimals=0, yscale_type='p')
@@ -1774,14 +1740,15 @@ class PaperFigures:
                     ax.set(xlabel=r"Angular Frequency (1)", ylabel="Avg. Velocity (10$^{-3}$)",
                            xlim=[0.095, 0.355])
 
-                    # ax.text(0.075, 0.1, '(b)', va='center', ha='center', transform=ax.transAxes, fontsize=smaller_size)
+                    # ax.text(0.075, 0.1, '(b)', va='center', ha='center', transform=ax.transAxes,
+                    #         fontsize=self.smaller_size)
 
                     self._tick_setter(ax, 0.1, 0.05, 3, 2,
                                       xaxis_num_decimals=1, yaxis_num_decimals=0, yscale_type='')
 
                     # ax.text(-0.02, 1.05, r'$\times \mathcal{10}^{{\mathcal{' + str(int(-3)) + r'}}}$',
                     #        verticalalignment='center',
-                    #        horizontalalignment='center', transform=ax.transAxes, fontsize=smaller_size)
+                    #        horizontalalignment='center', transform=ax.transAxes, fontsize=self.smaller_size)
 
                 if val == 6:
                     leg_loc = "upper left"
@@ -1792,11 +1759,12 @@ class PaperFigures:
 
                     self._tick_setter(ax, 0.1, 0.025, 4, 2,
                                       xaxis_num_decimals=1, yaxis_num_decimals=0, yscale_type='')
-                    # ax.text(0.925, 0.1, '(c)', va='center', ha='center', transform=ax.transAxes, fontsize=smaller_size)
+                    # ax.text(0.925, 0.1, '(c)', va='center', ha='center', transform=ax.transAxes,
+                    #         fontsize=self.smaller_size)
 
                     # ax.text(-0.02, 1.05, r'$\times \mathcal{10}^{{\mathcal{' + str(int(-3)) + r'}}}$',
                     #        verticalalignment='center',
-                    #        horizontalalignment='right', transform=ax.transAxes, fontsize=smaller_size)
+                    #        horizontalalignment='right', transform=ax.transAxes, fontsize=self.smaller_size)
 
                 ax.plot(xaxis_data, yaxis_data2, ls='-', lw=ax_lw, color=colour2, alpha=0.5,
                         zorder=1.01)
@@ -1805,7 +1773,7 @@ class PaperFigures:
 
                 ax.legend(ncol=1, loc=leg_loc, handletextpad=-0.25,
                           frameon=False, fancybox=False, facecolor='None', edgecolor='black',
-                          fontsize=tiny_size, bbox_to_anchor=leg_pos, bbox_transform=ax.transAxes).set_zorder(4)
+                          fontsize=self.tiny_size, bbox_to_anchor=leg_pos, bbox_transform=ax.transAxes).set_zorder(4)
 
             for axis in [ax]:
                 axis.xaxis.grid(False)
@@ -1820,13 +1788,13 @@ class PaperFigures:
                 axis.set_axisbelow(False)
                 axis.set_facecolor('white')
 
-            if False:
+            if interactive_plot:
                 # For interactive plots
-                def mouse_event(event):
-                    print('x: {} and y: {}'.format(event.xdata, event.ydata))
+                def mouse_event(event: Any):
+                    print(f'x: {event.xdata} and y: {event.ydata}')
 
-                fig.canvas.mpl_connect('button_press_event', mouse_event)
-                fig.tight_layout()  # has to be here
+                self.fig.canvas.mpl_connect('button_press_event', mouse_event)
+                self.fig.tight_layout()  # has to be here
                 plt.show()
             else:
                 fig.savefig(f"{self.output_filepath}_data{val}.png", bbox_inches="tight")
@@ -1861,6 +1829,7 @@ class Eigenmodes:
         :return: Single figure plot.
         """
         number_of_spins = self.mx_data[:, 0].size
+        early_exit = True
 
         # use_defaults is a testing flag to speed up the process of running sims.
         if use_defaults:
@@ -1888,21 +1857,21 @@ class Eigenmodes:
         x_axis_limits = range(0, number_of_spins, 1)
 
         # Find widths of each component of the driving regions.
-        g_ones = [1] * int(number_of_spins * width_ones)
-        g_zeros = [0] * int(number_of_spins * width_zeros)
+        g_ones = np.ones(int(number_of_spins * width_ones), dtype=int)
+        g_zeros = np.zeros(int(number_of_spins * width_zeros), dtype=int)
 
         # g is the driving field profile along the axis where the drive is applied. My simulations all have the
         # drive along the x-axis, hence the name 'gx'.
         gx_lhs = g_ones + g_zeros
         gx_rhs = g_zeros + g_ones
 
-        fourier_coefficents_lhs = []
-        fourier_coefficents_rhs = []
+        fourier_coefficents_lhs = np.empty([])
+        fourier_coefficents_rhs = np.empty([])
 
         for i in range(0, number_of_spins):
             # Select an eigenvector, and take the dot-product to return the coefficient of that particular mode.
-            fourier_coefficents_lhs.append(np.dot(gx_lhs, self.mx_data[:, i]))
-            fourier_coefficents_rhs.append(np.dot(gx_rhs, self.mx_data[:, i]))
+            fourier_coefficents_lhs = np.append(fourier_coefficents_lhs, np.dot(gx_lhs, self.mx_data[:, i]))
+            fourier_coefficents_rhs = np.append(fourier_coefficents_lhs, np.dot(gx_rhs, self.mx_data[:, i]))
 
         # Normalise the arrays of coefficients.
         fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
@@ -1921,7 +1890,9 @@ class Eigenmodes:
 
         np.savetxt("D:/Data/2023-03-06/Simulation_Data/T1115_Eigens/test.csv",
                    zip(x_axis_limits, np.abs(fourier_coefficents_lhs)))
-        exit(0)
+        if early_exit:
+            exit(0)
+
         # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
         ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) (GHz)', ylabel='Fourier coefficient',
                xlim=[lower, upper], yscale='log', ylim=[1e-4, 1e-2],
@@ -1958,7 +1929,7 @@ class Eigenmodes:
 
         # Select single mode to plot from imported data.
         mx_mode = self.mx_data[:, eigenmode] * -1
-        my_mode = self.my_data[:, eigenmode] * -1
+        # my_mode = self.my_data[:, eigenmode] * -1
 
         frequency = self.eigenvalues_data[eigenmode]  # Convert angular (frequency) eigenvalue to frequency [Hz].
 
@@ -1971,7 +1942,7 @@ class Eigenmodes:
         if has_endpoints:
             # 0-valued reflects the (P-1) and (N+1) end spins that act as fixed nodes for the system.
             mx_mode = np.append(np.append([0], mx_mode), [0])
-            my_mode = np.append(np.append([0], my_mode), [0])
+            # my_mode = np.append(np.append([0], my_mode), [0])
             number_of_spins += 2
 
         # Generate plot
@@ -2000,7 +1971,7 @@ class Eigenmodes:
         # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
         axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
                     frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                    title=f"Frequency (GHz)\n        {frequency:4.1f}\n     Component",
+                    title=f"Frequency (GHz)\n        {frequency: 4.1f}\n     Component",
                     fontsize=8, title_fontsize=8)
 
         axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
@@ -2028,8 +1999,8 @@ class Eigenmodes:
         ax = fig.add_subplot(1, 1, 1)
 
         if has_data_file:
-            freqs = np.loadtxt(
-                f"/Users/cameronmceleney/CLionProjects/Data/2023-02-15/Simulation_Data/T1606_Eigens/eigenvalues_formatted_T1606.csv")
+            freqs = np.loadtxt(f"/Users/cameronmceleney/CLionProjects/Data/2023-02-15/Simulation_Data/T1606_Eigens/"
+                               f"eigenvalues_formatted_T1606.csv")
             ax.scatter(np.arange(1, len(freqs) + 1, 1), freqs)
             ax.set(xlabel='Mode Number', ylabel="Frequency (GHz)")
             fig.tight_layout()
@@ -2088,14 +2059,13 @@ class Eigenmodes:
 
 
 # -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
-def three_panes(amplitude_data, key_data, list_of_spin_sites, filename, sites_to_compare=None):
+def three_panes(amplitude_data, key_data, filename, sites_to_compare=None):
     """
     Plots a graph
 
     :param Any amplitude_data: Array of magnitudes of the spin's magnetisation at each moment in time for each spin
                                site.
     :param dict key_data: All key simulation parameters imported from csv file.
-    :param list list_of_spin_sites: Spin sites that were simulated.
     :param list[list[int]] sites_to_compare: Optional. User-defined list of sites to plot.
     :param filename: data.
     """
@@ -2297,22 +2267,24 @@ def fft_only(amplitude_data, spin_site, simulation_params, filename):
     else:
         exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} (T) | J$_{{max}}$ = " \
                          f"{simulation_params['exchangeMaxVal']} (T)"
-    textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | " \
-              f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} (T) | " \
-              f"\nH$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}(T)" \
-              f" | {exchangeString} | N = {simulation_params['totalSpins']}"
+    text_string = (f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | "
+                   f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']: 2.2e} (T) |\n"
+                   f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']: 2.2e}(T) | {exchangeString} | "
+                   f"N = {simulation_params['totalSpins']}")
 
     props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
     # place a text box in upper left in axes coords
-    ax.text(0.5, -0.10, textstr, transform=ax.transAxes, fontsize=18,
+    ax.text(0.5, -0.10, text_string, transform=ax.transAxes, fontsize=18,
             verticalalignment='top', bbox=props, ha='center', va='center')
     fig.tight_layout()
+
     if interactive:
         # For interactive plots
-        def mouse_event(event):
-            print('x: {} and y: {}'.format(event.xdata, event.ydata))
+        def mouse_event(event: Any):
+            print(f'x: {event.xdata} and y: {event.ydata}')
 
         fig.canvas.mpl_connect('button_press_event', mouse_event)
+        fig.tight_layout()  # has to be here
         plt.show()
     else:
         fig.savefig(f"{filename}_ft_only_{spin_site}.png")
@@ -2424,7 +2396,8 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
     :return: The subplot information required to be plotted in the main figure environment."""
     frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
 
-    driving_freq_hz = simulation_params['drivingFreq'] / 1e9
+    # driving_freq_hz = simulation_params['drivingFreq'] / 1e9
+
     if ax is None:
         ax = plt.gca()
 
@@ -2447,15 +2420,15 @@ def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_pa
         else:
             exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} (T) | J$_{{max}}$ = " \
                              f"{simulation_params['exchangeMaxVal']} (T)"
-        textstr = f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | " \
-                  f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']:2.2e} (T) | " \
-                  f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']:2.2e}(T) \n" \
-                  f"{exchangeString} | N = {simulation_params['chainSpins']} | " + r"$\alpha$" + \
-                  f" = {simulation_params['gilbertFactor']: 2.2e}"
+        text_string = ((f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | "
+                       f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']: 2.2e} (T) | "
+                       f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']: 2.2e}(T) \n{exchangeString} | "
+                       f"N = {simulation_params['chainSpins']} | ") + r"$\alpha$" +
+                       f" = {simulation_params['gilbertFactor']: 2.2e}")
 
         props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
         # place a text box in upper left in axes coords
-        ax.text(0.5, -0.2, textstr, transform=ax.transAxes, fontsize=18,
+        ax.text(0.5, -0.2, text_string, transform=ax.transAxes, fontsize=18,
                 verticalalignment='top', bbox=props, ha='center', va='center')
         # By default, plots the natural frequency.
         # ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
@@ -2580,7 +2553,7 @@ def test_3d_plot(mx_data, my_data, mz_data, spin_site):
     x2 = mx_data[:, spin_site + 1]
     y2 = my_data[:, spin_site + 1]
     z2 = mz_data[:, spin_site + 1]
-    time = mx_data[:, 0]
+    # time = mx_data[:, 0]
 
     fig = plt.figure(figsize=(4, 4))
     ax = fig.add_subplot(111, projection='3d')
