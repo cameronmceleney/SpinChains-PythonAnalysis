@@ -217,7 +217,7 @@ class SystemSetup:
         """
 
         # Checks if a given string is in the format ####-##-## where # is a digit from 0-9
-        regex_pattern = re.compile('\d{4}-\d{2}-\d{2}')
+        regex_pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
 
         if not str_to_test:
             # Testing self.input_dir_name is the primary purpose of this function.
@@ -233,7 +233,7 @@ class SystemSetup:
             dir_accepted_answers = ['Y', 'N']
 
             dir_response = input(f"Your {str_code.upper()} directory ({str_to_test}) is not in the format ####-##-##\n"
-                                  "Was this intentional [Y/N]? ").upper()
+                                 f"Was this intentional [Y/N]? ").upper()
 
             while True:
                 if dir_response in dir_accepted_answers:
