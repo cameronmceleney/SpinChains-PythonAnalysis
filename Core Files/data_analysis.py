@@ -366,6 +366,11 @@ class PlotImportedData:
         self.fc = file_component
         self.fi = file_identifier
 
+        self.override_method = None
+        self.override_function = None
+        self.override_site = None
+        self.early_exit = False
+
         rc_params_update()
 
         self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
@@ -524,13 +529,23 @@ class PlotImportedData:
 
         return key_params, list_of_simulated_sites, sim_flags
 
-    def call_methods(self, input_only=False):
+    def call_methods(self, override_method=None, override_function=None, override_site=None, early_exit=False):
 
         lg.info(f"Invoking functions to plot data...")
-
         print('\n--------------------------------------------------------------------------------')
-        if input_only:
-            initials_of_method_to_call = input("Choose another function to use: ").upper()
+
+        if early_exit:
+            self.early_exit = early_exit
+        if override_function is not None:
+            self.override_function = override_function
+        if override_site is not None:
+            self.override_site = override_site
+
+        if override_method is not None:
+            # Allows the user to skip input dialogues, and call a specific function from a specific method.
+            self.override_method = override_method
+            initials_of_method_to_call = self.override_method.upper()
+
         else:
             print('''
             The plotting functions available are:
@@ -547,6 +562,11 @@ class PlotImportedData:
             print('--------------------------------------------------------------------------------\n')
 
             initials_of_method_to_call = input("Which function to use: ").upper()
+
+        if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
+            print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
+                  f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
+            print('--------------------------------------------------------------------------------')
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -696,7 +716,7 @@ class PlotImportedData:
         plt_rk.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         lg.info(f"Plotting CP complete!")
 
-    def _invoke_paper_figures(self, has_override=False, override_name="TV"):
+    def _invoke_paper_figures(self):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         lg.info(f"Plotting function selected: paper figure.")
 
@@ -704,13 +724,16 @@ class PlotImportedData:
                                         self.header_data_params, self.header_sim_flags, self.header_data_sites,
                                         self.full_output_path)
 
-        if has_override:
-            pf_selection = override_name.upper()
+        if self.override_function is not None:
+            pf_selection = self.override_function.upper()
+
         else:
             pf_selection = str(input("To return type 'BACK'. Which figure (PV [Position]/TV [Time]/GIF/FFT/RIC) "
                                      "should be created: ")).upper()
 
         pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK", "RIC"]
+        cont_plotting = True
+
         while True:
             if pf_selection in pf_keywords:
                 break
@@ -718,25 +741,36 @@ class PlotImportedData:
                 while pf_selection not in pf_keywords:
                     pf_selection = str(input("Invalid choice. Select  from [PV, TV, GIF, FFT, BACK]: ")).upper()
 
-        cont_plotting = True
         if pf_selection == pf_keywords[0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
+                if self.override_site is not None:
+                    rows_to_plot = [self.override_site]
+                else:
+                    rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
+
                 for row_num in rows_to_plot:
+
                     try:
                         row_num = int(row_num)
+
                     except ValueError:
                         if row_num.upper() == pf_keywords[4]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
+
                     else:
                         if row_num >= 0:
                             print(f"Generating plot for [#{row_num}]...")
+
                             lg.info(f"Generating PV plot for row [#{row_num}]")
                             paper_fig.create_position_variation(row_num)
                             lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+
+                            if self.early_exit:
+                                cont_plotting = False
+
                         else:
                             print("Exiting PF-PV plotting.")
                             lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
@@ -744,23 +778,35 @@ class PlotImportedData:
 
         elif pf_selection == pf_keywords[1]:
             while cont_plotting:
-                # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
+                if self.override_site is not None:
+                    sites_to_plot = [self.override_site]
+                else:
+                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
+                # Loops through user's inputs, ensuring that they are correct.
                 for target_site in sites_to_plot:
+
                     try:
                         target_site = int(target_site)
+
                     except ValueError:
                         if target_site.upper() == pf_keywords[4]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
+
                     else:
                         if target_site >= 0:
                             print(f"Generating plot for [#{target_site}]...")
-                            lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation3(target_site)
 
+                            lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
+                            paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=False, use_inset_1=True)
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
+
+                            if self.early_exit:
+                                cont_plotting = False
+
                         else:
                             print("Exiting PF-TV plotting.")
                             lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
@@ -774,15 +820,22 @@ class PlotImportedData:
         elif pf_selection == pf_keywords[3]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+                if self.override_site is not None:
+                    sites_to_plot = [self.override_site]
+                else:
+                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
                 for target_site in sites_to_plot:
+
                     try:
                         target_site = int(target_site)
+
                     except ValueError:
                         if target_site.upper() == pf_keywords[4]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
+
                     else:
                         if target_site >= 1:
                             print(f"Generating plot for [#{target_site}]...")
@@ -791,14 +844,18 @@ class PlotImportedData:
                             paper_fig.plot_fft(target_site - 1, add_zoomed_region=False)
                             lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
 
+                            if self.early_exit:
+                                cont_plotting = False
+
                             exit(0)
+
                         else:
                             print("Exiting PF-FFT plotting.")
                             lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
                             cont_plotting = False
 
         elif pf_selection == pf_keywords[4]:
-            self.call_methods(True)
+            self.call_methods()
 
         elif pf_selection == pf_keywords[5]:
             paper_fig.ricardo_paper()
