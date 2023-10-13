@@ -16,6 +16,7 @@ import glob as gl
 
 # My packages / Any header files
 import plots_for_rk_methods as plt_rk
+import plot_rk_methods_(legacy) as legacy
 
 """
     Description of what data_analysis does
@@ -35,38 +36,40 @@ class PlotEigenmodes:
     def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="eigenvalues", file_component="",
                  file_identifier="T"):
 
+        # Attribute assignment / Initialisation
         self.parent_dir_path = input_dir_path
         self.output_dir_path = output_dir_path
 
-        # Automatically constructs filename
         self.fd = file_descriptor
         self.fp = file_prefix
         self.fc = file_component
         self.fi = file_identifier
+
+        # Define file names and paths use to find the data
         self.child_dir_name = f"{self.fi}{self.fd}_Eigens"
         self.input_dir_path = f"{self.parent_dir_path}{self.child_dir_name}/"
         self.full_filename = f"{self.fp}{self.fc}_{self.fi}{self.fd}"
-
         self.full_output_path = f"{self.output_dir_path}{file_identifier}{file_descriptor}"
 
-        rc_params_update()
-
-        self._arrays_to_output = [0, 0, 0]  # Each array is initialised as none to remove garbage.
-        self.is_input_data_present = [False, False]
-        self.is_formatted_data_present = [False, False,
-                                          False]  # Tests if each filtered array is in the target directory.
-        self.is_input_dir_present = False
-
+        # Define all file names use for generating output names
         self.input_filenames = [f"eigenvalues_{self.fi}{self.fd}.csv",
                                 f"eigenvectors_{self.fi}{self.fd}.csv"]
 
-        # Arrays are inherently mutable, so there is no need to use @property decorator
         self.input_filename_descriptions = ["eigenvalues_data", "eigenvectors_data"]
         self.formatted_filename_descriptions = ["mx_data", "my_data", "eigenvalues_data"]
 
         self.formatted_filenames = [f"mx_formatted_{self.fi}{self.fd}.csv",
                                     f"my_formatted_{self.fi}{self.fd}.csv",
                                     f"eigenvalues_formatted_{self.fi}{self.fd}.csv"]
+
+        # Define array to later perform validity checks on the data
+        self._arrays_to_output = [np.array([]), np.array([]), np.array([])]  # np.array([]) instead of `None`; explicit
+        self.is_input_data_present = [False, False]
+        self.is_formatted_data_present = [False, False, False]
+        self.is_input_dir_present = False
+
+        # Invoke my customised parameters (for plots)
+        rc_params_update()
 
     def import_eigenmodes(self):
         # Containers to store key information about the returned arrays. Iterating through containers was felt to be
@@ -290,6 +293,9 @@ class PlotEigenmodes:
         print('--------------------------------------------------------------------------------')
 
         upper_limit_mode = self._arrays_to_output[0].size  # The largest mode which can be plotted for the given data.
+
+        # Test Code!
+
         previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
 
         # Take in first user input. Assume input is valid, until an error is raised.
@@ -732,7 +738,6 @@ class PlotImportedData:
                                      "should be created: ")).upper()
 
         pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK", "RIC"]
-        cont_plotting = True
 
         while True:
             if pf_selection in pf_keywords:
@@ -740,6 +745,8 @@ class PlotImportedData:
             else:
                 while pf_selection not in pf_keywords:
                     pf_selection = str(input("Invalid choice. Select  from [PV, TV, GIF, FFT, BACK]: ")).upper()
+
+        cont_plotting = True
 
         if pf_selection == pf_keywords[0]:
             while cont_plotting:
@@ -801,7 +808,8 @@ class PlotImportedData:
                             print(f"Generating plot for [#{target_site}]...")
 
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=False, use_inset_1=True)
+                            paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=False,
+                                                             use_inset_1=True)
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
@@ -846,8 +854,6 @@ class PlotImportedData:
 
                             if self.early_exit:
                                 cont_plotting = False
-
-                            exit(0)
 
                         else:
                             print("Exiting PF-FFT plotting.")
