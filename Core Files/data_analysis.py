@@ -16,7 +16,7 @@ import glob as gl
 
 # My packages / Any header files
 import plots_for_rk_methods as plt_rk
-import plot_rk_methods_(legacy) as legacy
+import plot_rk_methods_legacy as plt_rk_legacy
 
 """
     Description of what data_analysis does
@@ -628,8 +628,8 @@ class PlotImportedData:
         sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
 
         print("Generating plot...")
-        plt_rk.three_panes(self.m_spin_data[:, :], self.header_data_params,
-                           self.full_output_path, sites_to_compare)
+        plt_rk_legacy.three_panes(self.m_spin_data[:, :], self.header_data_params,
+                                  self.full_output_path, sites_to_compare)
         lg.info(f"Plotting 3P complete!")
 
     def _invoke_fs_functions(self):
@@ -649,10 +649,10 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
-                                               target_spin,
-                                               self.header_data_params,
-                                               self.full_output_path)
+                    plt_rk_legacy.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
+                                                      target_spin,
+                                                      self.header_data_params,
+                                                      self.full_output_path)
                     lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
@@ -684,9 +684,9 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
-                                    self.header_data_params,
-                                    self.full_output_path)
+                    plt_rk_legacy.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
+                                           self.header_data_params,
+                                           self.full_output_path)
                     # plt_rk.multi_fft_only(self.m_spin_data[:, target_spin_in_data],
                     #                      dataset2_m_spin_data[:, target_spin_in_data], target_spin,
                     #                      self.header_data_params,
@@ -719,7 +719,7 @@ class PlotImportedData:
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
         # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
-        plt_rk.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
+        plt_rk_legacy.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         lg.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self):
