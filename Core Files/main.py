@@ -47,7 +47,7 @@ def main():
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()
-        dataset2.plot_eigenmodes()  # only this line if raw files don't need imported or converted
+        dataset2.plot_eigenmodes()  # only use this line if raw files don't need imported or converted
 
     exit(0)
 
