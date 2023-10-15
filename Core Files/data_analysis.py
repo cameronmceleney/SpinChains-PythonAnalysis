@@ -897,21 +897,26 @@ def rc_params_update():
     t_min_w = t_maj_w / 2
 
     # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'axes.titlesize': medium_size, 'axes.labelsize': small_size, 'font.size': small_size,
-                         'legend.fontsize': small_size,
-                         'figure.titlesize': large_size,
-                         'font.family': 'arial',
-                         'xtick.labelsize': smaller_size, 'ytick.labelsize': smaller_size,
-                         'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
-                         "xtick.bottom": True, "ytick.left": True,
-                         'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
-                         'text.color': 'black',
+    plt.rcParams.update({'font.family': 'arial', 'font.size': small_size, 'font.weight': 'normal',
+
+                         'figure.titlesize': large_size, 'axes.titlesize': medium_size,
+                         'axes.labelsize': small_size, 'legend.fontsize': small_size,
+
+                         'text.color': 'black', 'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
+                         'figure.facecolor': 'white', 'axes.facecolor': 'white', 'savefig.facecolor': 'white',
+
                          'xtick.major.size': t_maj_s, 'xtick.major.width': t_maj_w,
                          'xtick.minor.size': t_min_s, 'xtick.minor.width': t_min_w,
                          'ytick.major.size': t_maj_s, 'ytick.major.width': t_maj_w,
                          'ytick.minor.size': t_min_s, 'ytick.minor.width': t_min_w,
+                         'xtick.labelsize': smaller_size, 'ytick.labelsize': smaller_size,
+
+                         'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
                          'xtick.direction': t_dir, 'ytick.direction': t_dir,
-                         'axes.spines.top': False, 'axes.spines.bottom': True, 'axes.spines.left': True,
-                         'axes.spines.right': False,
-                         'savefig.dpi': 1200, "figure.dpi": 100,
-                         'axes.facecolor': 'white', 'figure.facecolor': 'white', 'savefig.facecolor': 'white'})
+
+                         "xtick.bottom": True, "ytick.left": True,
+                         'axes.spines.top': True, 'axes.spines.bottom': True, 'axes.spines.left': True,
+                         'axes.spines.right': True,
+                         'axes.grid': False,
+
+                         'savefig.dpi': 1200, "figure.dpi": 100})
