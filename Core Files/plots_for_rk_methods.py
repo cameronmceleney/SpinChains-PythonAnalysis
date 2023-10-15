@@ -44,14 +44,15 @@ class PaperFigures:
     """
 
     def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
+
+        # Data and paths read-in from data_analysis.py
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
-        self.nm_method = sim_flags['numericalMethodUsed']
-
         # Individual attributes from key_data that are needed for the class
+        self.nm_method = sim_flags['numericalMethodUsed']
         self.static_field = key_data['staticBiasField']
         self.driving_field1 = key_data['dynamicBiasField1']
         self.driving_field2 = key_data['dynamicBiasField2']
@@ -78,6 +79,7 @@ class PaperFigures:
         self.kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
                        "xlim": [0, self.number_spins], "ylim": [-1 * self.y_axis_limit, self.y_axis_limit]}
 
+        # Text sizes for class to override rcParams
         self.large_size = 20
         self.medium_size = 14
         self.small_size = 11
@@ -85,47 +87,52 @@ class PaperFigures:
         self.tiny_size = 8
         self.mini_size = 7
 
-    def _draw_figure(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
+    def _draw_figure(self, row_index: int = -1, has_single_figure: bool = True,
+                     draw_regions_of_interest: bool = False, publish_plot: bool = False) -> None:
         """
         Private method to plot the given row of data, and create a single figure.
 
-        If no figure param is passed, then the method will use the class' __init__ attributes.
+        Figure attributes are controlled from __init__ to ensure consistentcy.
 
-        :param int plot_row: Given row in dataset to plot.
-        :param bool has_single_figure: Flag to ensure that class
-        attribute is used for single figure case, to allow for the saving of the figure out with this method.
+        :param row_index: Plot given row from dataset; most commonly plotted should be the default.
+        :param has_single_figure: If `False`, change figure dimensions for GIFs
+        :param draw_regions_of_interest: Draw coloured boxes onto plot to show driving- and damping-regions.
+        :param publish_plot: Flag to add figure number and LaTeX annotations for publication.
 
-        :return: No return statement. Method will output a figure to wherever the method was invoked.
+        :return: Method updates `self.fig` and `self.axis` within the class.
         """
         if self.fig is None:
             if has_single_figure:
-                # For single images, may want to further alter plot outside this method.
-                self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
+                self.fig = plt.figure(figsize=(4.4, 2.0))
                 self.axes = self.fig.add_subplot(111)
             else:
-                # For GIFs. Each frame requires a new fig to prevent stuttering. Each subplot will be the same
-                # so no need to access ax outside of method.
+                # For GIFs only. Each frame requires a new fig to prevent stuttering.
                 cm = 1 / 2.54
-                self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))
+                self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
                 self.axes = self.fig.add_subplot(111)
+                plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Prevent excessive image sizes
         else:
-            self.axes.clear()  # Use this if looping through a single PaperFigures object for multiple create_png inputs
+            self.axes.clear()  # Only triggered if existing plot is present
 
         self.axes.set_aspect("auto")
 
         # Easier to have time-stamp as label than textbox.
-        self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=2 * 0.75,
-                       label=f"{self.time_data[plot_row]: 2.2f} (ns)", color='#64bb6a')
+        self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[row_index, :], ls='-', lw=2 * 0.75,
+                       color='#64bb6a', label=f"{self.time_data[row_index]: 2.2f} (ns)")
 
         self.axes.set(**self.kwargs)
 
-        # self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', verticalalignment='center',
-        # horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
-        # self.axes.text(0.88, 0.88, f"(c) {self.time_data[plot_row]:2.3f} ns",
-        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes,
-        #               fontsize=6)
-
+        # Keep tick manipulations in this block to ease debugging
         self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
+        self._tick_setter(self.axes, self.number_spins / 4, self.number_spins / 8, 3, 4,
+                          yaxis_num_decimals=1.1)
+
+        if publish_plot:
+            self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
+                           ha='center', transform=self.axes.transAxes, fontsize=6)
+            self.axes.text(0.88, 0.88, f"(c) {self.time_data[row_index]:2.3f} ns",
+                           va='center', ha='center', transform=self.axes.transAxes,
+                           fontsize=6)
 
         if draw_regions_of_interest:
             left, bottom, width, height = (
@@ -134,192 +141,93 @@ class PaperFigures:
                 (self.dampedSpins, self.driving_width),
                 4 * self.axes.get_ylim()[1])
 
-            rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height,
-                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
+            rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height, lw=0,
+                                               alpha=0.5, facecolor="grey", edgecolor=None)
 
-            rectangle_rhs = mpatches.Rectangle((left[1], bottom), width[0], height,
-                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
+            rectangle_rhs = mpatches.Rectangle((left[1], bottom), width[0], height, lw=0,
+                                               alpha=0.5, facecolor="grey", edgecolor=None)
 
-            rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height,
-                                                          alpha=0.25, facecolor="grey", edgecolor=None, lw=0)
-
-            plt.gca().add_patch(rectangle_lhs)
-            plt.gca().add_patch(rectangle_rhs)
-            plt.gca().add_patch(rectangle_driving_region)
-
-        # Change tick markers as needed.
-        self._tick_setter(self.axes, self.number_spins / 4, self.number_spins / 8, 3, 4)
-
-        class ScalarFormatterClass(ticker.ScalarFormatter):
-            def _set_format(self):
-                self.format = "%1.1f"
-
-        yScalarFormatter = ScalarFormatterClass(useMathText=True)
-        yScalarFormatter.set_powerlimits((0, 0))
-        self.axes.xaxis.set_major_formatter(yScalarFormatter)
-        self.axes.yaxis.set_major_formatter(yScalarFormatter)
-
-        self.fig.tight_layout()
-
-    def _draw_figure1(self, plot_row=-1, has_single_figure=True, draw_regions_of_interest=True):
-        """
-        Private method to plot the given row of data, and create a single figure.
-
-        If no figure param is passed, then the method will use the class' __init__ attributes.
-
-        :param int plot_row: Given row in dataset to plot.
-        :param bool has_single_figure: Flag to ensure that class
-        attribute is used for single figure case, to allow for the saving of the figure out with this method.
-
-        :return: No return statement. Method will output a figure to wherever the method was invoked.
-        """
-        if has_single_figure:
-            # For single images, may want to further alter plot outside this method.
-            self.fig = plt.figure(figsize=(4.4, 2.0))  # Strange dimensions are to give a 4x2 inch image
-            self.axes = self.fig.add_subplot(111)
-        else:
-            # For GIFs. Each frame requires a new fig to prevent stuttering. Each subplot will be the same so no need
-            # to access ax outside of method.
-            cm = 1 / 2.54
-            self.fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))
-            self.axes = self.fig.add_subplot(111)
-
-        self.axes.set_aspect("auto")
-        self.axes.axis('off')
-
-        # Easier to have time-stamp as label than textbox.
-        self.axes.plot(np.arange(0, self.number_spins), self.amplitude_data[plot_row, :], ls='-', lw=2 * 0.75,
-                       label=f"{self.time_data[plot_row]: 2.2f} (ns)", color='#64bb6a')
-
-        self.axes.set(**self.kwargs)
-
-        # self.axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', verticalalignment='center',
-        # horizontalalignment='center', transform=self.axes.transAxes, fontsize=6)
-        # self.axes.text(0.88, 0.88, f"(c) {self.time_data[plot_row]:2.3f} ns",
-        #               verticalalignment='center', horizontalalignment='center', transform=self.axes.transAxes,
-        #               fontsize=6)
-
-        self.axes.xaxis.labelpad = -1.5
-        self.axes.yaxis.labelpad = -5
-        self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
-
-        if draw_regions_of_interest:
-            left, bottom, width, height = (
-                [0, (self.number_spins - self.dampedSpins), (self.drLHS + self.dampedSpins)],
-                self.axes.get_ylim()[0] * 2,
-                (self.dampedSpins, self.driving_width),
-                4 * self.axes.get_ylim()[1])
-
-            rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height,
-                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
-
-            rectangle_rhs = mpatches.Rectangle((left[1], bottom), width[0], height,
-                                               alpha=0.5, facecolor="grey", edgecolor=None, lw=0)
-
-            rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height,
-                                                          alpha=0.25, facecolor="grey", edgecolor=None, lw=0)
+            rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height, lw=0,
+                                                          alpha=0.25, facecolor="grey", edgecolor=None)
 
             plt.gca().add_patch(rectangle_lhs)
             plt.gca().add_patch(rectangle_rhs)
             plt.gca().add_patch(rectangle_driving_region)
 
-        # Change tick markers as needed.
-        xlim_major_ticks = 500
-        self._tick_setter(self.axes, xlim_major_ticks, 25, 3, 4)
-
-        self.axes.vlines(x=[500, 5300], ymin=-0.5, ymax=0.5,
-                         colors='black', lw=10,
-                         label='vline_multiple - full height')
-
-        self.axes.text(300, 3.2e-3, 'A', fontsize=24)
-        self.axes.text(5400, 3.2e-3, 'B', fontsize=24)
-
-        class ScalarFormatterClass(ticker.ScalarFormatter):
-            def _set_format(self):
-                self.format = "%1.1f"
-
-        yScalarFormatter = ScalarFormatterClass(useMathText=True)
-        yScalarFormatter.set_powerlimits((0, 0))
-        self.axes.xaxis.set_major_formatter(yScalarFormatter)
-        self.axes.yaxis.set_major_formatter(yScalarFormatter)
-
         self.fig.tight_layout()
 
-    def create_position_variation(self, row_number=-1, should_add_data=False):
+    def create_position_variation(self, row_index: int = -1, should_annotate_parameters: bool = False) -> None:
         """
-        Generate a PNG for a single row of the given dataset.
+        Plot a row of data to show spatial evolution.
 
-        A row corresponds to an instant in time, so this can be particularly useful for investigating the final 'state'
-        of a system.
+        A row corresponds to an instant in time, so this can be particularly useful for investigating the final state
+        of a system. Also, can be used to show the evolution of the whole system if multiple images are generated.
 
-        :param should_add_data:
-        :param int row_number: Which row of data to be plotted. Defaults to plotting the final row.
+        :param row_index: Plot given row from dataset; most commonly plotted should be the default.
+        :param should_annotate_parameters: Add simulation parameters to plot. Useful when presenting work in meetings.
 
-        :return: No direct returns. Invoking method will save a .png to the nominated 'Outputs' directory.
+        :return: Saves a .png to the nominated 'Outputs' directory.
         """
-        self._draw_figure(row_number)
-
-        self.axes.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-
-        if should_add_data:
-            # Add text to figure with simulation parameters
-            if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc.: {self.exchange_min} (T)"
-            else:
-                exchangeString = f"J$_{{min}}$ = {self.exchange_min} (T) | J$_{{max}}$ = " \
-                                 f"{self.exchange_max} (T)"
-            data_string = (f"H$_{{0}}$ = {self.static_field} (T) | N = {self.chain_spins} | " + r"$\alpha$" +
-                           f" = {self.gilbert_factor: 2.2e}\nH$_{{D1}}$ = {self.driving_field1: 2.2e} (T) | "
-                           f"H$_{{D2}}$ = {self.driving_field2: 2.2e} (T) \n{exchangeString}")
-
-            props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
-            # Place text box in upper left in axes coords
-            self.axes.text(0.05, 1.2, data_string, transform=self.axes.transAxes, fontsize=12,
-                           verticalalignment='top', bbox=props, ha='center', va='center')
-
-        # Add spines to all plots (to override any rcParams elsewhere in the code
-        for spine in ['top', 'bottom', 'left', 'right']:
-            self.axes.spines[spine].set_visible(True)
+        self._draw_figure(row_index)
 
         self.axes.grid(visible=True, axis='both', which='both')
 
-        self.fig.savefig(f"{self.output_filepath}_row{row_number}.png", bbox_inches="tight")
+        if should_annotate_parameters:
+            if self.exchange_min == self.exchange_max:
+                exchange_string = f"Uniform Exc.: {self.exchange_min} (T)"
+            else:
+                exchange_string = f"J$_{{min}}$ = {self.exchange_min} (T) | J$_{{max}}$ = " \
+                                  f"{self.exchange_max} (T)"
+
+            parameters_textbody = (f"H$_{{0}}$ = {self.static_field} (T) | N = {self.chain_spins} | " + r"$\alpha$" +
+                                   f" = {self.gilbert_factor: 2.2e}\nH$_{{D1}}$ = {self.driving_field1: 2.2e} (T) | "
+                                   f"H$_{{D2}}$ = {self.driving_field2: 2.2e} (T) \n{exchange_string}")
+
+            parameters_text_props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+            self.axes.text(0.05, 1.2, parameters_textbody, transform=self.axes.transAxes, fontsize=12,
+                           ha='center', va='center', bbox=parameters_text_props)
+
+        self.fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
 
     @gif.frame
-    def _plot_paper_gif(self, index):
+    def _plot_paper_gif(self, row_index: int) -> None:
         """
         Private method to save a given row of a data as a frame suitable for use with the git library.
 
-        Require decorator so use method as an inner class instead of creating child class.
+        Requires decorator so use method as an inner class instead of creating child class.
 
-        :param int index: The row to be plotted.
+        :param row_index: The row to be plotted.
+
+        :return: Method indirectly updates `self.fig` and `self.axis` by calling self._draw_figure().
         """
-        self._draw_figure(index, False, False)
+        self._draw_figure(row_index, False, False)
 
-    def create_gif(self, number_of_frames=0.05):
+    def create_gif(self, number_of_frames: float = 0.05, frame_duration: float = 0.5) -> None:
         """
         Generate a GIF from the imported data.
 
-        Uses the data that is imported in data_analysis.py, and turns each row in to a single figure. Multiple figures
-        are then combined to form a GIF. This method does not accept *args or **kwargs, so to make any changes to
-        gif.save() one must access this method directly. For more guidance see
-        `this article
+        Uses the imported data, and turns each row in to a single figure (frame). Multiple figures are then combined
+        to form a GIF.
+
+        This method does not accept *args or **kwargs from the class, so to make any changes to
+        gif.save() one must access this method directly. For more guidance see `this article
         <https://towardsdatascience.com/a-simple-way-to-turn-your-plots-into-gifs-in-python-f6ea4435ed3c>`_.
 
-        :param float number_of_frames: How many frames the GIF should have (values between [0.01, 1.0]).
+        :param number_of_frames: Enter number of frames for GIF to contain, normalised [0.01, 1.0] against the total
+                                 number of rows in the dataset.
+        :param frame_duration: Enter the duration of each frame in seconds.
 
-        :return: Will give a .gif file to the 'Outputs' folder of the given folder (selected earlier in the program).
+        :return: Will save a .gif file to the 'Outputs' folder.
         """
 
         frames = []
 
-        plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})
-
-        for index in range(0, int(self.data_points + 1), int(self.data_points * number_of_frames)):
+        for index in np.arange(0, self.data_points + 1, self.data_points * number_of_frames):
+            index = int(index)
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=0.5)
+        gif.save(frames, f"{self.output_filepath}.gif", duration=frame_duration)
 
     def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
                               basic_annotations=False, add_zoomed_region=False, add_info_box=False,
@@ -517,19 +425,11 @@ class PaperFigures:
             ax1_inset.set_yticks([])
             ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
 
-            # Add spines to all plots (to override any rcParams elsewhere in the code
-            for spine in ['top', 'bottom', 'left', 'right']:
-                ax1_inset.spines[spine].set_visible(True)
-                ax1.spines[spine].set_visible(True)
-
             # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
 
             # Add box to indicate the region which is being zoomed into on the main figure
             ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
                                     zorder=1)
-        elif add_zoomed_region is False:
-            for spine in ['top', 'bottom', 'left', 'right']:
-                ax1.spines[spine].set_visible(True)
 
         if add_info_box:
             if self.exchange_min == self.exchange_max:
@@ -607,17 +507,8 @@ class PaperFigures:
                    bbox_to_anchor=[0.975, 0.95], bbox_transform=ax2.transAxes)
 
         for ax in [ax1, ax2]:
-            ax.xaxis.grid(False)
-            ax.yaxis.grid(False)
-            # ax.set_facecolor('#f4f4f5')
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
-
-            # Add spines to all plots (to override any rcParams elsewhere in the code
-            for spine in ['top', 'bottom', 'left', 'right']:
-                ax.spines[spine].set_visible(True)
-
             ax.set_axisbelow(False)
-            ax.set_facecolor('white')
 
         self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
@@ -833,11 +724,6 @@ class PaperFigures:
             ax1_inset.set_yticks([])
             ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
 
-            # Add spines to all plots (to override any rcParams elsewhere in the code
-            for spine in ['top', 'bottom', 'left', 'right']:
-                ax1_inset.spines[spine].set_visible(True)
-                ax1.spines[spine].set_visible(True)
-
             # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
 
             # Add box to indicate the region which is being zoomed into on the main figure
@@ -846,9 +732,6 @@ class PaperFigures:
             rect = mpl.patches.Rectangle((0.7, -6e-4), 1.91, 1.2e-3, lw=1, edgecolor='black',
                                          facecolor='#f9f2e9')
             ax1.add_patch(rect)
-        elif add_zoomed_region is False:
-            for spine in ['top', 'bottom', 'left', 'right']:
-                ax1.spines[spine].set_visible(True)
 
         if add_info_box:
             if self.exchange_min == self.exchange_max:
@@ -927,17 +810,8 @@ class PaperFigures:
                    bbox_to_anchor=[0.99, 0.975], bbox_transform=ax2.transAxes)
 
         for ax in [ax1, ax2]:
-            ax.xaxis.grid(False)
-            ax.yaxis.grid(False)
-            # ax.set_facecolor('#f4f4f5')
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
-
-            # Add spines to all plots (to override any rcParams elsewhere in the code
-            for spine in ['top', 'bottom', 'left', 'right']:
-                ax.spines[spine].set_visible(True)
-
             ax.set_axisbelow(False)
-            ax.set_facecolor('white')
 
         self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
@@ -1030,11 +904,8 @@ class PaperFigures:
 
             # ax1_inset.patch.set_color("#f9f2e9")
 
-            for spine in ["top", "bottom", "left", "right"]:
-                ax.spines[spine].set_visible(True)
-
-            self._tick_setter(ax, 1.0, 0.5, 1, 0.5, yaxis_multi_loc=True, is_fft_plot=False, yaxis_num_decimals=1,
-                              yscale_type='p')
+            self._tick_setter(ax, 1.0, 0.5, 1, 0.5, yaxis_multi_loc=True,
+                              is_fft_plot=False, yaxis_num_decimals=0.1, yscale_type='p')
 
         ########################################
 
@@ -1066,9 +937,8 @@ class PaperFigures:
         # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
         ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
-        self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False, xaxis_num_decimals=1, yaxis_num_decimals=0,
-                          yscale_type='p')
-        ax2.grid(False)
+        self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
+                          xaxis_num_decimals=1, yaxis_num_decimals=0.0, yscale_type='p')
 
         ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.31
         ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
@@ -1154,16 +1024,9 @@ class PaperFigures:
                  transform=ax2.transAxes, fontsize=self.smaller_size)
 
         for ax in [ax1, ax2]:
-
-            for spine in ["top", "bottom", "left", "right"]:
-                ax.spines[spine].set_visible(True)
-
-            ax.grid(False)
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
             ax.set_axisbelow(False)
-
-            if ax == ax1 or ax == ax2:
-                ax.set_facecolor("white")
+            ax.set_facecolor("white")
 
         self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
@@ -1304,9 +1167,9 @@ class PaperFigures:
             ax1_inset.patch.set_color("#f9f2e9")
             ax1_inset.yaxis.labelpad = 0
             ax1_inset.xaxis.labelpad = -0.5
-            ax1_inset.grid(False)
 
-            self._tick_setter(ax1_inset, 1.0, 0.25, 3, 2, is_fft_plot=False, yaxis_num_decimals=1, yscale_type='p')
+            self._tick_setter(ax1_inset, 1.0, 0.25, 3, 2, is_fft_plot=False,
+                              yaxis_num_decimals=0.1, yscale_type='p')
 
         ########################################
 
@@ -1339,9 +1202,8 @@ class PaperFigures:
             # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
             ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', xlim=[0, 2], ylim=[0, 5])  # [0, 15.4]
-            self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False, xaxis_num_decimals=1, yaxis_num_decimals=0,
-                              yscale_type='p')
-            ax2.grid(False)
+            self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
+                              xaxis_num_decimals=1, yaxis_num_decimals=0.0, yscale_type='p')
 
             # ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9) # xmax=0.31
             # ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
@@ -1429,14 +1291,8 @@ class PaperFigures:
             #         fontsize=self.smaller_size)
 
         for ax in [ax1]:
-
-            for spine in ["top", "bottom", "left", "right"]:
-                ax.spines[spine].set_visible(True)
-
-            ax.grid(False)
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
             ax.set_axisbelow(False)
-            ax.set_facecolor("white")
 
         self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
@@ -1520,9 +1376,6 @@ class PaperFigures:
         self._tick_setter(ax2, 20, 5, 3, 4, is_fft_plot=True)
 
         for ax in [ax2]:
-            ax.xaxis.grid(False)
-            ax.yaxis.grid(False)
-            # ax.set_facecolor('#f4f4f5')
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
         # Add zoomed in region if needed.
@@ -1557,12 +1410,6 @@ class PaperFigures:
                                arrowprops=arrow_inset_props, fontsize=6)
             ax2_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407, 1.5e-4), va='center', ha='center',
                                arrowprops=arrow_inset_props, fontsize=6)
-
-        # Add spines to all plots (to override any rcParams elsewhere in the code
-        for spine in ['top', 'bottom', 'left', 'right']:
-            # ax1_inset.spines[spine].set_visible(True)
-            # ax1.spines[spine].set_visible(True)
-            ax2.spines[spine].set_visible(True)
 
         ax2.set_axisbelow(False)
         fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
@@ -1604,7 +1451,6 @@ class PaperFigures:
 
         ax.set(xlim=(5, 25), ylim=(1e0, 1e4),
                xlabel="Frequency (GHz)", yscale='log')
-        ax.grid(visible=False, axis='both', which='both')
         ax.tick_params(top="on", right="on", which="both")
 
         ax.set_ylabel("Amplitude (arb. units)\n", x=-10, y=1)
@@ -1618,7 +1464,6 @@ class PaperFigures:
                                bbox_transform=ax.figure.transFigure)
         ax2_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1.2)
         ax2_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
-        ax2_inset.grid(visible=False, axis='both', which='both')
         ax2_inset.yaxis.tick_right()
         ax2_inset.set_xlabel('Time (ns)', fontsize=8)
         ax2_inset.set(xlim=[0, 2])
@@ -1627,10 +1472,6 @@ class PaperFigures:
         ax2_inset.tick_params(axis='both', labelsize=8)
 
         ax2_inset.patch.set_color("#f9f2e9")
-
-        for spine in ['top', 'bottom', 'left', 'right']:
-            ax.spines[spine].set_visible(True)
-            ax2_inset.spines[spine].set_visible(True)
 
         ax.xaxis.set(major_locator=ticker.MultipleLocator(5),
                      minor_locator=ticker.MultipleLocator(1))
@@ -1678,7 +1519,7 @@ class PaperFigures:
         return frequencies, fourier_transform
 
     def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
-                     xaxis_num_decimals=1, yaxis_num_decimals=1, yscale_type='f'):
+                     xaxis_num_decimals=1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False):
 
         if ax is None:
             ax = plt.gca()
@@ -1708,14 +1549,17 @@ class PaperFigures:
 
             class ScalarFormatterClass(ticker.ScalarFormatter):
                 def _set_format(self):
-                    self.format = f"%.{yaxis_num_decimals}f"
+                    self.format = f"%{yaxis_num_decimals}f"
 
             yScalarFormatter = ScalarFormatterClass(useMathText=True)
             yScalarFormatter.set_powerlimits((0, 0))
-            # ax.xaxis.set_major_formatter(yScalarFormatter)
+            if format_xaxis:
+                ax.xaxis.set_major_formatter(yScalarFormatter)
             ax.yaxis.set_major_formatter(yScalarFormatter)
 
-            if yscale_type == 'p':
+            if yscale_type == 'sci':
+                ax.ticklabel_format(axis='y', style='sci')
+            elif yscale_type == 'plain':
                 ax.ticklabel_format(axis='y', style='plain')
 
             # ax.yaxis.labelpad = -3
@@ -1829,14 +1673,8 @@ class PaperFigures:
                           fontsize=self.tiny_size, bbox_to_anchor=leg_pos, bbox_transform=ax.transAxes).set_zorder(4)
 
             for axis in [ax]:
-                axis.xaxis.grid(False)
-                axis.yaxis.grid(False)
                 # ax.set_facecolor('#f4f4f5')
                 ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
-
-                # Add spines to all plots (to override any rcParams elsewhere in the code
-                for spine in ['top', 'bottom', 'left', 'right']:
-                    axis.spines[spine].set_visible(True)
 
                 axis.set_axisbelow(False)
                 axis.set_facecolor('white')
@@ -1961,7 +1799,7 @@ class Eigenmodes:
                   frameon=True, fancybox=True, facecolor='white', edgecolor='white',
                   title='Propagation\n   Direction', fontsize=10)
 
-        ax.grid(lw=2, ls='-')
+        ax.grid(visible=True, axis='both', which='both', ls='-', lw=2)
 
         plt.tight_layout()
         fig.savefig(f"{self.output_filepath}_fourier_coefficents.png", bbox_inches="tight")
@@ -2000,49 +1838,40 @@ class Eigenmodes:
 
         # Generate plot
         fig = plt.figure(figsize=(3.375 * 1.5, 3.375 / 2))
-        axes = fig.add_subplot(111)
+        ax1 = fig.add_subplot(111)
 
         colour2 = '#5584B9'
         sns.lineplot(x=range(0, len(mx_mode)), y=mx_mode, marker='o', markersize=5,
-                     linestyle='', alpha=1, ax=axes, color=colour2, label='Mx')
+                     linestyle='', alpha=1, ax=ax1, color=colour2, label='Mx')
         sns.lineplot(x=range(0, len(mx_mode)), y=mx_mode, lw=1.75,
-                     linestyle='-', alpha=0.5, ax=axes, color=colour2)
+                     linestyle='-', alpha=0.5, ax=ax1, color=colour2)
 
-        axes.set(xlabel="Distance (nm)", ylabel="Amplitude (arb. units)",
-                 xlim=(0, number_of_spins))  # ,
+        ax1.set(xlabel="Distance (nm)", ylabel="Amplitude (arb. units)",
+                xlim=(0, number_of_spins))  # ,
         # title = f"Eigenmode #{eigenmode}",
         # xticks=np.arange(0, number_of_spins, np.floor(number_of_spins - 2) / 20))
 
-        axes.xaxis.set(major_locator=ticker.MultipleLocator(50),
-                       minor_locator=ticker.MultipleLocator(10))
-        axes.yaxis.set(major_locator=ticker.MultipleLocator(0.1),
-                       minor_locator=ticker.MultipleLocator(0.025))
+        ax1.xaxis.set(major_locator=ticker.MultipleLocator(50),
+                      minor_locator=ticker.MultipleLocator(10))
+        ax1.yaxis.set(major_locator=ticker.MultipleLocator(0.1),
+                      minor_locator=ticker.MultipleLocator(0.025))
 
-        axes.text(0.025, 0.925, "(b)", verticalalignment='center', horizontalalignment='left',
-                  transform=axes.transAxes, fontsize=8)
+        ax1.text(0.025, 0.925, "(b)", verticalalignment='center', horizontalalignment='left',
+                 transform=ax1.transAxes, fontsize=8)
 
         # Legend doubles as a legend (showing propagation direction), and the frequency [Hz] of the eigenmode.
-        axes.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                    frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                    title=f"Frequency (GHz)\n        {frequency: 4.1f}\n     Component",
-                    fontsize=8, title_fontsize=8)
+        ax1.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
+                   frameon=True, fancybox=True, facecolor='white', edgecolor='white',
+                   title=f"Frequency (GHz)\n        {frequency: 4.1f}\n     Component",
+                   fontsize=8, title_fontsize=8)
 
-        axes.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
+        ax1.axvspan(0, number_of_spins * driving_width, color='black', alpha=0.2)
 
-        axes.grid(color='black', ls='--', alpha=0.0, lw=1)
+        ax1.grid(visible=True, axis='both', which='both', color='black', ls='--', lw=1, alpha=0.0)
 
-        for axis in [axes]:
-            axis.xaxis.grid(False)
-            axis.yaxis.grid(False)
-            # ax.set_facecolor('#f4f4f5')
-            axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
-
-            # Add spines to all plots (to override any rcParams elsewhere in the code
-            for spine in ['top', 'bottom', 'left', 'right']:
-                axis.spines[spine].set_visible(True)
-
-            axis.set_axisbelow(False)
-            axis.set_facecolor('white')
+        # ax.set_facecolor('#f4f4f5')
+        ax1.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
+        ax1.set_axisbelow(False)
 
         fig.savefig(f"{self.output_filepath}_eigenmode_{eigenmode}.png", bbox_inches="tight")
 
@@ -2097,11 +1926,7 @@ class Eigenmodes:
 
             ax.set(xlabel="Wave Number (nm$^{-1}$)", ylabel="Angular Frequency (THz)")
             ax.margins(x=0)
-            ax.grid(False)
             ax.legend(frameon=False)
-
-            for spine in ["top", "bottom", "left", "right"]:
-                ax.spines[spine].set_visible(True)
 
             ax.set_axisbelow(False)
             ax.set_facecolor("white")

@@ -12,8 +12,11 @@ import data_analysis as das
     This file acts as the main function for the software. To ensure encapsulation is adhered to, all data_analysis is 
     performed is invoked from a separate file, to enable simulation programs to be written and invoked from this main 
     file. 
+    
+    The GitHub token for this project is :https://REDACTED@github.com/cameronmceleney
+    /SpinChains.git
 """
-PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
+PROGRAM_NAME = "SpinChains-Python-Analysis/Core Files/main.py"
 """
     Core Details
     
@@ -24,21 +27,19 @@ PROGRAM_NAME = "SpinChains-Python-Analysis main.py"
 """
 
 
-def main():
+if __name__ == '__main__':
+
     """
     All functions should be initialised here (excluding core operating features like logging).
-
-    The GitHub token for this project is :https://REDACTED@github.com/cameronmceleney
-    /SpinChains.git
     """
     lg.info(f"Program start...")
 
     _should_use_eigens = False
+    filename_base = "1100"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2023-10-11", "2023-10-11")
+    system_setup.detect_os(True, "2023-10-11", "2023-10-11")
 
-    filename_base = "1100"  # str(input("Enter the unique identifier of the file: "))
     if not _should_use_eigens:
         dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                         file_prefix="rk2", file_component='mx', file_identifier="T")
@@ -52,11 +53,8 @@ def main():
     exit(0)
 
 
-if __name__ == '__main__':
-    main()
-
-    """
-    Notes
+"""
+Notes
     
-    For the paper, linearFMR = (2 * np.pi * 28.3e9 / (2 * np.pi)) * np.sqrt(172e-6 * (172e-6 + 4 * np.pi * 0.086)) / 1e9
-    """
+For the paper, linearFMR = (2 * np.pi * 28.3e9 / (2 * np.pi)) * np.sqrt(172e-6 * (172e-6 + 4 * np.pi * 0.086)) / 1e9
+"""

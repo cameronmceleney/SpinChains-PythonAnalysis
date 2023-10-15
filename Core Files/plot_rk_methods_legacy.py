@@ -3,7 +3,6 @@
 # -------------------------- Preprocessing Directives -------------------------
 
 # Standard Libraries
-from sys import exit
 
 # 3rd Party packages
 import matplotlib.pyplot as plt
@@ -482,7 +481,6 @@ def fft_data2(amplitude_data, maxtime, number_dp):
     frequencies = rfftfreq(n, sample_spacing)
 
     return frequencies, fourier_transform  # , natural_freq, driving_freq_ghz
-
 
 
 def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_tri=False):
