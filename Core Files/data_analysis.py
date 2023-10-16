@@ -808,8 +808,13 @@ class PlotImportedData:
                             print(f"Generating plot for [#{target_site}]...")
 
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=False,
-                                                             use_inset_1=True)
+                            # paper_fig.create_time_variation(target_site)
+                            paper_fig.create_time_variation1(target_site, annotate_precursors=True, colour_precursors=False,
+                                                             basic_annotations=False, add_zoomed_region=False,
+                                                             add_coloured_regions=False, add_info_box=False)
+                            # paper_fig.create_time_variation2()
+                            # paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=True,
+                            #                                  use_inset_1=True)
                             lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:

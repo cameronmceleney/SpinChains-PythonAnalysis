@@ -35,15 +35,15 @@ if __name__ == '__main__':
     lg.info(f"Program start...")
 
     _should_use_eigens = False
-    filename_base = "1100"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1118"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(True, "2023-10-11", "2023-10-11")
+    system_setup.detect_os(False, "2023-03-06", "2023-10-16")
 
     if not _should_use_eigens:
         dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                         file_prefix="rk2", file_component='mx', file_identifier="T")
-        dataset1.call_methods(override_method="pf", override_function="tv", override_site=100, early_exit=True)
+        dataset1.call_methods(override_method="pf", override_function="tv", override_site=0, early_exit=True)
 
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
