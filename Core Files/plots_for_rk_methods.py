@@ -229,324 +229,38 @@ class PaperFigures:
 
         gif.save(frames, f"{self.output_filepath}.gif", duration=frame_duration)
 
-    def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                              basic_annotations=False, add_zoomed_region=False, add_info_box=False,
-                              add_coloured_regions=False, interactive_plot=False):
+    def plot_site_temporal(self, spin_site: int, wavepacket_fft: bool = False,
+                           visualise_wavepackets: bool = False, annotate_precursors_fft: bool = False,
+                           annotate_signal: bool = False, wavepacket_inset: bool = False,
+                           add_key_params: bool = False, add_signal_backgrounds: bool = False,
+                           publication_details: bool = False, interactive_plot: bool = False) -> None:
         """
-        Plot the magnetisation of a site against time.
+        Two pane figure where upper pane shows the time evolution of the magnetisation of a site, and the lower pane
+        shows the FFT of the precursors, shockwave, equilibrium region, and wavepacket(s) (optional).
 
-        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+        One should ensure that the site being plotted is not inside either of the driving- or damping-regions. Example
+        data at 2023-03-06/rk2_mx_T1118 .
 
-        :param interactive_plot: Allow plot to be interactive
-        :param basic_annotations: NEED DOCSTRING
-        :param annotate_precursors: Add arrows to denote precursors.
-        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
-        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
-        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
-        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
-        :param int spin_site: The number of the spin site to be plotted.
+        Throughout this method, wavepacket1 will always refer to the wavepacket in the
+        precursor region CLOSEST to the shockwave edge, and increasing numbers refers to further away (and closer to the
+        signal start point). The variables say 'equil` while the plot labels say 'steady state' - this is make the
+        variables easier to read. Can update plot annotations if 'Equilibrium' is a better fix.
+
+        :param spin_site: Number of site being plotted.
+        :param wavepacket_fft: Take FFT of each wavepacket and plot.
+        :param visualise_wavepackets: Redraw each wavepacket with high-constrast colours on time evolution pane.
+        :param annotate_precursors_fft: Add arrows/labels to denote wavepackets (P1 wavepacket closest to shock-edge).
+        :param annotate_signal: Draw regions (with labels) onto time evolution showing precursor/shock/equil regions.
+        :param wavepacket_inset: On time evolution pane, zoom in on precursor region to show the wavepackets as inset.
+        :param add_key_params: Add text box between panes which lists key simulation parameters.
+        :param add_signal_backgrounds: Shade behind signal regions to improve clarity; backup to `annotate_signals`. 
+        :param publication_details: Add figure reference label and scientific notation to y-axis. Needs edited each run
+        :param interactive_plot: If `True` mouseclicks to print x/y coords to terminal, else saves image.
 
         :return: Saves a .png image to the designated output folder.
         """
+        #
 
-        if self.fig is None:
-            self.fig = plt.figure(figsize=(4.5, 3.375))
-        num_rows = 2
-        num_cols = 3
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
-                               colspan=num_cols, fig=self.fig)
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
-                               rowspan=num_rows, colspan=num_cols, fig=self.fig)
-
-        ax1.xaxis.labelpad = -1
-        ax2.xaxis.labelpad = -1
-
-        ########################################
-
-        ax1_xlim_lower, ax1_xlim_upper = 0.0, 5
-        ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
-        xlim_min, xlim_max = 0, self.max_time  # ns
-
-        ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
-        ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
-
-        lower1, upper1 = 0, 2.6
-        lower2, upper2 = upper1, 3.76
-        lower3, upper3 = upper2, ax1_xlim_upper
-
-        ax1_inset_lower = 0.7
-
-        lower1_blob, upper1_blob = 1.75, upper1  # 0.481, 0.502
-        lower2_blob, upper2_blob = 1.3, 1.7  # 0.461, 0.48
-        lower3_blob, upper3_blob = 1.05, 1.275  # 0.442, 0.4605
-
-        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$ (10$^{-3}$)",
-                xlim=[ax1_xlim_lower, ax1_xlim_upper],
-                ylim=[-ax1_yaxis_base * ax1_yaxis_order * 1.4, ax1_yaxis_base * ax1_yaxis_order])
-
-        ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)",
-                xlim=[0, 99.999], ylim=[1e-1, 1e3], yscale='log')
-
-        self._tick_setter(ax1, ax1_xlim_range * 0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=1)
-        self._tick_setter(ax2, 20, 5, 6, None, is_fft_plot=True)
-
-        line_height = -3.15 * ax1_yaxis_order
-
-        ########################################
-
-        if ax1_xlim_lower > ax1_xlim_upper:
-            exit(0)
-
-        def convert_norm(val, a=0, b=1):
-            # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) /
-            # xlim_max )))  # original
-            return int(self.data_points * ((b - a) * ((val - xlim_min) / (xlim_max - xlim_min)) + a))
-
-        lower1_signal, upper1_signal = convert_norm(lower1), convert_norm(upper1)
-        lower2_signal, upper2_signal = convert_norm(lower2), convert_norm(upper2)
-        lower3_signal, upper3_signal = convert_norm(lower3), convert_norm(upper3)
-
-        lower1_precursor, upper1_precursor = convert_norm(lower1_blob), convert_norm(upper1_blob)
-        lower2_precursor, upper2_precursor = convert_norm(lower2_blob), convert_norm(upper2_blob)
-        lower3_precursor, upper3_precursor = convert_norm(lower3_blob), convert_norm(upper3_blob)
-
-        ax1.plot(self.time_data[:],
-                 self.amplitude_data[:, spin_site], ls='-', lw=0.75,
-                 color='#37782c', alpha=0.5,
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.01)
-        ax1.plot(self.time_data[lower1_signal:upper1_signal],
-                 self.amplitude_data[lower1_signal:upper1_signal, spin_site], ls='-', lw=0.75,
-                 color='#37782c', label=f"{self.sites_array[spin_site]}",
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-        ax1.plot(self.time_data[lower2_signal:upper2_signal],
-                 self.amplitude_data[lower2_signal:upper2_signal, spin_site], ls='-', lw=0.75,
-                 color='#64bb6a', label=f"{self.sites_array[spin_site]}",
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-        ax1.plot(self.time_data[lower3_signal:upper3_signal],
-                 self.amplitude_data[lower3_signal:upper3_signal, spin_site], ls='-', lw=0.75,
-                 color='#9fd983', label=f"{self.sites_array[spin_site]}",
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-
-        if colour_precursors:
-            ax1.plot(self.time_data[lower1_precursor:upper1_precursor],
-                     self.amplitude_data[lower1_precursor:upper1_precursor, spin_site], marker='',
-                     lw=0.75, color='purple',
-                     markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
-            ax1.plot(self.time_data[lower2_precursor:upper2_precursor],
-                     self.amplitude_data[lower2_precursor:upper2_precursor, spin_site], marker='',
-                     lw=0.75, color='red',
-                     markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-            ax1.plot(self.time_data[lower3_precursor:upper3_precursor],
-                     self.amplitude_data[lower3_precursor:upper3_precursor, spin_site], marker='',
-                     lw=0.75, color='blue',
-                     markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-
-        if basic_annotations:
-            text_height = line_height - ax1_yaxis_base * 0.25 * ax1_yaxis_order
-            axes_props1 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#37782c", 'lw': 1.0}
-            axes_props2 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#64bb6a", 'lw': 1.0}
-            axes_props3 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#9fd983", 'lw': 1.0}
-
-            ax1.text(0.95, 0.9, f"(b)",
-                     va='center', ha='center', fontsize=self.smaller_size, transform=ax1.transAxes)
-
-            ax2.text(0.05, 0.9, f"(c)",
-                     va='center', ha='center', fontsize=self.smaller_size,
-                     transform=ax2.transAxes)
-
-            pre_text_lhs, pre_text_rhs = lower1, upper1
-            shock_text_lhs, shock_text_rhs = lower2, upper2
-            equil_text_lhs, equil_text_rhs = lower3, upper3
-
-            ax1.annotate('', xy=(pre_text_lhs, line_height), xytext=(pre_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props1, fontsize=self.tiny_size)
-            ax1.annotate('', xy=(shock_text_lhs, line_height), xytext=(shock_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props2, fontsize=self.tiny_size)
-            ax1.annotate('', xy=(equil_text_lhs, line_height), xytext=(equil_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props3, fontsize=self.tiny_size)
-            ax1.text((pre_text_lhs + pre_text_rhs) / 2, text_height, 'Precursors', ha='center', va='bottom',
-                     fontsize=self.tiny_size)
-            ax1.text((shock_text_lhs + shock_text_rhs) / 2, text_height, 'Shockwave', ha='center', va='bottom',
-                     fontsize=self.tiny_size)
-            ax1.text((equil_text_lhs + equil_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
-                     fontsize=self.tiny_size)
-
-        # Use these for paper publication figures
-        # ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
-        #         verticalalignment='center',
-        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=self.smaller_size)
-        # ax1.text(0.04, 0.1, f"(a) 15 GHz", verticalalignment='center', horizontalalignment='left',
-        #               transform=ax1.transAxes, fontsize=6)
-
-        # Add zoomed in region if needed.
-        if add_zoomed_region:
-            # Select datasets to use
-            x = self.time_data
-            y = self.amplitude_data[:, spin_site]
-
-            # Impose inset onto plot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
-            ax1_inset = inset_axes(ax1, width=2.0, height=0.5, loc="upper left",
-                                   bbox_to_anchor=[0.01, 1.14], bbox_transform=ax1.transAxes)
-            ax1_inset.plot(x, y, lw=0.75, color='#37782c', zorder=1.1)
-
-            if colour_precursors:
-                ax1_inset.plot(x[lower1_precursor:upper1_precursor],
-                               y[lower1_precursor:upper1_precursor], marker='',
-                               lw=0.75, color='purple',
-                               markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
-                ax1_inset.plot(self.time_data[lower2_precursor:upper2_precursor],
-                               self.amplitude_data[lower2_precursor:upper2_precursor, spin_site], marker='',
-                               lw=0.75, color='red',
-                               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-                ax1_inset.plot(self.time_data[lower3_precursor:upper3_precursor],
-                               self.amplitude_data[lower3_precursor:upper3_precursor, spin_site], marker='',
-                               lw=0.75, color='blue',
-                               markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-
-            # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 2 * ax1_yaxis_order * 1e-1  # float(input("Enter ylim: "))
-            ax1_inset.set_xlim(ax1_inset_lower, upper1)
-            ax1_inset.set_ylim(-ylim_in, ylim_in)
-
-            arrow_ax1_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=60', "color": "black",
-                               'lw': 0.8}
-            arrow_ax1_props2 = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=120',
-                                "color": "black", 'lw': 0.8}
-
-            ax1_inset.annotate('P1', xy=(1.9, -8e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
-            ax1_inset.annotate('P2', xy=(1.5, 7e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props2, fontsize=self.tiny_size)
-            ax1_inset.annotate('P3', xy=(1.2, -2e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
-
-            # Remove tick labels
-            ax1_inset.set_xticks([])
-            ax1_inset.set_yticks([])
-            ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
-
-            # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
-
-            # Add box to indicate the region which is being zoomed into on the main figure
-            ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
-                                    zorder=1)
-
-        if add_info_box:
-            if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc. ({self.exchange_min} [T])"
-            else:
-                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-                                 f"{self.exchange_max} [T]"
-            text_string = ((f"H$_{{0}}$ = {self.static_field} [T] | H$_{{D1}}$ = {self.driving_field1: 2.2e} [T] | "
-                            f"H$_{{D2}}$ = {self.driving_field2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
-                            f"{exchangeString} | N = {self.chain_spins} | ") + r"$\alpha$" +
-                           f" = {self.gilbert_factor: 2.2e}")
-
-            props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
-
-            # place a text box in upper left in axes coords
-            ax1.text(0.35, -0.22, text_string, transform=ax1.transAxes, fontsize=6,
-                     verticalalignment='top', bbox=props, ha='center', va='center')
-            ax1.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
-                     transform=ax1.transAxes)
-
-        if add_coloured_regions:
-            rectLHS = mpatches.Rectangle((0, -1 * self.amplitude_data[:, spin_site].max()), 5.75,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.05,
-                                         facecolor="grey", edgecolor=None, lw=0)
-            rectMID = mpatches.Rectangle((5.751, -1 * self.amplitude_data[:, spin_site].max()), 3.249,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.25,
-                                         facecolor="grey", edgecolor=None, lw=0)
-            rectRHS = mpatches.Rectangle((9.0, -1 * self.amplitude_data[:, spin_site].max()), 6,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.5,
-                                         facecolor="grey", edgecolor=None, lw=0)
-
-            ax1.add_patch(rectLHS)
-            ax1.add_patch(rectMID)
-            ax1.add_patch(rectRHS)
-
-        frequencies_precursors, fourier_transform_precursors = self._fft_data(
-            self.amplitude_data[lower1_signal:upper1_signal, spin_site])
-        frequencies_dsw, fourier_transform_dsw = self._fft_data(
-            self.amplitude_data[lower2_signal:upper2_signal, spin_site])
-        frequencies_eq, fourier_transform_eq = self._fft_data(
-            self.amplitude_data[lower3_signal:convert_norm(xlim_max), spin_site])
-
-        ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
-                 markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
-        ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
-                 markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=2)
-        ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
-                 markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
-
-        if annotate_precursors:
-            frequencies_blob1, fourier_transform_blob1 = self._fft_data(
-                self.amplitude_data[lower1_precursor:upper1_precursor, spin_site])
-            frequencies_blob2, fourier_transform_blob2 = self._fft_data(
-                self.amplitude_data[lower2_precursor:upper2_precursor, spin_site])
-            frequencies_blob3, fourier_transform_blob3 = self._fft_data(
-                self.amplitude_data[lower3_precursor:upper3_precursor, spin_site])
-
-            ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
-                     markerfacecolor='black', markeredgecolor='black', ls=':')
-            ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
-                     markerfacecolor='black', markeredgecolor='black', ls='--')
-            ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
-                     markerfacecolor='black', markeredgecolor='black', ls='-.')
-
-            arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-            ax2.annotate('P1', xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-            ax2.annotate('P2', xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-            ax2.annotate('P3', xy=(78.29, 1.25e0), xytext=(83.9, 5.5), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-
-        ax2.legend(ncol=1, loc='upper right', fontsize=self.tiny_size, frameon=False, fancybox=True, facecolor=None,
-                   edgecolor=None,
-                   bbox_to_anchor=[0.975, 0.95], bbox_transform=ax2.transAxes)
-
-        for ax in [ax1, ax2]:
-            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
-            ax.set_axisbelow(False)
-
-        self.fig.subplots_adjust(wspace=1, hspace=0.35)
-
-        if interactive_plot:
-            # For interactive plots
-            def mouse_event(event: Any):
-                print(f'x: {event.xdata} and y: {event.ydata}')
-
-            self.fig.canvas.mpl_connect('button_press_event', mouse_event)
-            self.fig.tight_layout()  # has to be here
-            plt.show()
-        else:
-            self.fig.savefig(f"{self.output_filepath}_site{spin_site}_tv0.png", bbox_inches="tight")
-
-    def create_time_variation1(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                               basic_annotations=False, add_zoomed_region=False, add_info_box=False,
-                               add_coloured_regions=False, interactive_plot=False):
-        """
-        Plot the magnetisation of a site against time.
-
-        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
-
-        :param interactive_plot: NEED DOCSTRING
-        :param basic_annotations: NEED DOCSTRING
-        :param annotate_precursors: Add arrows to denote precursors.
-        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
-        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
-        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
-        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
-        :param int spin_site: The number of the spin site to be plotted.
-
-        :return: Saves a .png image to the designated output folder.
-        """
-        # Data at 2023-03-06/rk2_mx_T1118
-
-        should_use_math_text = False
-
-        ########################################
         # Setup figure environment
         if self.fig is None:
             self.fig = plt.figure(figsize=(4.5, 3.375))
@@ -563,7 +277,7 @@ class PaperFigures:
 
         ax1.xaxis.labelpad = -1
         ax2.xaxis.labelpad = -1
-        
+
         ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
         ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
         ax1_inset_lower = 0.7
@@ -573,7 +287,15 @@ class PaperFigures:
         ########################################
         # Set colour scheme
         colour_schemes = {
-            1: {  # Taken from time_variation
+            0: {  # Controls wavepacket visualisation. From https://coolors.co/palettes/popular/3%20colors
+                "wavepacket1": "#26547c",
+                "wavepacket2": "#ef476f",
+                "wavepacket3": "#ffd166",
+                "wavepacket4": "#edae49",
+                "wavepacket5": "#d1495b",
+                "wavepacket6": "#00798c",
+            },
+            1: {  # Taken from time_variation (depreciated function)
                 'ax1_colour_matte': "#37782C",
                 'ax2_colour_matte': "#37782C",
                 'precursor_colour': "#37782C",
@@ -592,31 +314,32 @@ class PaperFigures:
         }
 
         # Accessing the selected colour scheme
-        select_colour_scheme = 2
-        is_colour_matte = True
+        select_colour_scheme = 1
+        is_colour_matte = False
         selected_scheme = colour_schemes[select_colour_scheme]
 
         ########################################
         # All times in nanosecnds (ns)
-        signal_xlim_min, signal_xlim_max = 0, self.max_time  
+        signal_xlim_min, signal_xlim_max = 0, self.max_time
         ax1_xlim_lower, ax1_xlim_upper = 0.0, 5
         ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
 
         precursors_xlim_min_raw, precursors_xlim_max_raw = 0, 2.6
         shock_xlim_min_raw, shock_xlim_max_raw = precursors_xlim_max_raw, 3.76
         equil_xlim_min_raw, equil_xlim_max_raw = shock_xlim_max_raw, ax1_xlim_upper
-        
-        # Need to find all the values and turn this section into a dictionary
-        # For consistency Blob1 is closest to shock, Blob2 is 1 away etc
+
+        # TODO Need to find all the values and turn this section into a dictionar
         wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = 1.75, precursors_xlim_max_raw  # 0.481, 0.502
         wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = 1.3, 1.7  # 0.461, 0.48
         wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = 1.05, 1.275  # 0.442, 0.4605
 
-        data_names = ['precursors', 'shock', 'equil', 'wavepacket1', 'wavepacket2', 'wavepacket3']
+        # If element [0-2] are changed, must also update calls for `converted_values` below
+        data_names = ['Precursors', 'Shockwave', 'Steady State', 'wavepacket1', 'wavepacket2', 'wavepacket3']
+        wavepacket_labels = ['P1', 'P2', 'P3']  # Maybe make into a dict also having x/y coords contained here
         raw_values = {
-            'precursors': (precursors_xlim_min_raw, precursors_xlim_max_raw),
-            'shock': (shock_xlim_min_raw, shock_xlim_max_raw),
-            'equil': (equil_xlim_min_raw, equil_xlim_max_raw),
+            'Precursors': (precursors_xlim_min_raw, precursors_xlim_max_raw),
+            'Shockwave': (shock_xlim_min_raw, shock_xlim_max_raw),
+            'Steady State': (equil_xlim_min_raw, equil_xlim_max_raw),
             'wavepacket1': (wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw),
             'wavepacket2': (wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw),
             'wavepacket3': (wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw)
@@ -646,9 +369,9 @@ class PaperFigures:
         converted_values = {name: (convert_norm(raw_values[name][0]), convert_norm(raw_values[name][1])) for name in
                             data_names}
 
-        precursors_xlim_min, precursors_xlim_max = converted_values['precursors']
-        shock_xlim_min, shock_xlim_max = converted_values['shock']
-        equil_xlim_min, equil_xlim_max = converted_values['equil']
+        precursors_xlim_min, precursors_xlim_max = converted_values['Precursors']
+        shock_xlim_min, shock_xlim_max = converted_values['Shockwave']
+        equil_xlim_min, equil_xlim_max = converted_values['Steady State']
         wavepacket1_xlim_min, wavepacket1_xlim_max = converted_values['wavepacket1']
         wavepacket2_xlim_min, wavepacket2_xlim_max = converted_values['wavepacket2']
         wavepacket3_xlim_min, wavepacket3_xlim_max = converted_values['wavepacket3']
@@ -695,186 +418,201 @@ class PaperFigures:
 
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors),
                  lw=1, color=f"{precursor_colour}", marker='', markerfacecolor='black', markeredgecolor='black',
-                 label="Precursors", zorder=1.5)
+                 label=data_names[0], zorder=1.5)
         ax2.plot(frequencies_dsw, abs(fourier_transform_dsw),
                  lw=1, color=f'{shock_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-                 label="Shockwave", zorder=1.2)
+                 label=data_names[1], zorder=1.2)
         ax2.plot(frequencies_eq, abs(fourier_transform_eq),
                  lw=1, color=f'{equil_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-                 label="Steady State", zorder=1.1)
+                 label=data_names[2], zorder=1.1)
 
         ax2.legend(ncol=1, loc='upper right', fontsize=self.tiny_size, frameon=False, fancybox=True,
                    facecolor=None, edgecolor=None, bbox_to_anchor=[0.99, 0.975], bbox_transform=ax2.transAxes)
 
         ########################################
-        if colour_precursors:
+        if wavepacket_fft:
+            wavepacket1_freqs, wavepacket1_fft = self._fft_data(
+                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, spin_site])
+            wavepacket2_freqs, wavepacket2_fft = self._fft_data(
+                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, spin_site])
+            wavepacket3_freqs, wavepacket3_fft = self._fft_data(
+                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, spin_site])
+
+            ax2.plot(wavepacket1_freqs, abs(wavepacket1_fft), marker='', lw=1, color=f'{precursor_colour}',
+                     markerfacecolor='black', markeredgecolor='black', ls=':', zorder=1.9)
+            ax2.plot(wavepacket2_freqs, abs(wavepacket2_fft), marker='', lw=1, color=f'{shock_colour}',
+                     markerfacecolor='black', markeredgecolor='black', ls='--', zorder=1.9)
+            ax2.plot(wavepacket3_freqs, abs(wavepacket3_fft), marker='', lw=1, color=f'{equil_colour}',
+                     markerfacecolor='black', markeredgecolor='black', ls='-.', zorder=1.9)
+
+        if annotate_precursors_fft:
+            arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+
+            ax2.annotate(wavepacket_labels[0], xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
+            ax2.annotate(wavepacket_labels[1], xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
+            ax2.annotate(wavepacket_labels[2], xy=(78.29, 1.25e0), xytext=(83.9, 7.5), va='center', ha='center',
+                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
+
+        if visualise_wavepackets:
             ax1.plot(self.time_data[wavepacket1_xlim_min:wavepacket1_xlim_max],
                      self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, spin_site],
-                     lw=0.75, color='purple', marker='', markerfacecolor='black', markeredgecolor='black',
+                     lw=0.75, color=colour_schemes[0]["wavepacket1"], marker='', markerfacecolor='black',
+                     markeredgecolor='black',
                      label="Shockwave", zorder=1.2)
             ax1.plot(self.time_data[wavepacket2_xlim_min:wavepacket2_xlim_max],
                      self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, spin_site],
-                     lw=0.75, color='red', marker='', markerfacecolor='black', markeredgecolor='black',
+                     lw=0.75, color=colour_schemes[0]["wavepacket2"], marker='', markerfacecolor='black',
+                     markeredgecolor='black',
                      label="Steady State", zorder=1.2)
             ax1.plot(self.time_data[wavepacket3_xlim_min:wavepacket3_xlim_max],
                      self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, spin_site],
-                     lw=0.75, color='blue', marker='', markerfacecolor='black', markeredgecolor='black',
+                     lw=0.75, color=colour_schemes[0]["wavepacket3"], marker='', markerfacecolor='black',
+                     markeredgecolor='black',
                      label="Steady State", zorder=1.2)
 
-        if basic_annotations:
-            text_height = line_height - ax1_yaxis_base * 0.25 * ax1_yaxis_order
-            axes_props1 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{precursor_colour}", 'lw': 1.0}
-            axes_props2 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{shock_colour}", 'lw': 1.0}
-            axes_props3 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{equil_colour}", 'lw': 1.0}
+        if annotate_signal:
+            # Leave these alone!
+            label_height = line_height - ax1_yaxis_base * 0.25 * ax1_yaxis_order
+            precursor_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{precursor_colour}",
+                                     'lw': 1.0}
+            shock_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{shock_colour}", 'lw': 1.0}
+            equil_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{equil_colour}", 'lw': 1.0}
 
-            # ax1.text(0.95, 0.9, f"(b)",
-            #         va='center', ha='center', fontsize=self.smaller_size, transform=ax1.transAxes)
-            #
-            # ax2.text(0.05, 0.9, f"(c)",
-            #         va='center', ha='center', fontsize=self.smaller_size,
-            #         transform=ax2.transAxes)
+            precursor_label_lhs, precursor_label_rhs = precursors_xlim_min_raw, precursors_xlim_max_raw
+            shock_label_lhs, shock_label_rhs = shock_xlim_min_raw, shock_xlim_max_raw
+            equil_label_lhs, equil_label_rhs = equil_xlim_min_raw, equil_xlim_max_raw
 
-            pre_text_lhs, pre_text_rhs = precursors_xlim_min_raw, precursors_xlim_max_raw
-            shock_text_lhs, shock_text_rhs = shock_xlim_min_raw, shock_xlim_max_raw
-            equil_text_lhs, equil_text_rhs = equil_xlim_min_raw, equil_xlim_max_raw
+            ax1.annotate('', xy=(precursor_label_lhs, line_height), xytext=(precursor_label_rhs, line_height),
+                         va='center', ha='center', arrowprops=precursor_label_props, fontsize=self.tiny_size)
+            ax1.annotate('', xy=(shock_label_lhs, line_height), xytext=(shock_label_rhs, line_height),
+                         va='center', ha='center', arrowprops=shock_label_props, fontsize=self.tiny_size)
+            ax1.annotate('', xy=(equil_label_lhs, line_height), xytext=(equil_label_rhs, line_height),
+                         va='center', ha='center', arrowprops=equil_label_props, fontsize=self.tiny_size)
 
-            ax1.annotate('', xy=(pre_text_lhs, line_height), xytext=(pre_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props1, fontsize=self.tiny_size)
-            ax1.annotate('', xy=(shock_text_lhs, line_height), xytext=(shock_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props2, fontsize=self.tiny_size)
-            ax1.annotate('', xy=(equil_text_lhs, line_height), xytext=(equil_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props3, fontsize=self.tiny_size)
-            ax1.text((pre_text_lhs + pre_text_rhs) / 2, text_height, 'Precursors', ha='center', va='bottom',
+            ax1.text((precursor_label_lhs + precursor_label_rhs) / 2, label_height, data_names[0], ha='center',
+                     va='bottom',
                      fontsize=self.tiny_size)
-            ax1.text((shock_text_lhs + shock_text_rhs) / 2, text_height, 'Shockwave', ha='center', va='bottom',
+            ax1.text((shock_label_lhs + shock_label_rhs) / 2, label_height, data_names[1], ha='center', va='bottom',
                      fontsize=self.tiny_size)
-            ax1.text((equil_text_lhs + equil_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
+            ax1.text((equil_label_lhs + equil_label_rhs) / 2, label_height, data_names[2], ha='center', va='bottom',
                      fontsize=self.tiny_size)
 
-        if should_use_math_text:
-            # Use these for paper publication figures
-            ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
-                     verticalalignment='center',
-                     horizontalalignment='center', transform=ax1.transAxes, fontsize=self.smaller_size)
-            ax1.text(0.04, 0.1, f"(a) 15 GHz", verticalalignment='center', horizontalalignment='left',
-                     transform=ax1.transAxes, fontsize=6)
-
-        if add_zoomed_region:
+        if wavepacket_inset:
             # Add zoomed in region if needed.
 
             # Select datasets to use
-            x = self.time_data
-            y = self.amplitude_data[:, spin_site]
+            time_dataset = self.time_data
+            amplitude_dataset = self.amplitude_data[:, spin_site]
 
             # Impose inset onto plot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
             ax1_inset = inset_axes(ax1, width=2.0, height=0.5, loc="upper left",
                                    bbox_to_anchor=[0.01, 1.22], bbox_transform=ax1.transAxes)
-            ax1_inset.plot(x, y, lw=0.75, color=f'{ax1_colour_matte}', zorder=1.1)
+            ax1_inset.plot(time_dataset, amplitude_dataset, lw=0.75, color=f'{ax1_colour_matte}', zorder=1.1)
 
-            if colour_precursors:
-                ax1_inset.plot(x[wavepacket1_xlim_min:wavepacket1_xlim_max],
-                               y[wavepacket1_xlim_min:wavepacket1_xlim_max], marker='',
-                               lw=0.75, color='purple',
+            if visualise_wavepackets:
+                ax1_inset.plot(time_dataset[wavepacket1_xlim_min:wavepacket1_xlim_max],
+                               amplitude_dataset[wavepacket1_xlim_min:wavepacket1_xlim_max], marker='',
+                               lw=0.75, color=colour_schemes[0]["wavepacket1"],
                                markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
                 ax1_inset.plot(self.time_data[wavepacket2_xlim_min:wavepacket2_xlim_max],
                                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, spin_site], marker='',
-                               lw=0.75, color='red',
+                               lw=0.75, color=colour_schemes[0]["wavepacket2"],
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
                 ax1_inset.plot(self.time_data[wavepacket3_xlim_min:wavepacket3_xlim_max],
                                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, spin_site], marker='',
-                               lw=0.75, color='blue',
+                               lw=0.75, color=colour_schemes[0]["wavepacket3"],
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 2 * ax1_yaxis_order * 1e-1  # float(input("Enter ylim: "))
+            ylim_in = 2 * ax1_yaxis_order * 1e-1
             ax1_inset.set_xlim(ax1_inset_lower, precursors_xlim_max_raw)
             ax1_inset.set_ylim(-ylim_in, ylim_in)
 
-            arrow_ax1_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=40', "color": "black",
-                               'lw': 0.8}
-            arrow_ax1_props2 = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=140',
-                                "color": "black", 'lw': 0.8}
+            arrow_lower_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=40',
+                                 "color": "black",
+                                 'lw': 0.8}
+            arrow_upper_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=140',
+                                 "color": "black", 'lw': 0.8}
 
-            ax1_inset.annotate('P1', xy=(1.85, -6e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
-            ax1_inset.annotate('P2', xy=(1.45, 6e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props2, fontsize=self.tiny_size)
-            ax1_inset.annotate('P3', xy=(1.15, -3e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
+            ax1_inset.annotate(wavepacket_labels[0], xy=(1.85, -6e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
+                               arrowprops=arrow_lower_props, fontsize=self.tiny_size)
+            ax1_inset.annotate(wavepacket_labels[1], xy=(1.45, 6e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
+                               arrowprops=arrow_upper_props, fontsize=self.tiny_size)
+            ax1_inset.annotate(wavepacket_labels[2], xy=(1.15, -3e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
+                               arrowprops=arrow_lower_props, fontsize=self.tiny_size)
 
-            # Remove tick labels
+            # Override rcParams for inset
             ax1_inset.set_xticks([])
             ax1_inset.set_yticks([])
             ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
 
-            # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
-
-            # Add box to indicate the region which is being zoomed into on the main figure
-            # ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
-            #                        zorder=1)
             rect = mpl.patches.Rectangle((0.7, -6e-4), 1.91, 1.2e-3, lw=1, edgecolor='black',
                                          facecolor='#f9f2e9')
             ax1.add_patch(rect)
 
-        if add_info_box:
+            # Legacy Code. Kept for future reuse
+            # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
+            # Add box to indicate the region which is being zoomed into on the main figure
+            # ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
+            #                        zorder=1)
+
+        if add_key_params:
             if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc. ({self.exchange_min} [T])"
+                exchange_string = f"Uniform Exc. ({self.exchange_min} [T])"
             else:
-                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-                                 f"{self.exchange_max} [T]"
-            text_string = ((f"H$_{{0}}$ = {self.static_field} [T] | H$_{{D1}}$ = {self.driving_field1: 2.2e} [T] | "
-                            f"H$_{{D2}}$ = {self.driving_field2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
-                            f"{exchangeString} | N = {self.chain_spins} | ") + r"$\alpha$" +
-                           f" = {self.gilbert_factor: 2.2e}")
+                exchange_string = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
+                                  f"{self.exchange_max} [T]"
+            info_box_full_text = (
+                        (f"H$_{{0}}$ = {self.static_field} [T] | H$_{{D1}}$ = {self.driving_field1: 2.2e} [T] | "
+                         f"H$_{{D2}}$ = {self.driving_field2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
+                         f"{exchange_string} | N = {self.chain_spins} | ") + r"$\alpha$" +
+                        f" = {self.gilbert_factor: 2.2e}")
 
-            props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
+            info_box_props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
 
-            # place a text box in upper left in axes coords
-            ax1.text(0.35, -0.22, text_string, transform=ax1.transAxes, fontsize=6,
-                     verticalalignment='top', bbox=props, ha='center', va='center')
-            ax1.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
+            # Move xlabel on ax1 to make space for info box
+            ax1.set(xlabel='')
+            ax1.text(0.35, -0.24, info_box_full_text, transform=ax1.transAxes, fontsize=6,
+                     verticalalignment='top', bbox=info_box_props, ha='center', va='center')
+            ax1.text(0.85, -0.2, "Time [ns]", fontsize=12, ha='center', va='center',
                      transform=ax1.transAxes)
 
-        if add_coloured_regions:
-            rectLHS = mpatches.Rectangle((0, -1 * self.amplitude_data[:, spin_site].max()), 5.75,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.05,
-                                         facecolor="grey", edgecolor=None, lw=0)
-            rectMID = mpatches.Rectangle((5.751, -1 * self.amplitude_data[:, spin_site].max()), 3.249,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.25,
-                                         facecolor="grey", edgecolor=None, lw=0)
-            rectRHS = mpatches.Rectangle((9.0, -1 * self.amplitude_data[:, spin_site].max()), 6,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.5,
-                                         facecolor="grey", edgecolor=None, lw=0)
+        if add_signal_backgrounds:
+            extend_height = 0.375e-2  # Makes shaded region extend past the top/bottom of each region
+            precursor_background = mpatches.Rectangle((0, -1 * self.amplitude_data[:, spin_site].max()),
+                                                      (precursors_xlim_max_raw - precursors_xlim_min_raw),
+                                                      2 * self.amplitude_data[:, spin_site].max() + extend_height,
+                                                      alpha=0.3,
+                                                      facecolor=colour_schemes[0]["wavepacket4"], edgecolor=None, lw=0)
+            shock_background = mpatches.Rectangle((shock_xlim_min_raw, -1 * self.amplitude_data[:, spin_site].max()),
+                                                  (shock_xlim_max_raw - shock_xlim_min_raw),
+                                                  2 * self.amplitude_data[:, spin_site].max() + extend_height,
+                                                  alpha=0.15,
+                                                  facecolor=colour_schemes[0]["wavepacket5"], edgecolor=None, lw=0)
+            equil_background = mpatches.Rectangle((equil_xlim_min_raw, -1 * self.amplitude_data[:, spin_site].max()),
+                                                  (equil_xlim_max_raw - equil_xlim_min_raw),
+                                                  2 * self.amplitude_data[:, spin_site].max() + extend_height,
+                                                  alpha=0.3,
+                                                  facecolor=colour_schemes[0]["wavepacket6"], edgecolor=None, lw=0)
 
-            ax1.add_patch(rectLHS)
-            ax1.add_patch(rectMID)
-            ax1.add_patch(rectRHS)
+            ax1.add_patch(precursor_background)
+            ax1.add_patch(shock_background)
+            ax1.add_patch(equil_background)
 
-        if annotate_precursors:
-            frequencies_blob1, fourier_transform_blob1 = self._fft_data(
-                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, spin_site])
-            frequencies_blob2, fourier_transform_blob2 = self._fft_data(
-                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, spin_site])
-            frequencies_blob3, fourier_transform_blob3 = self._fft_data(
-                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, spin_site])
+        if publication_details:
+            # Add scientific notation (annotated) above y-axis
+            ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
+                     va='center', ha='center', transform=ax1.transAxes, fontsize=self.smaller_size)
 
-            ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color=f'{precursor_colour}',
-                     markerfacecolor='black', markeredgecolor='black', ls=':', zorder=1.9)
-            ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color=f'{shock_colour}',
-                     markerfacecolor='black', markeredgecolor='black', ls='--', zorder=1.9)
-            ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color=f'{equil_colour}',
-                     markerfacecolor='black', markeredgecolor='black', ls='-.', zorder=1.9)
-
-            arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-            ax2.annotate('P1', xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-            ax2.annotate('P2', xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-            ax2.annotate('P3', xy=(78.29, 1.25e0), xytext=(83.9, 7.5), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
+            # Add figure reference lettering
+            ax1.text(0.95, 0.9, f"(a)", va='center', ha='center', fontsize=self.smaller_size, transform=ax1.transAxes)
+            ax2.text(0.05, 0.9, f"(b)", va='center', ha='center', fontsize=self.smaller_size, transform=ax2.transAxes)
 
         for ax in [ax1, ax2]:
-            ax.set_axisbelow(False)
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
+            ax.set_axisbelow(False)  # Must be last manipulation of subplots
 
         if interactive_plot:
             # For interactive plots
@@ -882,10 +620,10 @@ class PaperFigures:
                 print(f'x: {event.xdata} and y: {event.ydata}')
 
             self.fig.canvas.mpl_connect('button_press_event', mouse_event)
-            self.fig.tight_layout()  # has to be here
+            self.fig.tight_layout()  # Must be directly before plt.show()
             plt.show()
         else:
-            self.fig.savefig(f"{self.output_filepath}_site{spin_site}2_tv1_test.png", bbox_inches="tight")
+            self.fig.savefig(f"{self.output_filepath}_site{spin_site}.png", bbox_inches="tight")
 
     def create_time_variation2(self, use_inset=False, interactive_plot=False):
         """

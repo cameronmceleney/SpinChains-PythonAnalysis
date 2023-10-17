@@ -734,17 +734,17 @@ class PlotImportedData:
             pf_selection = self.override_function.upper()
 
         else:
-            pf_selection = str(input("To return type 'BACK'. Which figure (PV [Position]/TV [Time]/GIF/FFT/RIC) "
-                                     "should be created: ")).upper()
+            pf_selection = str(input("To return type 'BACK'. Which figure (PV [Position]/TV [Time]/HD [Heav. Dis.]"
+                                     "/GIF/FFT/RIC) should be created: ")).upper()
 
-        pf_keywords = ["PV", "TV", "GIF", "FFT", "BACK", "RIC"]
+        pf_keywords = ["PV", "TV", "HD", "GIF", "FFT", "BACK", "RIC"]  # TODO turn into dict with pf_selection
 
         while True:
             if pf_selection in pf_keywords:
                 break
             else:
                 while pf_selection not in pf_keywords:
-                    pf_selection = str(input("Invalid choice. Select  from [PV, TV, GIF, FFT, BACK]: ")).upper()
+                    pf_selection = str(input(f"Invalid choice. Select  from [{', '.join(pf_keywords)}]: ")).upper()
 
         cont_plotting = True
 
@@ -808,10 +808,11 @@ class PlotImportedData:
                             print(f"Generating plot for [#{target_site}]...")
 
                             lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
-                            # paper_fig.create_time_variation(target_site)
-                            paper_fig.create_time_variation1(target_site, annotate_precursors=True, colour_precursors=False,
-                                                             basic_annotations=False, add_zoomed_region=False,
-                                                             add_coloured_regions=False, add_info_box=False)
+                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=True, visualise_wavepackets=False,
+                                                         annotate_precursors_fft=False, annotate_signal=False,
+                                                         wavepacket_inset=False, add_key_params=False,
+                                                         add_signal_backgrounds=True, publication_details=False,
+                                                         interactive_plot=False)
                             # paper_fig.create_time_variation2()
                             # paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=True,
                             #                                  use_inset_1=True)
