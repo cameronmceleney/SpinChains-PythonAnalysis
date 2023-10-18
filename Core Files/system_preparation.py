@@ -76,7 +76,7 @@ class SystemSetup:
 
         elif platform == "darwin":
             # OS X. This is the permanent location on my Macbook
-            mac_dir_root = "/Users/cameronmceleney/CLionProjects/Data/"
+            mac_dir_root = "/Users/cameronaidanmceleney/CLionProjects/Data/"
 
             if not self.has_target_dir_been_found:
                 self._create_directory(mac_dir_root, self.input_dir_name)

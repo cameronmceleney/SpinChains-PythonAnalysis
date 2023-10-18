@@ -553,6 +553,7 @@ class PlotImportedData:
             initials_of_method_to_call = self.override_method.upper()
 
         else:
+            # TODO This list of functions is massively out of date!
             print('''
             The plotting functions available are:
     
@@ -730,25 +731,42 @@ class PlotImportedData:
                                         self.header_data_params, self.header_sim_flags, self.header_data_sites,
                                         self.full_output_path)
 
+        pf_keywords_dict = {  # Full-name: [Initials, Abbreviation]
+                            "Spat. Ev.": ["SE", "Spatial Evolution"],
+                            "Temp. Ev.": ["TE", "Temporal Evolution"],
+                            "Heav. Dis.": ["HD", "Heaviside-Dispersion"],
+                            "GIF": ["GIF", "GIF"],
+                            "FFT": ["FFT", "Fast Fourier Transform"],
+                            "Prev. Menu": ["BACK", "Previous Menu"],
+                            "Ric. Paper": ["RIC", "Ricardo's Paper"]}
+
         if self.override_function is not None:
             pf_selection = self.override_function.upper()
 
         else:
-            pf_selection = str(input("To return type 'BACK'. Which figure (PV [Position]/TV [Time]/HD [Heav. Dis.]"
-                                     "/GIF/FFT/RIC) should be created: ")).upper()
+            pf_selection = str(input(f"Options: "
+                                     f"\n\t- {pf_keywords_dict["Spat. Ev."][0]} [{pf_keywords_dict["Spat. Ev."][1]}] | "
+                                     f"{pf_keywords_dict["Temp. Ev."][0]} [{pf_keywords_dict["Temp. Ev."][1]}] | "
+                                     f"{pf_keywords_dict["Heav. Dis."][0]} [{pf_keywords_dict["Heav. Dis."][1]}] | "
+                                     f"\n\t- {pf_keywords_dict["GIF"][0]} [{pf_keywords_dict["GIF"][1]}] | "
+                                     f"{pf_keywords_dict["FFT"][0]} [{pf_keywords_dict["FFT"][1]}] | "
+                                     f"{pf_keywords_dict["Ric. Paper"][0]} [{pf_keywords_dict["Ric. Paper"][1]}]"
+                                     f"\nTo return type '{pf_keywords_dict["Prev. Menu"][0]}'. Select an option: ")).upper()
 
         pf_keywords = ["PV", "TV", "HD", "GIF", "FFT", "BACK", "RIC"]  # TODO turn into dict with pf_selection
 
+        pf_sel_first_elm = [values[0] for values in pf_keywords_dict.values()]
         while True:
-            if pf_selection in pf_keywords:
+            if pf_selection in [values[0] for values in pf_keywords_dict.values()]:
                 break
             else:
-                while pf_selection not in pf_keywords:
-                    pf_selection = str(input(f"Invalid choice. Select  from [{', '.join(pf_keywords)}]: ")).upper()
+                while pf_selection not in pf_keywords_dict.keys():
+                    pf_selection = str(input(f"Invalid choice. Select "
+                                             f"from [{', '.join(pf_sel_first_elm)}]: ")).upper()
 
         cont_plotting = True
 
-        if pf_selection == pf_keywords[0]:
+        if pf_selection == pf_keywords_dict["Spat. Ev."][0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 if self.override_site is not None:
@@ -762,7 +780,7 @@ class PlotImportedData:
                         row_num = int(row_num)
 
                     except ValueError:
-                        if row_num.upper() == pf_keywords[4]:
+                        if row_num.upper() == pf_keywords_dict["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
@@ -770,9 +788,8 @@ class PlotImportedData:
                     else:
                         if row_num >= 0:
                             print(f"Generating plot for [#{row_num}]...")
-
                             lg.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.create_position_variation(row_num)
+                            paper_fig.plot_row_spa(row_num)
                             lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
@@ -783,7 +800,7 @@ class PlotImportedData:
                             lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
                             cont_plotting = False
 
-        elif pf_selection == pf_keywords[1]:
+        elif pf_selection == pf_keywords_dict["Temp. Ev."][0]:
             while cont_plotting:
 
                 if self.override_site is not None:
@@ -798,25 +815,22 @@ class PlotImportedData:
                         target_site = int(target_site)
 
                     except ValueError:
-                        if target_site.upper() == pf_keywords[4]:
+                        if target_site.upper() == pf_keywords_dict["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
 
                     else:
                         if target_site >= 0:
-                            print(f"Generating plot for [#{target_site}]...")
+                            print(f"Generating temporal evolution plot for [#{target_site}]...")
 
-                            lg.info(f"Generating TV plot for Spin Site [#{target_site}]")
+                            lg.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
                             paper_fig.plot_site_temporal(target_site, wavepacket_fft=True, visualise_wavepackets=False,
                                                          annotate_precursors_fft=False, annotate_signal=False,
                                                          wavepacket_inset=False, add_key_params=False,
                                                          add_signal_backgrounds=True, publication_details=False,
                                                          interactive_plot=False)
-                            # paper_fig.create_time_variation2()
-                            # paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=True,
-                            #                                  use_inset_1=True)
-                            lg.info(f"Finished plotting TV of Spin Site [#{target_site}]. Continuing...")
+                            lg.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
                                 cont_plotting = False
@@ -826,12 +840,49 @@ class PlotImportedData:
                             lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
                             cont_plotting = False
 
-        elif pf_selection == pf_keywords[2]:
+        elif pf_selection == pf_keywords_dict["Heav. Dis."][0]:
+            while cont_plotting:
+
+                if self.override_site is not None:
+                    sites_to_plot = [self.override_site]
+                else:
+                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
+                # Loops through user's inputs, ensuring that they are correct.
+                for target_site in sites_to_plot:
+
+                    try:
+                        target_site = int(target_site)
+
+                    except ValueError:
+                        if target_site.upper() == pf_keywords_dict["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if target_site >= 0:
+                            print(f"Generating Heaviside-Dispersion plot for [#{target_site}]...")
+
+                            lg.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
+                            # paper_fig.create_time_variation2()
+                            paper_fig.create_time_variation3(interactive_plot=False, use_lower_plot=True, use_inset_1=True)
+                            lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
+
+                            if self.early_exit:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-TV plotting.")
+                            lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
+                            cont_plotting = False
+
+        elif pf_keywords_dict["GIF"][0]:
             paper_fig.create_gif(number_of_frames=0.01)
             print("GIF successfully created!")
             self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
 
-        elif pf_selection == pf_keywords[3]:
+        elif pf_keywords_dict["FFT"][0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 if self.override_site is not None:
@@ -845,7 +896,7 @@ class PlotImportedData:
                         target_site = int(target_site)
 
                     except ValueError:
-                        if target_site.upper() == pf_keywords[4]:
+                        if target_site.upper() == pf_keywords_dict["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
@@ -866,11 +917,11 @@ class PlotImportedData:
                             lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
                             cont_plotting = False
 
-        elif pf_selection == pf_keywords[4]:
-            self.call_methods()
-
-        elif pf_selection == pf_keywords[5]:
+        elif pf_selection == pf_keywords_dict["Ric. Paper"][0]:
             paper_fig.ricardo_paper()
+
+        elif pf_selection == pf_keywords_dict["Prev. Menu"][0]:
+            self.call_methods()
 
         lg.info(f"Plotting PF complete!")
 
