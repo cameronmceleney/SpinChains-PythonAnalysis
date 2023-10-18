@@ -623,7 +623,9 @@ class PaperFigures:
         else:
             self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
 
-    def create_time_variation2(self, use_inset=False, use_lower_plot=False, use_dual_inset=False, interactive_plot=False):
+    def create_time_variation2(self, dispersion_inset: bool = False, use_lower_plot: bool = False,
+                               use_dual_inset: bool = False, show_group_velocity_cases: bool = False,
+                               interactive_plot: bool = False):
         """
         Plot the magnetisation of a site against time.
 
@@ -634,9 +636,9 @@ class PaperFigures:
 
         if self._fig is None:
             self._fig = plt.figure(figsize=(4.5, 3.375))
+        self._fig.subplots_adjust(wspace=1, hspace=0.35)
 
-        num_rows = 2
-        num_cols = 3
+        num_rows, num_cols = 2, 3
 
         if use_lower_plot:
             ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
@@ -748,127 +750,131 @@ class PaperFigures:
             self._tick_setter(ax1_inset, 1.0, 0.25, 3, 2, is_fft_plot=False,
                               yaxis_num_decimals=0.1, yscale_type='p')
         ########################################
-
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
-                               rowspan=num_rows, colspan=num_cols, fig=self._fig)
-
-        # ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
-        external_field, exchange_field = 0.1, 132.5
-        gyromag_ratio = 28.8e9
-        lattice_constant = np.sqrt(5.3e-17 / exchange_field)
-        system_len = 10e-5  # metres
-        max_len = round(system_len / lattice_constant)
-        num_spins_array = np.arange(0, max_len, 1)
-        wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
-        freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
-                                      + external_field)
-
-        hz_2_THz = 1e-12
-        hz_2_GHz = 1e-9
-
-        ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', lw=1., ls='-', label=f'Dataset 1')
-        ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (
-                external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * hz_2_THz,
-                 color='red', lw=1., alpha=0.4, ls='--', label=f'Dataset 1')
-
-        # These!!
-        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
-        #             s=0.5, c='red', label='paper')
-        # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
-
-        ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
-        self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
-                          xaxis_num_decimals=1, yaxis_num_decimals=0.0, yscale_type='p')
-
-        ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.31
-        ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
-        ax2.margins(0)
-        ax2.xaxis.labelpad = -2
-
-        ax2.text(0.997, -0.13, r"$\mathrm{\dfrac{\pi}{a}}$",
-                 verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes,
-                 fontsize=self._fontsizes["smaller"])
-
-        ax2.text(0.02, 0.88, r"$\mathcal{III}$", verticalalignment='center', horizontalalignment='left',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
-        ax2.text(0.02, 0.5, r"$\mathcal{II}$", verticalalignment='center', horizontalalignment='left',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
-        ax2.text(0.02, 0.12, r"$\mathcal{I}$", verticalalignment='center', horizontalalignment='left',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
-
-        ax2.text(0.91, 0.82, f"Decreasing", verticalalignment='center', horizontalalignment='center',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
-        ax2.text(0.60, 0.425, f"Constant", verticalalignment='center', horizontalalignment='center',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
-        ax2.text(0.41, 0.12, f"Increasing", verticalalignment='center', horizontalalignment='center',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
-
-        arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.075", "color": "black"}
-        arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
-        arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.075", "color": "black"}
-        ax2.annotate('', xy=(1.665, 2.961), xytext=(1.147, 1.027), va='center', ha='center',
-                     arrowprops=arrow_ax2_props1, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
-        ax2.annotate('', xy=(3.058, 9.406), xytext=(2.154, 5.098), va='center', ha='center',
-                     arrowprops=arrow_ax2_props2, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
-        ax2.annotate('', xy=(4.155, 13.213), xytext=(3.553, 11.342), va='center', ha='center',
-                     arrowprops=arrow_ax2_props3, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
-
-        ########################################
-        if use_inset:
-            ax2_inset = inset_axes(ax2, width=1.9, height=0.8, loc="lower right", bbox_to_anchor=[0.99, 0.02],
-                                   bbox_transform=ax2.transAxes)
-            D_b = 5.3e-17
-            a1 = lattice_constant
-            a2 = np.sqrt(D_b / 132.5)
-
-            # j_to_meV = 6.24150934190e21
-            num_spins_array1 = np.arange(0, 5000, 1)
-            num_spins_array2 = np.arange(0, 15811, 1)
-            wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
-            wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
-
-            ax2_inset.plot(wave_number_array1 * hz_2_GHz,
-                           (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5, ls='--',
-                           color='purple',
-                           label='$a=0.2$ nm',
-                           zorder=1.3)
-            ax2_inset.plot(wave_number_array2 * hz_2_GHz,
-                           (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_THz, lw=1.5, ls='-',
-                           label='$a=0.63$ nm',
-                           zorder=1.2)
-
-            ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=self._fontsizes["tiny"])
-            ax2_inset.set_xlim(0, 2)
-            ax2_inset.set_ylim(0, 10)
-            ax2_inset.xaxis.tick_top()
-            ax2_inset.xaxis.set_label_position("top")
-            ax2_inset.yaxis.set_label_position("left")
-            ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=self._fontsizes["tiny"], rotation=90, labelpad=20)
-            ax2_inset.tick_params(axis='both', labelsize=self._fontsizes["tiny"])
+        if use_lower_plot:
+            ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
+                                   rowspan=num_rows, colspan=num_cols, fig=self._fig)
+    
+            # ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
+            external_field, exchange_field = 0.1, 132.5
+            gyromag_ratio = 28.8e9
+            lattice_constant = np.sqrt(5.3e-17 / exchange_field)
+            system_len = 10e-5  # metres
+            max_len = round(system_len / lattice_constant)
+            num_spins_array = np.arange(0, max_len, 1)
+            wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
+            freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
+                                          + external_field)
+    
+            hz_2_THz = 1e-12
+            hz_2_GHz = 1e-9
+    
+            ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', lw=1., ls='-', label=f'Dataset 1')
+            ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (
+                    external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * hz_2_THz,
+                     color='red', lw=1., alpha=0.4, ls='--', label=f'Dataset 1')
+    
+            # These!!
+            # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+            #             s=0.5, c='red', label='paper')
+            # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
+    
+            ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
+            self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
+                              xaxis_num_decimals=1, yaxis_num_decimals=0.0, yscale_type='p')
+    
+            ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.31
+            ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
             ax2.margins(0)
+            ax2.xaxis.labelpad = -2
 
-            ax2_inset.patch.set_color("#f9f2e9")
-            ax2_inset.yaxis.labelpad = 5
-            ax2_inset.xaxis.labelpad = 2.5
+            if show_group_velocity_cases:
+                # Change xaxis limit to show in terms of lattice constant
+                ax2.text(0.997, -0.13, r"$\mathrm{\dfrac{\pi}{a}}$",
+                         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes,
+                         fontsize=self._fontsizes["smaller"])
 
-            # self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
-            ax2_inset.ticklabel_format(axis='y', style='plain')
-            ax2_inset.legend(fontsize=self._fontsizes["tiny"], frameon=False)
+                # Label each case using paper's notation
+                ax2.text(0.02, 0.88, r"$\mathcal{III}$", verticalalignment='center', horizontalalignment='left',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+                ax2.text(0.02, 0.5, r"$\mathcal{II}$", verticalalignment='center', horizontalalignment='left',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+                ax2.text(0.02, 0.12, r"$\mathcal{I}$", verticalalignment='center', horizontalalignment='left',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
 
-        ########################################
+                # Use arrow to show rate of change of group velocity (normal (+ve)/no (nil)/anomalous (-ve) dispersion
+                ax2.text(0.91, 0.82, f"Decreasing", verticalalignment='center', horizontalalignment='center',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
+                ax2.text(0.60, 0.425, f"Constant", verticalalignment='center', horizontalalignment='center',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
+                ax2.text(0.41, 0.12, f"Increasing", verticalalignment='center', horizontalalignment='center',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
 
-        ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
-                 transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+                arrow_props_normal_disp = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.075", "color": "black"}
+                arrow_props_no_disp = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
+                arrow_props_anom_disp = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.075", "color": "black"}
+                ax2.annotate('', xy=(1.665, 2.961), xytext=(1.147, 1.027), va='center', ha='center',
+                             arrowprops=arrow_props_normal_disp, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
+                ax2.annotate('', xy=(3.058, 9.406), xytext=(2.154, 5.098), va='center', ha='center',
+                             arrowprops=arrow_props_no_disp, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
+                ax2.annotate('', xy=(4.155, 13.213), xytext=(3.553, 11.342), va='center', ha='center',
+                             arrowprops=arrow_props_anom_disp, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
 
-        ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
-                 transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+            ########################################
+            if dispersion_inset:
+                ax2_inset = inset_axes(ax2, width=1.9, height=0.8, loc="lower right", bbox_to_anchor=[0.99, 0.02],
+                                       bbox_transform=ax2.transAxes)
+                # Key Parameters
+                # j_to_meV = 6.24150934190e21
+                D_b = 5.3e-17
+                a1, a2 = lattice_constant, np.sqrt(D_b / 132.5)
+
+                # Wave number calculation
+                num_spins_array1 = np.arange(0, 5000, 1)
+                num_spins_array2 = np.arange(0, 15811, 1)
+                wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
+                wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
+
+                # Plot dispersion relation
+                ax2_inset.plot(wave_number_array1 * hz_2_GHz,
+                               (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5, ls='--',
+                               color='purple',
+                               label='$a=0.2$ nm',
+                               zorder=1.3)
+                ax2_inset.plot(wave_number_array2 * hz_2_GHz,
+                               (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_THz, lw=1.5, ls='-',
+                               label='$a=0.63$ nm',
+                               zorder=1.2)
+
+                # Set figure formatting
+                ax2_inset.set(xlim=[0, 2], ylim=[0, 10])
+                ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=self._fontsizes["tiny"])
+                ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=self._fontsizes["tiny"], rotation=90, labelpad=20)
+
+                ax2_inset.xaxis.tick_top()
+                ax2_inset.xaxis.set_label_position("top")
+                ax2_inset.yaxis.set_label_position("left")
+                ax2_inset.tick_params(axis='both', labelsize=self._fontsizes["tiny"])
+                ax2.margins(0)
+    
+                ax2_inset.patch.set_color("#f9f2e9")
+                ax2_inset.xaxis.labelpad, ax2_inset.yaxis.labelpad = 2.5, 5
+    
+                # self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
+                ax2_inset.ticklabel_format(axis='y', style='plain')
+                ax2_inset.legend(fontsize=self._fontsizes["tiny"], frameon=False)
+    
+            ########################################
+    
+            ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
+                     transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+    
+            ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+                     transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
 
         for ax in [ax1, ax2]:
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
             ax.set_axisbelow(False)
             ax.set_facecolor("white")
-
-        self._fig.subplots_adjust(wspace=1, hspace=0.35)
 
         if interactive_plot:
             # For interactive plots
