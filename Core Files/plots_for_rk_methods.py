@@ -763,9 +763,7 @@ class PaperFigures:
                               yaxis_num_decimals=1.0, yscale_type='p')
         ########################################
         if dispersion_relations:
-            ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
-                                   rowspan=num_rows, colspan=num_cols, fig=self._fig)
-
+            # Key values and compute wavenumber plus frequency
             hz_2_GHz, hz_2_THz = 1e-9, 1e-12
             external_field, exchange_field = 0.1, 132.5  # [T]
             gyromag_ratio = 28.8e9
@@ -779,7 +777,7 @@ class PaperFigures:
             freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
                                           + external_field)
             ########################################
-            # Plot dispersionr relations
+            # Plot dispersion relations
             ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
                                    rowspan=num_rows, colspan=num_cols, fig=self._fig)
 

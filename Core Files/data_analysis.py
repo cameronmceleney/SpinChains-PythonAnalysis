@@ -787,7 +787,7 @@ class PlotImportedData:
                         if row_num >= 0:
                             print(f"Generating plot for [#{row_num}]...")
                             lg.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spa(row_num)
+                            paper_fig.plot_row_spatial(row_num)
                             lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
