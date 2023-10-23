@@ -745,12 +745,12 @@ class PlotImportedData:
 
         else:
             pf_selection = str(input(f"Options:"
-                                     f"\n\t- {pf_keywords['Spat. Ev.'][0]}: {pf_keywords['Spat. Ev.'][1]}"
-                                     f"{pf_keywords['Temp. Ev.'][0]}: {pf_keywords['Temp. Ev.'][1]}"
+                                     f"\n\t- {pf_keywords['Spat. Ev.'][0]}: {pf_keywords['Spat. Ev.'][1]} | "
+                                     f"{pf_keywords['Temp. Ev.'][0]}: {pf_keywords['Temp. Ev.'][1]} | "
                                      f"{pf_keywords['Heav. Dis.'][0]}: {pf_keywords['Heav. Dis.'][1]}"
-                                     f"\n\t- {pf_keywords['GIF'][0]}: {pf_keywords['GIF'][1]}"
-                                     f"{pf_keywords['FFT'][0]}: {pf_keywords['FFT'][1]}"
-                                     f"{pf_keywords['Ric. Paper'][0]}: {pf_keywords['Ric. Paper'][1]}"
+                                     f"\n\t- {pf_keywords['GIF'][0]}: {pf_keywords['GIF'][1]} | "
+                                     f"{pf_keywords['FFT'][0]}: {pf_keywords['FFT'][1]} | "
+                                     f"{pf_keywords['Ric. Paper'][0]}: {pf_keywords['Ric. Paper'][1]} | "
                                      f"\nTo return type {pf_keywords['Prev. Menu'][0]}: Select an option: ")).upper()
 
         pf_sel_first_elm = [values[0] for values in pf_keywords.values()]
