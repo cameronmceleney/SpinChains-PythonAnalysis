@@ -218,12 +218,19 @@ class PaperFigures:
 
         frames = []
 
-        for index in np.arange(0, self._num_data_points + 1, self._num_data_points * number_of_frames):
-            index = int(index)
+        plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})
+        for index in range(0, int(self._num_data_points + 1), int(self._num_data_points * number_of_frames)):
             frame = self._plot_paper_gif(index)
             frames.append(frame)
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=frame_duration)
+        gif.save(frames, f"{self.output_filepath}.gif", duration=0.5)
+
+        #for index in np.arange(0, self._num_data_points + 1, self._num_data_points * number_of_frames):
+        #    index = int(index)
+        #    frame = self._plot_paper_gif(index)
+        #    frames.append(frame)
+#
+        #gif.save(frames, f"{self.output_filepath}.gif", duration=frame_duration)
 
     def plot_site_temporal(self, site_index: int, wavepacket_fft: bool = False,
                            visualise_wavepackets: bool = False, annotate_precursors_fft: bool = False,
@@ -274,11 +281,10 @@ class PaperFigures:
         ax1.xaxis.labelpad = -1
         ax2.xaxis.labelpad = -1
 
-        ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
-        ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
-        ax1_inset_lower = 0.7
+        # ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
+        # ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
 
-        line_height = -3.15 * ax1_yaxis_order  # Assists formatting when drawing precursor lines on plots
+        # line_height = -3.15 * ax1_yaxis_order  # Assists formatting when drawing precursor lines on plots
 
         ########################################
         # Set colour scheme
@@ -310,24 +316,59 @@ class PaperFigures:
         }
 
         # Accessing the selected colour scheme
-        select_colour_scheme = 1
-        is_colour_matte = False
+        select_colour_scheme = 2
+        is_colour_matte = True
         selected_scheme = colour_schemes[select_colour_scheme]
 
         ########################################
         # All times in nanosecnds (ns)
-        signal_xlim_min, signal_xlim_max = 0, self._max_time
-        ax1_xlim_lower, ax1_xlim_upper = 0.0, 5
+        plot_schemes = {  # D:\Data\2023-04-19\Outputs
+            0: {  # mceleney2023dipsersive Fig. 1b-c [2022-08-29/T1337_site3000]
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, 5.0],
+                'ax1_ylim': [-4.0625e-3, 3.125e-3],
+                'ax1_inset_xlim': [0.7, 2.6],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0, 99.9999],
+                'ax2_ylim': [1e-1, 1e3],
+                'precusor_xlim': (0, 2.6),  # 12:3356
+                'signal_onset_xlim': (2.6, 3.79),  # 3445:5079
+                'equilib_xlim': (3.8, 5.0),  # 5079::
+                'ax1_label': '(b)',
+                'ax2_label': '(c)',
+                'ax1_line_height': 3.15e-3
+            }
+        }
+        select_plot_scheme = plot_schemes[0]
+        signal_xlim_min, signal_xlim_max = select_plot_scheme['signal_xlim']
+        ax1_xlim_lower, ax1_xlim_upper = select_plot_scheme['ax1_xlim']
         ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
 
-        precursors_xlim_min_raw, precursors_xlim_max_raw = 0, 2.6
-        shock_xlim_min_raw, shock_xlim_max_raw = precursors_xlim_max_raw, 3.76
-        equil_xlim_min_raw, equil_xlim_max_raw = shock_xlim_max_raw, ax1_xlim_upper
+        precursors_xlim_min_raw, precursors_xlim_max_raw = select_plot_scheme['precusor_xlim']
+        shock_xlim_min_raw, shock_xlim_max_raw = select_plot_scheme['signal_onset_xlim']
+        equil_xlim_min_raw, equil_xlim_max_raw = select_plot_scheme['equilib_xlim']
 
-        # TODO Need to find all the values and turn this section into a dictionar
-        wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = 1.75, precursors_xlim_max_raw  # 0.481, 0.502
-        wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = 1.3, 1.7  # 0.461, 0.48
-        wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = 1.05, 1.275  # 0.442, 0.4605
+        # TODO Need to find all the values and turn this section into a dictionary
+        wavepacket_schemes = {
+            0: {  # mceleney2023dipsersive Fig. 1b-c [2022-08-29/T1337_site3000]
+                'wp1_xlim': (1.75, precursors_xlim_max_raw),
+                'wp2_xlim': (1.3, 1.7),
+                'wp3_xlim': (1.05, 1.275)
+            },
+            1: {  # mceleney2023dipsersive Fig. 3a-b [2022-08-08/T1400_site3000]
+                'wp1_xlim': (0.481, 0.502),
+                'wp2_xlim': (0.461, 0.480),
+                'wp3_xlim': (0.442, 0.4605)
+            }
+            # ... add more wavepacket schemes as needed
+        }
+        select_wp_vals = wavepacket_schemes[0]
+        wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = select_wp_vals['wp1_xlim']
+        wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = select_wp_vals['wp2_xlim']
+        wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = select_wp_vals['wp3_xlim']
 
         # If element [0-2] are changed, must also update calls for `converted_values` below
         data_names = ['Precursors', 'Shockwave', 'Steady State', 'wavepacket1', 'wavepacket2', 'wavepacket3']
@@ -343,11 +384,11 @@ class PaperFigures:
 
         ########################################
 
-        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$ (10$^{-3}$)", xlim=[ax1_xlim_lower, ax1_xlim_upper],
-                ylim=[-ax1_yaxis_base * ax1_yaxis_order * 1.4, ax1_yaxis_base * ax1_yaxis_order])
+        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$ (10$^{-3}$)", xlim=select_plot_scheme['ax1_xlim'],
+                ylim=select_plot_scheme['ax1_ylim'])
 
-        ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)", xlim=[0, 99.999],
-                ylim=[1e-1, 1e3], yscale='log')
+        ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)", xlim=select_plot_scheme['ax2_xlim'],
+                ylim=select_plot_scheme['ax2_ylim'], yscale='log')
 
         self._tick_setter(ax1, ax1_xlim_range * 0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=1)
         self._tick_setter(ax2, 20, 5, 6, None, is_fft_plot=True)
@@ -470,7 +511,7 @@ class PaperFigures:
 
         if annotate_signal:
             # Leave these alone!
-            label_height = line_height - ax1_yaxis_base * 0.25 * ax1_yaxis_order
+            label_height = select_plot_scheme['ax1_line_height'] - 3 * 0.25 * -3
             precursor_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{precursor_colour}",
                                      'lw': 1.0}
             shock_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{shock_colour}", 'lw': 1.0}
@@ -480,11 +521,14 @@ class PaperFigures:
             shock_label_lhs, shock_label_rhs = shock_xlim_min_raw, shock_xlim_max_raw
             equil_label_lhs, equil_label_rhs = equil_xlim_min_raw, equil_xlim_max_raw
 
-            ax1.annotate('', xy=(precursor_label_lhs, line_height), xytext=(precursor_label_rhs, line_height),
+            ax1.annotate('', xy=(precursor_label_lhs, select_plot_scheme['ax1_line_height']),
+                         xytext=(precursor_label_rhs, select_plot_scheme['ax1_line_height']),
                          va='center', ha='center', arrowprops=precursor_label_props, fontsize=self._fontsizes["tiny"])
-            ax1.annotate('', xy=(shock_label_lhs, line_height), xytext=(shock_label_rhs, line_height),
+            ax1.annotate('', xy=(shock_label_lhs, select_plot_scheme['ax1_line_height']),
+                         xytext=(shock_label_rhs, select_plot_scheme['ax1_line_height']),
                          va='center', ha='center', arrowprops=shock_label_props, fontsize=self._fontsizes["tiny"])
-            ax1.annotate('', xy=(equil_label_lhs, line_height), xytext=(equil_label_rhs, line_height),
+            ax1.annotate('', xy=(equil_label_lhs, select_plot_scheme['ax1_line_height']),
+                         xytext=(equil_label_rhs, select_plot_scheme['ax1_line_height']),
                          va='center', ha='center', arrowprops=equil_label_props, fontsize=self._fontsizes["tiny"])
 
             ax1.text((precursor_label_lhs + precursor_label_rhs) / 2, label_height, data_names[0], ha='center',
@@ -503,8 +547,9 @@ class PaperFigures:
             amplitude_dataset = self.amplitude_data[:, site_index]
 
             # Impose inset onto plot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
-            ax1_inset = inset_axes(ax1, width=2.0, height=0.5, loc="upper left",
-                                   bbox_to_anchor=[0.01, 1.22], bbox_transform=ax1.transAxes)
+            ax1_inset = inset_axes(ax1, width=select_plot_scheme['ax1_inset_width'],
+                                   height=select_plot_scheme['ax1_inset_height'], loc="lower left",
+                                   bbox_to_anchor=select_plot_scheme['ax1_inset_bbox'], bbox_transform=ax1.transAxes)
             ax1_inset.plot(time_dataset, amplitude_dataset, lw=0.75, color=f'{ax1_colour_matte}', zorder=1.1)
 
             if visualise_wavepackets:
@@ -522,9 +567,8 @@ class PaperFigures:
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 2 * ax1_yaxis_order * 1e-1
-            ax1_inset.set_xlim(ax1_inset_lower, precursors_xlim_max_raw)
-            ax1_inset.set_ylim(-ylim_in, ylim_in)
+            # ylim_in = 2 * ax1_yaxis_order * 1e-1
+            ax1_inset.set(xlim=select_plot_scheme['ax1_inset_xlim'], ylim=select_plot_scheme['ax1_inset_ylim'],)
 
             arrow_lower_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=40',
                                  "color": "black",
@@ -599,13 +643,13 @@ class PaperFigures:
 
         if publication_details:
             # Add scientific notation (annotated) above y-axis
-            ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
-                     va='center', ha='center', transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+            # ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
+            #          va='center', ha='center', transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
 
             # Add figure reference lettering
-            ax1.text(0.95, 0.9, f"(a)", va='center', ha='center', fontsize=self._fontsizes["smaller"],
+            ax1.text(0.95, 0.9, f"{select_plot_scheme['ax1_label']}", va='center', ha='center', fontsize=self._fontsizes["smaller"],
                      transform=ax1.transAxes)
-            ax2.text(0.05, 0.9, f"(b)", va='center', ha='center', fontsize=self._fontsizes["smaller"],
+            ax2.text(0.05, 0.9, f"{select_plot_scheme['ax2_label']}", va='center', ha='center', fontsize=self._fontsizes["smaller"],
                      transform=ax2.transAxes)
 
         for ax in self._fig.axes:

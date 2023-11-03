@@ -824,9 +824,9 @@ class PlotImportedData:
 
                             lg.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
                             paper_fig.plot_site_temporal(target_site, wavepacket_fft=True, visualise_wavepackets=False,
-                                                         annotate_precursors_fft=False, annotate_signal=False,
-                                                         wavepacket_inset=False, add_key_params=False,
-                                                         add_signal_backgrounds=True, publication_details=False,
+                                                         annotate_precursors_fft=True, annotate_signal=True,
+                                                         wavepacket_inset=True, add_key_params=False,
+                                                         add_signal_backgrounds=False, publication_details=True,
                                                          interactive_plot=False)
                             lg.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
 
@@ -878,8 +878,10 @@ class PlotImportedData:
                             cont_plotting = False
 
         elif pf_keywords["GIF"][0]:
-            paper_fig.create_gif(number_of_frames=0.01)
+            paper_fig.create_gif(number_of_frames=0.05)
             print("GIF successfully created!")
+            if self.early_exit:
+                exit(0)
             self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
 
         elif pf_keywords["FFT"][0]:
