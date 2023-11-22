@@ -7,6 +7,8 @@ import matplotlib as mpl
 # Standard modules (common)
 import matplotlib.pyplot as plt
 import numpy as np
+import imageio as io
+import os as os
 import seaborn as sns
 
 # Third party modules (uncommon)
@@ -185,8 +187,7 @@ class PaperFigures:
 
         self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
 
-    @gif.frame
-    def _plot_paper_gif(self, row_index: int) -> None:
+    def _plot_paper_gif(self, row_index: int) -> plt.Figure:
         """
         Private method to save a given row of a data as a frame suitable for use with the git library.
 
@@ -198,39 +199,26 @@ class PaperFigures:
         """
         self._draw_figure(row_index, False, False)
 
+        return self._fig
+
     def create_gif(self, number_of_frames: float = 0.05, frame_duration: float = 0.5) -> None:
-        """
-        Generate a GIF from the imported data.
+        frame_filenames = []
 
-        Uses the imported data, and turns each row in to a single figure (frame). Multiple figures are then combined
-        to form a GIF.
-
-        This method does not accept *args or **kwargs from the class, so to make any changes to
-        gif.save() one must access this method directly. For more guidance see `this article
-        <https://towardsdatascience.com/a-simple-way-to-turn-your-plots-into-gifs-in-python-f6ea4435ed3c>`_.
-
-        :param number_of_frames: Enter number of frames for GIF to contain, normalised [0.01, 1.0] against the total
-                                 number of rows in the dataset.
-        :param frame_duration: Enter the duration of each frame in seconds.
-
-        :return: Will save a .gif file to the 'Outputs' folder.
-        """
-
-        frames = []
-
-        plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})
         for index in range(0, int(self._num_data_points + 1), int(self._num_data_points * number_of_frames)):
             frame = self._plot_paper_gif(index)
-            frames.append(frame)
+            frame_filename = f"{self.output_filepath}_{index}.png"
+            frame.savefig(frame_filename)
+            frame_filenames.append(frame_filename)
+            plt.close(frame)  # Close the figure to free memory
 
-        gif.save(frames, f"{self.output_filepath}.gif", duration=0.5)
+        with imio.get_writer(f"{self.output_filepath}.gif", mode='I', duration=frame_duration) as writer:
+            for filename in frame_filenames:
+                image = imio.imread(filename)
+                writer.append_data(image)
 
-        #for index in np.arange(0, self._num_data_points + 1, self._num_data_points * number_of_frames):
-        #    index = int(index)
-        #    frame = self._plot_paper_gif(index)
-        #    frames.append(frame)
-#
-        #gif.save(frames, f"{self.output_filepath}.gif", duration=frame_duration)
+        # Clean up by removing the individual frame files
+        for filename in frame_filenames:
+            os.remove(filename)
 
     def plot_site_temporal(self, site_index: int, wavepacket_fft: bool = False,
                            visualise_wavepackets: bool = False, annotate_precursors_fft: bool = False,
