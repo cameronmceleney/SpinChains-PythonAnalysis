@@ -7,7 +7,7 @@ import matplotlib as mpl
 # Standard modules (common)
 import matplotlib.pyplot as plt
 import numpy as np
-import imageio as io
+import imageio as imio
 import os as os
 import seaborn as sns
 
@@ -16,7 +16,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 import gif as gif
-from scipy.fft import rfft, rfftfreq
+from scipy.fft import rfft, rfftfreq, fft, fftfreq
 from typing import Any
 
 # My packages / Any header files
@@ -78,7 +78,7 @@ class PaperFigures:
         self._fig = None
         self._axes = None
         self._yaxis_lim = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
-        self._fig_kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$ / M$_S$",
+        self._fig_kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$",
                             "xlim": [0, self._total_num_spins], "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
 
         # Text sizes for class to override rcParams
@@ -105,7 +105,8 @@ class PaperFigures:
             else:
                 # For GIFs only. Each frame requires a new fig to prevent stuttering.
                 cm = 1 / 2.54
-                self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
+                self._fig = plt.figure(figsize=(4.4, 2.0))
+                #self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
                 self._axes = self._fig.add_subplot(111)
                 plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Prevent excessive image sizes
         else:
@@ -118,11 +119,13 @@ class PaperFigures:
                         lw=2 * 0.75, color='#64bb6a', label=f"{self.time_data[row_index]: 2.2f} (ns)")
 
         self._axes.set(**self._fig_kwargs)
+       # self._axes.legend(fontsize=self._fontsizes["tiny"], frameon=False, fancybox=False,
+       #            facecolor=None, edgecolor=None)
 
         # Keep tick manipulations in this block to ease debugging
         self._axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
         self._tick_setter(self._axes, self._total_num_spins / 4, self._total_num_spins / 8, 3, 4,
-                          yaxis_num_decimals=1.1)
+                          yaxis_num_decimals=1.1, show_sci_notation=False)
 
         if publish_plot:
             self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
@@ -201,7 +204,7 @@ class PaperFigures:
 
         return self._fig
 
-    def create_gif(self, number_of_frames: float = 0.05, frame_duration: float = 0.5) -> None:
+    def create_gif(self, number_of_frames: float = 0.01, frame_duration: float = 1) -> None:
         frame_filenames = []
 
         for index in range(0, int(self._num_data_points + 1), int(self._num_data_points * number_of_frames)):
@@ -211,7 +214,7 @@ class PaperFigures:
             frame_filenames.append(frame_filename)
             plt.close(frame)  # Close the figure to free memory
 
-        with imio.get_writer(f"{self.output_filepath}.gif", mode='I', duration=frame_duration) as writer:
+        with imio.get_writer(f"{self.output_filepath}.gif", mode='I', fps=10, loop=0) as writer:
             for filename in frame_filenames:
                 image = imio.imread(filename)
                 writer.append_data(image)
@@ -305,7 +308,7 @@ class PaperFigures:
 
         # Accessing the selected colour scheme
         select_colour_scheme = 2
-        is_colour_matte = True
+        is_colour_matte = False
         selected_scheme = colour_schemes[select_colour_scheme]
 
         ########################################
@@ -328,9 +331,46 @@ class PaperFigures:
                 'ax1_label': '(b)',
                 'ax2_label': '(c)',
                 'ax1_line_height': 3.15e-3
+            },
+            1: {  # Jiahui T0941/T1107_site3
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, 1.50 - 0.00001],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_inset_xlim': [0.01, 0.02],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0001, 599.9999],
+                'ax2_ylim': [1e-2, 1e1],
+                'precusor_xlim': (0.0, 0.99),     # 0.0, 0.75
+                'signal_onset_xlim': (0.0, 0.01), # 0.75, 1.23
+                'equilib_xlim': (0.99, 1.5),       # 1.23, 1.5
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
+            },
+            2: {  # Jiahui T0941/T1107_site1
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, 1.50 - 0.00001],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_inset_xlim': [0.01, 0.02],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0001, 119.9999],
+                'ax2_ylim': [1e-3, 1e1],            #       A            B            C            D           E
+                'precusor_xlim': (0.0, 0.42),       # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
+                'signal_onset_xlim': (0.42, 0.65),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'equilib_xlim': (0.65, 1.5),        # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
             }
         }
-        select_plot_scheme = plot_schemes[0]
+
+        select_plot_scheme = plot_schemes[2]
         signal_xlim_min, signal_xlim_max = select_plot_scheme['signal_xlim']
         ax1_xlim_lower, ax1_xlim_upper = select_plot_scheme['ax1_xlim']
         ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
@@ -350,10 +390,15 @@ class PaperFigures:
                 'wp1_xlim': (0.481, 0.502),
                 'wp2_xlim': (0.461, 0.480),
                 'wp3_xlim': (0.442, 0.4605)
+            },
+            2: {  # mceleney2023dipsersive Fig. 3a-b [2022-08-08/T1400_site3000]
+                'wp1_xlim': (0.01, 0.02),
+                'wp2_xlim': (0.02, 0.03),
+                'wp3_xlim': (0.03, 0.04)
             }
             # ... add more wavepacket schemes as needed
         }
-        select_wp_vals = wavepacket_schemes[0]
+        select_wp_vals = wavepacket_schemes[2]
         wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = select_wp_vals['wp1_xlim']
         wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = select_wp_vals['wp2_xlim']
         wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = select_wp_vals['wp3_xlim']
@@ -372,14 +417,15 @@ class PaperFigures:
 
         ########################################
 
-        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$ (10$^{-3}$)", xlim=select_plot_scheme['ax1_xlim'],
+        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$($10^{-4}$)", xlim=select_plot_scheme['ax1_xlim'],
                 ylim=select_plot_scheme['ax1_ylim'])
 
         ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)", xlim=select_plot_scheme['ax2_xlim'],
                 ylim=select_plot_scheme['ax2_ylim'], yscale='log')
 
-        self._tick_setter(ax1, ax1_xlim_range * 0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=1)
-        self._tick_setter(ax2, 20, 5, 6, None, is_fft_plot=True)
+        self._tick_setter(ax1, 0.5, 0.25, 3, 4, xaxis_num_decimals=1,
+                          show_sci_notation=False)
+        self._tick_setter(ax2, 40, 10, 3, None, is_fft_plot=True)
 
         ########################################
         if ax1_xlim_lower > ax1_xlim_upper:
@@ -441,6 +487,14 @@ class PaperFigures:
         frequencies_eq, fourier_transform_eq = (
             self._fft_data(self.amplitude_data[equil_xlim_min:convert_norm(signal_xlim_max), site_index]))
 
+        for i, j, k in zip(abs(fourier_transform_precursors), abs(fourier_transform_dsw),
+                           abs(fourier_transform_eq)):
+            if i < 1:
+                print(f'Small value PRE found: {i}')
+            if j < 1:
+                    print(f'Small value DSW found: {j}')
+            if k < 1:
+                        print(f'Small value EQ found: {k}')
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors),
                  lw=1, color=f"{precursor_colour}", marker='', markerfacecolor='black', markeredgecolor='black',
                  label=data_names[0], zorder=1.5)
@@ -556,7 +610,7 @@ class PaperFigures:
 
             # Select data (of original) to show in inset through changing axis limits
             # ylim_in = 2 * ax1_yaxis_order * 1e-1
-            ax1_inset.set(xlim=select_plot_scheme['ax1_inset_xlim'], ylim=select_plot_scheme['ax1_inset_ylim'],)
+            ax1_inset.set(xlim=select_plot_scheme['ax1_inset_xlim'], ylim=select_plot_scheme['ax1_inset_ylim'], )
 
             arrow_lower_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=40',
                                  "color": "black",
@@ -635,9 +689,11 @@ class PaperFigures:
             #          va='center', ha='center', transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
 
             # Add figure reference lettering
-            ax1.text(0.95, 0.9, f"{select_plot_scheme['ax1_label']}", va='center', ha='center', fontsize=self._fontsizes["smaller"],
+            ax1.text(0.95, 0.9, f"{select_plot_scheme['ax1_label']}", va='center', ha='center',
+                     fontsize=self._fontsizes["smaller"],
                      transform=ax1.transAxes)
-            ax2.text(0.05, 0.9, f"{select_plot_scheme['ax2_label']}", va='center', ha='center', fontsize=self._fontsizes["smaller"],
+            ax2.text(0.05, 0.9, f"{select_plot_scheme['ax2_label']}", va='center', ha='center',
+                     fontsize=self._fontsizes["smaller"],
                      transform=ax2.transAxes)
 
         for ax in self._fig.axes:
@@ -657,7 +713,7 @@ class PaperFigures:
 
     def plot_heaviside_and_dispersions(self, dispersion_relations: bool = True, use_dual_signal_inset: bool = False,
                                        show_group_velocity_cases: bool = False, dispersion_inset: bool = False,
-                                       publication_details: bool = False, interactive_plot: bool = False) -> None:
+                                       use_demag: bool = False, compare_dis: bool = False, publication_details: bool = False, interactive_plot: bool = False) -> None:
         """
         Two pane figure where upper pane shows the FFT of Quasi-Heaviside Step Function(s), and the lower pane
         shows dispersion relations of our datasets.
@@ -768,7 +824,7 @@ class PaperFigures:
                 if ax == ax1_inset_instant:
                     ax.tick_params(axis='x', which='both', labelbottom=False)
 
-        elif not use_dual_signal_inset:
+        elif not use_dual_signal_inset and False:
             if dispersion_relations:
                 ax1_inset = inset_axes(ax1, width=1.3, height=0.72, loc="upper right", bbox_to_anchor=[0.995, 1.175],
                                        bbox_transform=ax1.transAxes)
@@ -797,15 +853,19 @@ class PaperFigures:
         if dispersion_relations:
             # Key values and compute wavenumber plus frequency
             hz_2_GHz, hz_2_THz = 1e-9, 1e-12
-            external_field, exchange_field = 0.1, 132.5  # [T]
-            gyromag_ratio = 28.8e9
-            lattice_constant = np.sqrt(5.3e-17 / exchange_field)
-            system_len = 10e-5  # metres
+            external_field, exchange_field = 0.1, 8.125  #0.1, 132.5  # [T]
+            gyromag_ratio = 28.01e9  # 28.8e9
+            lattice_constant = 2e-9#np.sqrt(5.3e-17 / exchange_field)
+            system_len = 8e-6  # metres
+            sat_mag = 800e3  # A/m
+            micromag_dmi = 0 # J/m^2
+            mu0 = 1.256e-6  # m kg s^-2 A^-2
+            exc_stiff = 1.3e-11  # J/m
 
             max_len = round(system_len / lattice_constant)
-            num_spins_array = np.arange(0, max_len, 1)
-
+            num_spins_array = np.arange(-max_len, max_len, 1)
             wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
+
             freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
                                           + external_field)
             ########################################
@@ -830,6 +890,64 @@ class PaperFigures:
 
             ax2.margins(0)
             ax2.xaxis.labelpad = -2
+
+            if compare_dis:
+                ax1.clear()
+                ax2.clear()
+                self._fig.suptitle('Comparison of my derivation with Moon\'s')
+                for dmi_val in [0, -1.5e-3, 1.5e-3]:
+                    dmi_val *= 2
+                    #freq_array = gyromag_ratio * (4 * (exc_stiff / sat_mag) / lattice_constant**2
+                    #                              * (1 - np.cos(wave_number_array * lattice_constant))
+                    #                              + external_field
+                    #                              + (dmi_val/sat_mag) * wave_number_array)
+                    freq_array = gyromag_ratio * (2 * (exc_stiff / sat_mag) * wave_number_array**2
+                                                  + external_field
+                                                  + (dmi_val/sat_mag) * wave_number_array)
+
+                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
+                             label=f'D = {dmi_val}')
+                    #ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                    #         label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
+
+                    # These!!
+                    # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+                    #             s=0.5, c='red', label='paper')
+                    # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
+
+                    ax1.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (GHz)',
+                            xlim=[-0.15, 0.15], ylim=[0, 20])
+                    self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                      xaxis_num_decimals=1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                    ax1.margins(0)
+                    ax1.xaxis.labelpad = -2
+                    ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],  fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+
+                for p_val, dmi_val in zip([0, -1, 1], [0, 1.5e-3, 1.5e-3]):
+                    h0 = external_field / mu0
+                    j_star = ((2 * exc_stiff) / (mu0 * sat_mag))
+                    d_star = ((2 * dmi_val) / (mu0 * sat_mag))
+
+                    freq_array = gyromag_ratio * mu0 * (np.sqrt((h0 + j_star * wave_number_array**2) * (h0 + j_star * wave_number_array**2)) + p_val * d_star * wave_number_array)
+
+                    ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
+                             label=f'D = {p_val*dmi_val}')
+                    #ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                    #         label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
+
+                    # These!!
+                    # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+                    #             s=0.5, c='red', label='paper')
+                    # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
+
+                    ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
+                    self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                      xaxis_num_decimals=1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                    ax2.margins(0)
+                    ax2.xaxis.labelpad = -2
+                    ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],  fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
             if show_group_velocity_cases:
                 # Change xaxis limit to show in terms of lattice constant
@@ -1155,7 +1273,8 @@ class PaperFigures:
         return frequencies, fourier_transform
 
     def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
-                     xaxis_num_decimals=1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False):
+                     xaxis_num_decimals=1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False,
+                     show_sci_notation=False):
 
         if ax is None:
             ax = plt.gca()
@@ -1199,11 +1318,13 @@ class PaperFigures:
                 ax.ticklabel_format(axis='y', style='plain')
 
             # ax.yaxis.labelpad = -3
-
-            ax.yaxis.get_offset_text().set_visible(False)
-            ax.yaxis.get_offset_text().set_fontsize(8)
-            t = ax.yaxis.get_offset_text()
-            t.set_x(-0.045)
+            if show_sci_notation:
+                ax.yaxis.get_offset_text().set_visible(True)
+                ax.yaxis.get_offset_text().set_fontsize(8)
+                t = ax.yaxis.get_offset_text()
+                t.set_x(-0.045)
+            else:
+                ax.yaxis.get_offset_text().set_visible(False)
 
         return ax
 
