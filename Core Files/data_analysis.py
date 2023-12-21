@@ -823,9 +823,9 @@ class PlotImportedData:
                             print(f"Generating temporal evolution plot for [#{target_site}]...")
 
                             lg.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
-                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=True, visualise_wavepackets=False,
-                                                         annotate_precursors_fft=True, annotate_signal=True,
-                                                         wavepacket_inset=True, add_key_params=False,
+                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=False, visualise_wavepackets=False,
+                                                         annotate_precursors_fft=False, annotate_signal=False,
+                                                         wavepacket_inset=False, add_key_params=False,
                                                          add_signal_backgrounds=False, publication_details=True,
                                                          interactive_plot=False)
                             lg.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
@@ -863,9 +863,10 @@ class PlotImportedData:
                             print(f"Generating Heaviside-Dispersion plot for [#{target_site}]...")
                             lg.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
                             paper_fig.plot_heaviside_and_dispersions(dispersion_relations=True,
-                                                                     use_dual_signal_inset=True,
-                                                                     show_group_velocity_cases=True,
+                                                                     use_dual_signal_inset=False,
+                                                                     show_group_velocity_cases=False,
                                                                      dispersion_inset=False,
+                                                                     use_demag=True, compare_dis=True,
                                                                      publication_details=False, interactive_plot=False)
                             lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
@@ -878,7 +879,7 @@ class PlotImportedData:
                             cont_plotting = False
 
         elif pf_keywords["GIF"][0]:
-            paper_fig.create_gif(number_of_frames=0.05)
+            paper_fig.create_gif()
             print("GIF successfully created!")
             if self.early_exit:
                 exit(0)
