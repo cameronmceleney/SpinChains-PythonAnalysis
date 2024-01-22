@@ -787,7 +787,7 @@ class PlotImportedData:
                         if row_num >= 0:
                             print(f"Generating plot for [#{row_num}]...")
                             lg.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial(row_num)
+                            paper_fig.plot_row_spatial(row_num, interactive_plot=False)
                             lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
@@ -866,8 +866,8 @@ class PlotImportedData:
                                                                      use_dual_signal_inset=False,
                                                                      show_group_velocity_cases=False,
                                                                      dispersion_inset=False,
-                                                                     use_demag=True, compare_dis=True,
-                                                                     publication_details=False, interactive_plot=False)
+                                                                     use_demag=False, compare_dis=True,
+                                                                     publication_details=False, interactive_plot=True)
                             lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
