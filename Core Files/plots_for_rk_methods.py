@@ -6,6 +6,7 @@ import matplotlib as mpl
 
 # Standard modules (common)
 import matplotlib.pyplot as plt
+import mplcursors
 import numpy as np
 import imageio as imio
 import os as os
@@ -77,20 +78,21 @@ class PaperFigures:
         # Attributes for plots
         self._fig = None
         self._axes = None
-        self._yaxis_lim = max(self.amplitude_data[-1, :]) * 1.1  # Add a 10% margin to the y-axis.
+        self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
         self._fig_kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$",
-                            "xlim": [0, self._total_num_spins], "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
+                            "xlim": [0.25*self._total_num_spins, 0.75*self._total_num_spins], "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
 
         # Text sizes for class to override rcParams
         self._fontsizes = {"large": 20, "medium": 14, "small": 11, "smaller": 10, "tiny": 8, "mini": 7}
 
-    def _draw_figure(self, row_index: int = -1, has_single_figure: bool = True,
-                     draw_regions_of_interest: bool = False, publish_plot: bool = False) -> None:
+    def _draw_figure(self, row_index: int = -1, has_single_figure: bool = True, publish_plot: bool = False,
+                     draw_regions_of_interest: bool = False, static_ylim = True) -> None:
         """
         Private method to plot the given row of data, and create a single figure.
 
         Figure attributes are controlled from __init__ to ensure consistentcy.
 
+        :param static_ylim:
         :param row_index: Plot given row from dataset; most commonly plotted should be the default.
         :param has_single_figure: If `False`, change figure dimensions for GIFs
         :param draw_regions_of_interest: Draw coloured boxes onto plot to show driving- and damping-regions.
@@ -100,17 +102,26 @@ class PaperFigures:
         """
         if self._fig is None:
             if has_single_figure:
-                self._fig = plt.figure(figsize=(4.4, 2.0))
+                self._fig = plt.figure(figsize=(4.4, 4.4))
                 self._axes = self._fig.add_subplot(111)
+                self._yaxis_lim *= max(self.amplitude_data[row_index, :])
             else:
                 # For GIFs only. Each frame requires a new fig to prevent stuttering.
                 cm = 1 / 2.54
                 self._fig = plt.figure(figsize=(4.4, 2.0))
                 #self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
                 self._axes = self._fig.add_subplot(111)
+                self._yaxis_lim *= max(self.amplitude_data[row_index, :])
                 plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Prevent excessive image sizes
+
+            # Any method-wide updates
+            self._axes.clear()
+            self._fig_kwargs["ylim"] = [-1 * self._yaxis_lim, self._yaxis_lim]
         else:
             self._axes.clear()  # Only triggered if existing plot is present
+            if not static_ylim:
+                self._yaxis_lim = 1.1 * max(self.amplitude_data[row_index, :])
+                self._fig_kwargs["ylim"] = [-1 * self._yaxis_lim, self._yaxis_lim]
 
         self._axes.set_aspect("auto")
 
@@ -125,7 +136,7 @@ class PaperFigures:
         # Keep tick manipulations in this block to ease debugging
         self._axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
         self._tick_setter(self._axes, self._total_num_spins / 4, self._total_num_spins / 8, 3, 4,
-                          yaxis_num_decimals=1.1, show_sci_notation=False)
+                          yaxis_num_decimals=1.1, show_sci_notation=True)
 
         if publish_plot:
             self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
@@ -155,15 +166,17 @@ class PaperFigures:
             plt.gca().add_patch(rectangle_rhs)
             plt.gca().add_patch(rectangle_driving_region)
 
+        self._axes.grid(visible=False, axis='both', which='both')
         self._fig.tight_layout()
 
-    def plot_row_spatial(self, row_index: int = -1, should_annotate_parameters: bool = False) -> None:
+    def plot_row_spatial(self, row_index: int = -1, should_annotate_parameters: bool = False, interactive_plot=False) -> None:
         """
         Plot a row of data to show spatial evolution.
 
         A row corresponds to an instant in time, so this can be particularly useful for investigating the final state
         of a system. Also, can be used to show the evolution of the whole system if multiple images are generated.
 
+        :param interactive_plot:
         :param row_index: Plot given row from dataset; most commonly plotted should be the default.
         :param should_annotate_parameters: Add simulation parameters to plot. Useful when presenting work in meetings.
 
@@ -188,7 +201,16 @@ class PaperFigures:
             self._axes.text(0.05, 1.2, parameters_textbody, transform=self._axes.transAxes, fontsize=12,
                             ha='center', va='center', bbox=parameters_text_props)
 
-        self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
+        if interactive_plot:
+            # For interactive plots
+            def mouse_event(event: Any):
+                print(f'x: {event.xdata} and y: {event.ydata}')
+
+            self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+            self._fig.tight_layout()  # Must be directly before plt.show()
+            plt.show()
+        else:
+            self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
 
     def _plot_paper_gif(self, row_index: int) -> plt.Figure:
         """
@@ -200,7 +222,8 @@ class PaperFigures:
 
         :return: Method indirectly updates `self._fig` and `self.axis` by calling self._draw_figure().
         """
-        self._draw_figure(row_index, False, False)
+        self._draw_figure(row_index, False, draw_regions_of_interest=False, publish_plot=False,
+                          static_ylim=False)
 
         return self._fig
 
@@ -851,16 +874,28 @@ class PaperFigures:
                               yaxis_num_decimals=1.0, yscale_type='p')
         ########################################
         if dispersion_relations:
-            # Key values and compute wavenumber plus frequency
+            # Key values and computations that are common to both systems
             hz_2_GHz, hz_2_THz = 1e-9, 1e-12
-            external_field, exchange_field = 0.1, 8.125  #0.1, 132.5  # [T]
-            gyromag_ratio = 28.01e9  # 28.8e9
-            lattice_constant = 2e-9#np.sqrt(5.3e-17 / exchange_field)
-            system_len = 8e-6  # metres
-            sat_mag = 800e3  # A/m
-            micromag_dmi = 0 # J/m^2
             mu0 = 1.256e-6  # m kg s^-2 A^-2
-            exc_stiff = 1.3e-11  # J/m
+
+            # Key values and compute wavenumber plus frequency for Moon
+            external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
+            gyromag_ratio_moon = 28.01e9  # 28.8e9
+            lattice_constant_moon = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
+            system_len_moon = 8e-6  # metres
+            sat_mag_moon = 800e3  # A/m
+            exc_stiff_moon = 1.3e-11  # J/m
+            demag_mag_moon = sat_mag_moon
+            dmi_vals_moon = [0, 1.5e-3, 1.5e-3]  # J/m^2
+            p_vals_moon = [0, -1, 1]
+
+            # Key values and computations of values for our system
+            external_field, exchange_field = 0.1, 4.16  # 0.1, 132.5  # [T]
+            gyromag_ratio = 28.01e9  # 28.8e9
+            lattice_constant = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
+            system_len = 8e-6  # metres
+            dmi_val_const = 1.94
+            dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
 
             max_len = round(system_len / lattice_constant)
             num_spins_array = np.arange(-max_len, max_len, 1)
@@ -886,24 +921,30 @@ class PaperFigures:
 
             ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
             self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
-                              xaxis_num_decimals=1, yaxis_num_decimals=2.1, yscale_type='p')
+                              xaxis_num_decimals=.1, yaxis_num_decimals=2.1, yscale_type='p')
 
             ax2.margins(0)
             ax2.xaxis.labelpad = -2
 
             if compare_dis:
-                ax1.clear()
-                ax2.clear()
                 self._fig.suptitle('Comparison of my derivation with Moon\'s')
-                for dmi_val in [0, -1.5e-3, 1.5e-3]:
-                    dmi_val *= 2
+
+                if not use_demag:
+                    demag_mag_moon = 0
+
+                ax1.clear()
+                for dmi_val in dmi_vals:
+
                     #freq_array = gyromag_ratio * (4 * (exc_stiff / sat_mag) / lattice_constant**2
                     #                              * (1 - np.cos(wave_number_array * lattice_constant))
                     #                              + external_field
                     #                              + (dmi_val/sat_mag) * wave_number_array)
-                    freq_array = gyromag_ratio * (2 * (exc_stiff / sat_mag) * wave_number_array**2
+                    # freq_array = gyromag_ratio * (2 * (exc_stiff / sat_mag) * wave_number_array**2
+                    #                               + external_field
+                    #                               + (2 * dmi_val/sat_mag) * wave_number_array)
+                    freq_array = gyromag_ratio * (2 * exchange_field*(lattice_constant)**2 * wave_number_array**2
                                                   + external_field
-                                                  + (dmi_val/sat_mag) * wave_number_array)
+                                                  + dmi_val * lattice_constant * wave_number_array)
 
                     ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
                              label=f'D = {dmi_val}')
@@ -915,23 +956,30 @@ class PaperFigures:
                     #             s=0.5, c='red', label='paper')
                     # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
-                    ax1.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (GHz)',
-                            xlim=[-0.15, 0.15], ylim=[0, 20])
+                    ax1.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)',
+                            xlim=[-0.25, 0.25], ylim=[0, 40])
                     self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
-                                      xaxis_num_decimals=1, yaxis_num_decimals=2.0, yscale_type='plain')
+                                      xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
                     ax1.margins(0)
                     ax1.xaxis.labelpad = -2
                     ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],  fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
-                for p_val, dmi_val in zip([0, -1, 1], [0, 1.5e-3, 1.5e-3]):
-                    h0 = external_field / mu0
-                    j_star = ((2 * exc_stiff) / (mu0 * sat_mag))
-                    d_star = ((2 * dmi_val) / (mu0 * sat_mag))
+                ax2.clear()
+                for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
+                    max_len_moon = round(system_len_moon / lattice_constant_moon)
+                    num_spins_array_moon = np.arange(-max_len_moon, max_len_moon, 1)
+                    wave_number_array_moon = (num_spins_array_moon * np.pi) / ((len(num_spins_array_moon) - 1) * lattice_constant_moon)
 
-                    freq_array = gyromag_ratio * mu0 * (np.sqrt((h0 + j_star * wave_number_array**2) * (h0 + j_star * wave_number_array**2)) + p_val * d_star * wave_number_array)
+                    h0 = external_field_moon / mu0
+                    j_star = ((2 * exc_stiff_moon) / (mu0 * sat_mag_moon))
+                    d_star = ((2 * dmi_val) / (mu0 * sat_mag_moon))
 
-                    ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
+                    freq_array_moon = gyromag_ratio_moon * mu0 * (np.sqrt((h0 + j_star * wave_number_array_moon**2)
+                                                                * (h0 + demag_mag_moon + j_star * wave_number_array_moon**2))
+                                                        + p_val * d_star * wave_number_array_moon)
+
+                    ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=1., ls='-',
                              label=f'D = {p_val*dmi_val}')
                     #ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
                     #         label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
@@ -941,12 +989,13 @@ class PaperFigures:
                     #             s=0.5, c='red', label='paper')
                     # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
 
-                    ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
+                    ax2.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
                     self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
-                                      xaxis_num_decimals=1, yaxis_num_decimals=2.0, yscale_type='plain')
+                                      xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
                     ax2.margins(0)
                     ax2.xaxis.labelpad = -2
+
                     ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],  fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
             if show_group_velocity_cases:
@@ -1053,11 +1102,24 @@ class PaperFigures:
         if interactive_plot:
             # For interactive plots
             def mouse_event(event: Any):
-                print(f'x: {event.xdata} and y: {event.ydata}')
+                if event.xdata is not None and event.ydata is not None:
+                    print(f'x: {event.xdata:f} and y: {event.ydata:f}')
 
             self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+
+            cursor = mplcursors.cursor(hover=True)
+            cursor.connect("add", lambda sel: sel.annotation.set_text(
+                f'x={sel.target[0]:.4f}, y={sel.target[1]:.4f}'))
+
+            # Hide the arrow in the callback
+            @cursor.connect("add")
+            def on_add(sel):
+                sel.annotation.get_bbox_patch().set(fc="white")  # Change background color
+                sel.annotation.arrow_patch.set_alpha(0)  # Make the arrow invisible
+
             self._fig.tight_layout()  # has to be here
             plt.show()
+
         else:
             self._fig.savefig(f"{self.output_filepath}_dispersion_tv2.png", bbox_inches="tight")
 
@@ -1273,7 +1335,7 @@ class PaperFigures:
         return frequencies, fourier_transform
 
     def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
-                     xaxis_num_decimals=1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False,
+                     xaxis_num_decimals=.1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False,
                      show_sci_notation=False):
 
         if ax is None:
@@ -1291,7 +1353,7 @@ class PaperFigures:
             # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
         else:
             ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
-                         major_formatter=ticker.FormatStrFormatter(f"%.{xaxis_num_decimals}f"),
+                         major_formatter=ticker.FormatStrFormatter(f"%{xaxis_num_decimals}f"),
                          minor_locator=ticker.MultipleLocator(x_minor))
             ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'),
                          major_formatter=ticker.FormatStrFormatter(f"%{yaxis_num_decimals}f"),
