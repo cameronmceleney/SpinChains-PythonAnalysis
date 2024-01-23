@@ -80,13 +80,14 @@ class PaperFigures:
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
         self._fig_kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$",
-                            "xlim": [0.25*self._total_num_spins, 0.75*self._total_num_spins], "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
+                            "xlim": [0.25 * self._total_num_spins, 0.75 * self._total_num_spins],
+                            "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
 
         # Text sizes for class to override rcParams
         self._fontsizes = {"large": 20, "medium": 14, "small": 11, "smaller": 10, "tiny": 8, "mini": 7}
 
     def _draw_figure(self, row_index: int = -1, has_single_figure: bool = True, publish_plot: bool = False,
-                     draw_regions_of_interest: bool = False, static_ylim = True) -> None:
+                     draw_regions_of_interest: bool = False, static_ylim=True) -> None:
         """
         Private method to plot the given row of data, and create a single figure.
 
@@ -109,7 +110,7 @@ class PaperFigures:
                 # For GIFs only. Each frame requires a new fig to prevent stuttering.
                 cm = 1 / 2.54
                 self._fig = plt.figure(figsize=(4.4, 2.0))
-                #self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
+                # self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
                 self._axes = self._fig.add_subplot(111)
                 self._yaxis_lim *= max(self.amplitude_data[row_index, :])
                 plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Prevent excessive image sizes
@@ -130,8 +131,8 @@ class PaperFigures:
                         lw=2 * 0.75, color='#64bb6a', label=f"{self.time_data[row_index]: 2.2f} (ns)")
 
         self._axes.set(**self._fig_kwargs)
-       # self._axes.legend(fontsize=self._fontsizes["tiny"], frameon=False, fancybox=False,
-       #            facecolor=None, edgecolor=None)
+        # self._axes.legend(fontsize=self._fontsizes["tiny"], frameon=False, fancybox=False,
+        #            facecolor=None, edgecolor=None)
 
         # Keep tick manipulations in this block to ease debugging
         self._axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
@@ -169,7 +170,8 @@ class PaperFigures:
         self._axes.grid(visible=False, axis='both', which='both')
         self._fig.tight_layout()
 
-    def plot_row_spatial(self, row_index: int = -1, should_annotate_parameters: bool = False, interactive_plot=False) -> None:
+    def plot_row_spatial(self, row_index: int = -1, should_annotate_parameters: bool = False,
+                         interactive_plot=False) -> None:
         """
         Plot a row of data to show spatial evolution.
 
@@ -366,9 +368,9 @@ class PaperFigures:
                 'ax1_inset_bbox': [0.08, 0.975],
                 'ax2_xlim': [0.0001, 599.9999],
                 'ax2_ylim': [1e-2, 1e1],
-                'precusor_xlim': (0.0, 0.99),     # 0.0, 0.75
-                'signal_onset_xlim': (0.0, 0.01), # 0.75, 1.23
-                'equilib_xlim': (0.99, 1.5),       # 1.23, 1.5
+                'precusor_xlim': (0.0, 0.99),  # 0.0, 0.75
+                'signal_onset_xlim': (0.0, 0.01),  # 0.75, 1.23
+                'equilib_xlim': (0.99, 1.5),  # 1.23, 1.5
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
@@ -383,10 +385,10 @@ class PaperFigures:
                 'ax1_inset_height': 0.775,
                 'ax1_inset_bbox': [0.08, 0.975],
                 'ax2_xlim': [0.0001, 119.9999],
-                'ax2_ylim': [1e-3, 1e1],            #       A            B            C            D           E
-                'precusor_xlim': (0.0, 0.42),       # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
+                'ax2_ylim': [1e-3, 1e1],  # A            B            C            D           E
+                'precusor_xlim': (0.0, 0.42),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
                 'signal_onset_xlim': (0.42, 0.65),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
-                'equilib_xlim': (0.65, 1.5),        # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'equilib_xlim': (0.65, 1.5),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
@@ -515,9 +517,9 @@ class PaperFigures:
             if i < 1:
                 print(f'Small value PRE found: {i}')
             if j < 1:
-                    print(f'Small value DSW found: {j}')
+                print(f'Small value DSW found: {j}')
             if k < 1:
-                        print(f'Small value EQ found: {k}')
+                print(f'Small value EQ found: {k}')
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors),
                  lw=1, color=f"{precursor_colour}", marker='', markerfacecolor='black', markeredgecolor='black',
                  label=data_names[0], zorder=1.5)
@@ -736,7 +738,8 @@ class PaperFigures:
 
     def plot_heaviside_and_dispersions(self, dispersion_relations: bool = True, use_dual_signal_inset: bool = False,
                                        show_group_velocity_cases: bool = False, dispersion_inset: bool = False,
-                                       use_demag: bool = False, compare_dis: bool = False, publication_details: bool = False, interactive_plot: bool = False) -> None:
+                                       use_demag: bool = False, compare_dis: bool = False,
+                                       publication_details: bool = False, interactive_plot: bool = False) -> None:
         """
         Two pane figure where upper pane shows the FFT of Quasi-Heaviside Step Function(s), and the lower pane
         shows dispersion relations of our datasets.
@@ -934,21 +937,20 @@ class PaperFigures:
 
                 ax1.clear()
                 for dmi_val in dmi_vals:
-
-                    #freq_array = gyromag_ratio * (4 * (exc_stiff / sat_mag) / lattice_constant**2
+                    # freq_array = gyromag_ratio * (4 * (exc_stiff / sat_mag) / lattice_constant**2
                     #                              * (1 - np.cos(wave_number_array * lattice_constant))
                     #                              + external_field
                     #                              + (dmi_val/sat_mag) * wave_number_array)
                     # freq_array = gyromag_ratio * (2 * (exc_stiff / sat_mag) * wave_number_array**2
                     #                               + external_field
                     #                               + (2 * dmi_val/sat_mag) * wave_number_array)
-                    freq_array = gyromag_ratio * (2 * exchange_field*(lattice_constant)**2 * wave_number_array**2
+                    freq_array = gyromag_ratio * (2 * exchange_field * (lattice_constant) ** 2 * wave_number_array ** 2
                                                   + external_field
                                                   + dmi_val * lattice_constant * wave_number_array)
 
                     ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
                              label=f'D = {dmi_val}')
-                    #ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                    # ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
                     #         label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
 
                     # These!!
@@ -963,25 +965,28 @@ class PaperFigures:
 
                     ax1.margins(0)
                     ax1.xaxis.labelpad = -2
-                    ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],  fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+                    ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                               fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
                 ax2.clear()
                 for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
                     max_len_moon = round(system_len_moon / lattice_constant_moon)
                     num_spins_array_moon = np.arange(-max_len_moon, max_len_moon, 1)
-                    wave_number_array_moon = (num_spins_array_moon * np.pi) / ((len(num_spins_array_moon) - 1) * lattice_constant_moon)
+                    wave_number_array_moon = (num_spins_array_moon * np.pi) / (
+                            (len(num_spins_array_moon) - 1) * lattice_constant_moon)
 
                     h0 = external_field_moon / mu0
                     j_star = ((2 * exc_stiff_moon) / (mu0 * sat_mag_moon))
                     d_star = ((2 * dmi_val) / (mu0 * sat_mag_moon))
 
-                    freq_array_moon = gyromag_ratio_moon * mu0 * (np.sqrt((h0 + j_star * wave_number_array_moon**2)
-                                                                * (h0 + demag_mag_moon + j_star * wave_number_array_moon**2))
-                                                        + p_val * d_star * wave_number_array_moon)
+                    freq_array_moon = gyromag_ratio_moon * mu0 * (np.sqrt((h0 + j_star * wave_number_array_moon ** 2)
+                                                                          * (
+                                                                                  h0 + demag_mag_moon + j_star * wave_number_array_moon ** 2))
+                                                                  + p_val * d_star * wave_number_array_moon)
 
                     ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=1., ls='-',
-                             label=f'D = {p_val*dmi_val}')
-                    #ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                             label=f'D = {p_val * dmi_val}')
+                    # ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
                     #         label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
 
                     # These!!
@@ -996,7 +1001,8 @@ class PaperFigures:
                     ax2.margins(0)
                     ax2.xaxis.labelpad = -2
 
-                    ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],  fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+                    ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                               fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
             if show_group_velocity_cases:
                 # Change xaxis limit to show in terms of lattice constant
@@ -1509,6 +1515,319 @@ class PaperFigures:
                 plt.show()
             else:
                 fig.savefig(f"{self.output_filepath}_data{val}.png", bbox_inches="tight")
+
+    def find_degenerate_modes(self, use_demag: bool = False, publication_details: bool = False,
+                              find_modes: bool = False, interactive_plot: bool = False) -> None:
+        """
+        Two pane figure where upper pane shows the FFT of Quasi-Heaviside Step Function(s), and the lower pane
+        shows dispersion relations of our datasets.
+
+        Filler text. TODO
+
+        :param publication_details: Add figure reference lettering
+        :param interactive_plot: If `True` mouseclicks to print x/y coords to terminal, else saves image.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+        if self._fig is None:
+            self._fig = plt.figure(figsize=(4.5, 3.375))
+        self._fig.subplots_adjust(wspace=1, hspace=0.35)
+
+        num_rows, num_cols = 2, 3
+
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+                               colspan=num_cols, fig=self._fig)
+        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
+                               rowspan=num_rows, colspan=num_cols, fig=self._fig)
+        ########################################
+        # Key values and computations that are common to both systems
+        hz_2_GHz, hz_2_THz, m_2_nm = 1e-9, 1e-12, 1e9
+        mu0 = 1.256e-6  # m kg s^-2 A^-2
+
+        # Key values and compute wavenumber plus frequency for Moon
+        external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
+        gyromag_ratio_moon = 28.01e9  # 28.8e9
+        lattice_constant_moon = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
+        system_len_moon = 8e-6  # metres
+        sat_mag_moon = 800e3  # A/m
+        exc_stiff_moon = 1.3e-11  # J/m
+        demag_mag_moon = sat_mag_moon
+        dmi_vals_moon = [0, 1.5e-3, 1.5e-3]  # J/m^2
+        p_vals_moon = [0, -1, 1]
+
+        # Key values and computations of values for our system
+        external_field, exchange_field = 0.1, 4.16  # 0.1, 132.5  # [T]
+        gyromag_ratio = 28.01e9  # 28.8e9
+        lattice_constant = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
+        system_len = 8e-6  # metres
+        dmi_val_const = 1.94
+        dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
+
+        ########################################
+
+        if not use_demag:
+            demag_mag_moon = 0
+
+        if find_modes:
+
+            max_len = round(system_len / lattice_constant)
+            num_spins_array = np.arange(-max_len, max_len + 1, 1)
+            n_lower, n_upper = 0, 500
+            n_array = np.arange(n_lower, n_upper + 1, 1)
+            total_sys_pairs = (len(num_spins_array) - 1) * lattice_constant
+            should_print_all_wavelengths = True
+            should_highlight_half_ints = True
+            should_print_only_half_ints = True
+
+            wave_number_array = (num_spins_array * np.pi) / total_sys_pairs
+            freq_array = gyromag_ratio * (2 * exchange_field * lattice_constant ** 2 * wave_number_array ** 2
+                                          + external_field
+                                          + dmi_val_const * lattice_constant * wave_number_array)
+
+            # Assume all wavevectors can be handled as ints
+            wave_number_array = np.rint(wave_number_array)
+            wavevectors_from_n = wave_number_array[max_len + n_lower:max_len + n_upper + 1]
+
+            # Assume all frequencies can be handled when rounded to 0.01 [nm]
+            freq_array = np.round(freq_array * hz_2_GHz, 2) * 1e9
+
+            sys_atol = 1e-6
+            freq_atol = 1e-4
+            half_int_atol = 1e-2
+
+            # Initialize containers
+            frequency_container = []
+
+            positive_wave_numbers = wave_number_array[wave_number_array >= 0]
+
+            # Step 1: Iterate over each value in wavevectors_from_n
+            for value_A in wavevectors_from_n:
+                # Find closest positive wave number match
+                closest_match = min(positive_wave_numbers, key=lambda x: abs(x - value_A))
+
+                # Step 2: Find the index of the closest match in wave_number_array
+                closest_match_indices = np.where(np.isclose(wave_number_array, closest_match, atol=sys_atol))[0]
+                for match_index in closest_match_indices:
+                    # Step 3: Find the frequency of the closest match
+                    match_frequency = freq_array[match_index]
+
+                    # Step 4: Find all elements in freq_array that match this frequency
+                    matched_freq_indices = [i for i, freq in enumerate(freq_array) if
+                                            np.isclose(freq, match_frequency, atol=freq_atol)]
+
+                    # Step 5: For each match, add wave number, index, and frequency to frequency_container
+                    for i, index in enumerate(matched_freq_indices):
+                        if index != max_len:
+                            corresponding_wavelength = abs((2 * np.pi) / wave_number_array[index] * m_2_nm)
+                        else:
+                            corresponding_wavelength = np.inf
+                        frequency_container.append((index, wave_number_array[index] * hz_2_GHz,
+                                                    freq_array[index] * hz_2_GHz, corresponding_wavelength,
+                                                    value_A, closest_match))
+
+            # Step 6: Sort by frequency and print the results
+            frequency_container.sort(key=lambda x: x[2])
+            prev_freq = None
+            prev_wavenumber = None
+            prev_wavelength = None
+            prev_index = None
+            freq_count = 0  # To track the number of times a frequency occurs consecutively
+            line_counter = 0  # Initialize a counter for the lines
+
+            class bcolours:
+                PURPLE = '\033[95m'
+                BLUE = '\033[94m'
+                GREEN = '\033[92m'
+                ORANGE = '\033[93m'
+                RED = '\033[91m'
+                ENDC = '\033[0m'  # Black
+
+                def disable(self):
+                    self.HEADER = ''
+                    self.OKBLUE = ''
+                    self.OKGREEN = ''
+                    self.WARNING = ''
+                    self.FAIL = ''
+                    self.ENDC = '' # Black
+
+            def is_wavelength_half(n1, n2, atol=1e-2, convert_to_wavelength=False):
+                if convert_to_wavelength:
+                    # Convert from wavenumber [m] to wavelength [nm]
+                    wavelength1 = abs(((2 * np.pi) / n1) * m_2_nm)
+                    wavelength2 = abs(((2 * np.pi) / n2) * m_2_nm)
+                else:
+                    wavelength1 = abs(n1)
+                    wavelength2 = abs(n2)
+
+                # Determine larger and smaller numbers
+                larger, smaller = max(wavelength1, wavelength2), min(wavelength1, wavelength2)
+                half_smaller = smaller / 2
+
+                # Calculate modulus
+                modulus = larger % smaller
+
+                # Calculate tolerance range
+                tolerance = half_smaller * atol
+                lower_bound = half_smaller - tolerance
+                upper_bound = half_smaller + tolerance
+
+                # Check if modulus is within the tolerance range
+                return lower_bound <= modulus <= upper_bound
+
+            print('--------------------------------------------------------------------------------'
+                  '\n\n\n\n'
+                  '--------------------------------------------------------------------------------')
+            for index, wave_number, frequency, wavelength, wave_number_n, match_close in frequency_container:
+
+                if frequency == prev_freq:
+                    freq_count += 1
+
+                    if should_print_all_wavelengths:
+                        # Highlights wavenumber pairs in BLUE
+                        print(bcolours.BLUE, end='')
+
+                    if is_wavelength_half(wavelength, prev_wavelength, half_int_atol):
+                        if should_highlight_half_ints:
+                            # Overwrites BLUE with ORANGE in the special case of half integers
+                            print(bcolours.PURPLE, end='')
+                        if should_print_only_half_ints:
+                            print(
+                                f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t|"
+                                f"Index_1: {index}, \u03BB1: {wavelength:.4f} [nm]\t| "
+                                f"Index_2: {prev_index}, \u03BB2: {prev_wavelength:.4f} [nm]\t| "
+                                f"k_2: {prev_wavenumber: .6f} [1/nm]" + bcolours.ENDC, end="\t|\n")
+                    else:
+                        print(
+                            f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t|"
+                            f"Index_1: {index}, \u03BB1: {wavelength:.4f} [nm]\t| "
+                            f"Index_2: {prev_index}, \u03BB2: {prev_wavelength:.4f} [nm]\t| "
+                            f"k_2: {prev_wavenumber: .6f} [1/nm]" + bcolours.ENDC, end="\t|\n")
+
+                    line_counter += 1
+
+                elif should_print_all_wavelengths:
+                    # If frequency changes and previous frequency occurred only once, move on
+                    if freq_count == 1:
+                        print("", end="\n")
+                        line_counter += 1
+
+                    # Update for new frequency
+                    freq_count = 1
+                    if index == max_len:
+                        print(
+                            f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t\t| "
+                            f"Index_1: {index}, \u03BB1: inf [nm]", end="\t\t| ")
+                    elif index > max_len:
+                        print(
+                            f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t| "
+                            f"Index_1: {index}, \u03BB1: {wave_number:.4f} [nm]", end="\t| ")
+
+                # Check if 10 lines have been printed
+                if line_counter >= 10:
+                    if line_counter >= 11:
+                        print("")
+                    print("\t\t\t\t------------------------------------------------")
+                    line_counter = 0
+
+                prev_index = index
+                prev_freq = frequency
+                prev_wavenumber = wave_number
+                prev_wavelength = wavelength
+
+            # Handle case for the last item in the list
+            if line_counter != 0:
+                print("\n")
+
+            exit(0)
+
+        else:
+            # Plot dispersion relations
+            self._fig.suptitle('Comparison of my derivation with Moon\'s')
+            for dmi_val in dmi_vals:
+                max_len = round(system_len / lattice_constant)
+                num_spins_array = np.arange(-max_len, max_len, 1)
+                wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
+
+                freq_array = gyromag_ratio * (2 * exchange_field * (lattice_constant) ** 2 * wave_number_array ** 2
+                                              + external_field
+                                              + dmi_val * lattice_constant * wave_number_array)
+
+                ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
+                         label=f'D = {dmi_val}')
+
+                ax1.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)',
+                        xlim=[-0.25, 0.25], ylim=[0, 40])
+                self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                  xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                ax1.margins(0)
+                ax1.xaxis.labelpad = -2
+                ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+
+            for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
+                max_len_moon = round(system_len_moon / lattice_constant_moon)
+                num_spins_array_moon = np.arange(-max_len_moon, max_len_moon, 1)
+                wave_number_array_moon = (num_spins_array_moon * np.pi) / (
+                        (len(num_spins_array_moon) - 1) * lattice_constant_moon)
+
+                h0 = external_field_moon / mu0
+                j_star = ((2 * exc_stiff_moon) / (mu0 * sat_mag_moon))
+                d_star = ((2 * dmi_val) / (mu0 * sat_mag_moon))
+
+                freq_array_moon = gyromag_ratio_moon * mu0 * (np.sqrt((h0 + j_star * wave_number_array_moon ** 2)
+                                                                      * (
+                                                                              h0 + demag_mag_moon + j_star * wave_number_array_moon ** 2))
+                                                              + p_val * d_star * wave_number_array_moon)
+
+                ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=1., ls='-',
+                         label=f'D = {p_val * dmi_val}')
+                ax2.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
+                self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                  xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                ax2.margins(0)
+                ax2.xaxis.labelpad = -2
+
+                ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+
+        ########################################
+        if publication_details:
+            ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
+                     transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+
+            ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+                     transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+
+        for ax in self._fig.axes:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            ax.set_facecolor("white")
+            ax.set_axisbelow(False)
+
+        if interactive_plot:
+            # For interactive plots
+            def mouse_event(event: Any):
+                if event.xdata is not None and event.ydata is not None:
+                    print(f'x: {event.xdata:f} and y: {event.ydata:f}')
+
+            self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+
+            cursor = mplcursors.cursor(hover=True)
+            cursor.connect("add", lambda sel: sel.annotation.set_text(
+                f'x={sel.target[0]:.4f}, y={sel.target[1]:.4f}'))
+
+            # Hide the arrow in the callback
+            @cursor.connect("add")
+            def on_add(sel):
+                sel.annotation.get_bbox_patch().set(fc="white")  # Change background color
+                sel.annotation.arrow_patch.set_alpha(0)  # Make the arrow invisible
+
+            self._fig.tight_layout()  # has to be here
+            plt.show()
+
+        else:
+            self._fig.savefig(f"{self.output_filepath}_dispersion_tv2.png", bbox_inches="tight")
 
 
 class Eigenmodes:

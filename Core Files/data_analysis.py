@@ -862,12 +862,14 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating Heaviside-Dispersion plot for [#{target_site}]...")
                             lg.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
-                            paper_fig.plot_heaviside_and_dispersions(dispersion_relations=True,
-                                                                     use_dual_signal_inset=False,
-                                                                     show_group_velocity_cases=False,
-                                                                     dispersion_inset=False,
-                                                                     use_demag=False, compare_dis=True,
-                                                                     publication_details=False, interactive_plot=True)
+                            # paper_fig.plot_heaviside_and_dispersions(dispersion_relations=True,
+                            #                                          use_dual_signal_inset=False,
+                            #                                          show_group_velocity_cases=False,
+                            #                                          dispersion_inset=False,
+                            #                                          use_demag=False, compare_dis=True,
+                            #                                          publication_details=False, interactive_plot=True)
+
+                            paper_fig.find_degenerate_modes(find_modes=True)
                             lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
