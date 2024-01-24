@@ -1570,63 +1570,153 @@ class PaperFigures:
 
         if find_modes:
 
+            # System length setup
+            n_lower, n_upper = 1, 100
             max_len = round(system_len / lattice_constant)
-            num_spins_array = np.arange(-max_len, max_len + 1, 1)
-            n_lower, n_upper = 0, 500
-            n_array = np.arange(n_lower, n_upper + 1, 1)
-            total_sys_pairs = (len(num_spins_array) - 1) * lattice_constant
-            should_print_all_wavelengths = True
-            should_highlight_half_ints = True
-            should_print_only_half_ints = True
+            half_max_length = int(max_len / 2)
+            num_spins_array = np.arange(-half_max_length, half_max_length + 1, 1)
+            total_sys_pairs = (max_len - 1) * lattice_constant
 
-            wave_number_array = (num_spins_array * np.pi) / total_sys_pairs
+            # Output controls
+            should_print_all_wavelengths = True
+            should_print_only_half_ints = False
+            should_highlight_matches = False
+            should_highlight_half_ints = True
+            use_original_wavenumbers = True
+
+            # Precision of output
+            wv_rnd = 6
+            fq_rnd = 4
+
+            # Error tolerances
+            sys_atol = 1e-6
+            freq_atol = 1e-0
+            half_int_atol = 1e-2
+
+            # Calculate all wavevectors in system
+            wave_number_array = (2 * num_spins_array * np.pi) / total_sys_pairs
+
+            # Calculate all frequencies in system assuming that there is no demagnetisation
             freq_array = gyromag_ratio * (2 * exchange_field * lattice_constant ** 2 * wave_number_array ** 2
                                           + external_field
                                           + dmi_val_const * lattice_constant * wave_number_array)
 
-            # Assume all wavevectors can be handled as ints
-            wave_number_array = np.rint(wave_number_array)
-            wavevectors_from_n = wave_number_array[max_len + n_lower:max_len + n_upper + 1]
+            # Calculate all wavelengths
+            wavelengths_array = np.zeros_like(wave_number_array, dtype=float)
 
-            # Assume all frequencies can be handled when rounded to 0.01 [nm]
-            freq_array = np.round(freq_array * hz_2_GHz, 2) * 1e9
+            # Set wavelength to infinity where wave number is zero
+            zero_wave_indices = wave_number_array == 0
+            wavelengths_array[zero_wave_indices] = np.inf
 
-            sys_atol = 1e-6
-            freq_atol = 1e-4
-            half_int_atol = 1e-2
+            # Perform division where wave number is non-zero and convert to [nm]
+            non_zero_wave_indices = ~zero_wave_indices
+            wavelengths_array[non_zero_wave_indices] = ((2 * np.pi) / wave_number_array[non_zero_wave_indices]) * m_2_nm
+
+            # Round wavevectors to improve likelihood of match
+            wave_number_array = np.rint(wave_number_array) * 1e-9  # all in [1/nm] now
+            wavevectors_from_n = wave_number_array[half_max_length + n_lower:half_max_length + n_upper + 1]
+
+            # Round frequencies when they are in Hz, and then convert to GHz
+            freq_array = abs(np.round(freq_array * hz_2_GHz, fq_rnd))  # all in GHz now
+
+            print(wavelengths_array[2000:2020])
+            print(wave_number_array[2000:2020])
+            print(freq_array[2000:2020])
+            exit(0)
 
             # Initialize containers
             frequency_container = []
-
             positive_wave_numbers = wave_number_array[wave_number_array >= 0]
 
+            # s1l, s1u = 1655, 1705
+            # s2l, s2u = 2000, 2050
+            # print(wave_number_array[s1l:s1u] * 1e-9, end='\n\n')
+            # print(freq_array[s1l:s1u] * 1e-9, end='\n\n\n')
+            # print(wave_number_array[s2l:s2u] * 1e-9, end='\n\n')
+            # print(freq_array[s2l:s2u] * 1e-9)
+
             # Step 1: Iterate over each value in wavevectors_from_n
-            for value_A in wavevectors_from_n:
-                # Find closest positive wave number match
-                closest_match = min(positive_wave_numbers, key=lambda x: abs(x - value_A))
+            # for wavevector_n in wavevectors_from_n:
+            #    # Find closest positive wave number match
+            #    if use_original_wavenumbers:
+            #        # Will always exactly match so no need to test
+            #        closest_match = wavevector_n
+            #    else:
+            #        closest_match = min(positive_wave_numbers, key=lambda x: abs(x - wavevector_n))
+            #
+            #    # Step 2: Find the index of the closest match in wave_number_array
+            #    closest_match_indices = np.where(np.isclose(wave_number_array, closest_match, atol=sys_atol))[0]
+            #
+            #    for match_index in closest_match_indices:
+            #        # Step 3: Find the frequency of the closest match
+            #        match_frequency = freq_array[match_index]
+            #
+            #        # Step 4: Find all elements in freq_array that match this frequency
+            #        matched_freq_indices = [i for i, freq in enumerate(freq_array) if
+            #                                np.isclose(freq, match_frequency, atol=freq_atol)]
+            #
+            #        # Step 5: For each match, add wave number, index, and frequency to frequency_container
+            #        for i, index in enumerate(matched_freq_indices):
+            #            if index != half_max_length:
+            #                corresponding_wavelength = ((2 * np.pi) / wave_number_array[index]) * m_2_nm
+            #            else:
+            #                corresponding_wavelength = np.inf
+            #            frequency_container.append((index, wave_number_array[index] * hz_2_GHz,
+            #                                        freq_array[index] * hz_2_GHz, abs(corresponding_wavelength),
+            #                                        wavevector_n * hz_2_GHz, closest_match * hz_2_GHz))
+            #
+            ## Step 6: Sort by frequency and print the results
+            # frequency_container.sort(key=lambda x: x[2])
+
+            for wavevector_n in wavevectors_from_n:
+                if use_original_wavenumbers:
+                    # Will always exactly match so no need to test
+                    closest_match = wavevector_n
+                else:
+                    closest_match = min(positive_wave_numbers, key=lambda x: abs(x - wavevector_n))
 
                 # Step 2: Find the index of the closest match in wave_number_array
                 closest_match_indices = np.where(np.isclose(wave_number_array, closest_match, atol=sys_atol))[0]
+
+                # Step 3, 4, 5: For each match, find frequency and check for other occurrences
                 for match_index in closest_match_indices:
-                    # Step 3: Find the frequency of the closest match
+                    # For each match, find the corresponding frequency
                     match_frequency = freq_array[match_index]
+                    match_wavelength = wavelengths_array[match_index]
 
-                    # Step 4: Find all elements in freq_array that match this frequency
-                    matched_freq_indices = [i for i, freq in enumerate(freq_array) if
-                                            np.isclose(freq, match_frequency, atol=freq_atol)]
+                    # Find all other occurrences of this frequency, and then their indices
+                    matched_freq_indices = np.where(np.isclose(freq_array, match_frequency, atol=freq_atol))[0]
+                    other_occurrences_indices = [i for i in matched_freq_indices if i != match_index]
 
-                    # Step 5: For each match, add wave number, index, and frequency to frequency_container
-                    for i, index in enumerate(matched_freq_indices):
-                        if index != max_len:
-                            corresponding_wavelength = abs((2 * np.pi) / wave_number_array[index] * m_2_nm)
-                        else:
-                            corresponding_wavelength = np.inf
-                        frequency_container.append((index, wave_number_array[index] * hz_2_GHz,
-                                                    freq_array[index] * hz_2_GHz, corresponding_wavelength,
-                                                    value_A, closest_match))
+                    # Find the corresponding wavevectors for the other occurrences of the given frequency
+                    other_occurrences_wavevectors = wave_number_array[other_occurrences_indices] * hz_2_GHz
+                    # Calculate all wavelengths
+                    other_occurrences_wavelengths = np.zeros_like(other_occurrences_wavevectors, dtype=float)
 
-            # Step 6: Sort by frequency and print the results
-            frequency_container.sort(key=lambda x: x[2])
+                    # Set wavelength to infinity where wave number is zero
+                    other_zero_wave_indices = other_occurrences_wavevectors == 0
+                    other_occurrences_wavelengths[other_zero_wave_indices] = np.inf
+
+                    # Perform division where wave number is non-zero
+                    other_non_zero_wave_indices = ~other_zero_wave_indices
+                    other_occurrences_wavelengths[other_non_zero_wave_indices] = ((2 * np.pi) / other_occurrences_wavevectors[
+                        other_non_zero_wave_indices]) * m_2_nm
+
+                    # Recording the information
+                    frequency_container.append({
+                        'user_wavevector': wavevector_n * hz_2_GHz,
+                        'match_wavevector': closest_match * hz_2_GHz,
+                        'match_index': match_index,
+                        'match_frequency': match_frequency,
+                        'match_wavelength': match_wavelength,
+                        'other_occurrences_indices': other_occurrences_indices,
+                        'other_occurrences_wavevectors': other_occurrences_wavevectors,
+                        'other_occurrences_wavelengths': other_occurrences_wavelengths
+                    })
+
+            # Step 6: Sort the container by frequency and then by wavevector
+            frequency_container.sort(key=lambda x: (x['match_frequency'], x['match_wavevector']))
+
             prev_freq = None
             prev_wavenumber = None
             prev_wavelength = None
@@ -1648,7 +1738,7 @@ class PaperFigures:
                     self.OKGREEN = ''
                     self.WARNING = ''
                     self.FAIL = ''
-                    self.ENDC = '' # Black
+                    self.ENDC = ''  # Black
 
             def is_wavelength_half(n1, n2, atol=1e-2, convert_to_wavelength=False):
                 if convert_to_wavelength:
@@ -1674,70 +1764,137 @@ class PaperFigures:
                 # Check if modulus is within the tolerance range
                 return lower_bound <= modulus <= upper_bound
 
-            print('--------------------------------------------------------------------------------'
-                  '\n\n\n\n'
-                  '--------------------------------------------------------------------------------')
-            for index, wave_number, frequency, wavelength, wave_number_n, match_close in frequency_container:
+            def is_wavelength_whole(n1, n2, atol=1e-2, convert_to_wavelength=False):
+                if convert_to_wavelength:
+                    # Convert from wavenumber [m] to wavelength [nm]
+                    wavelength1 = abs(((2 * np.pi) / n1) * m_2_nm)
+                    wavelength2 = abs(((2 * np.pi) / n2) * m_2_nm)
+                else:
+                    wavelength1 = abs(n1)
+                    wavelength2 = abs(n2)
 
-                if frequency == prev_freq:
-                    freq_count += 1
+                # Determine larger and smaller numbers
+                larger, smaller = max(wavelength1, wavelength2), min(wavelength1, wavelength2)
 
-                    if should_print_all_wavelengths:
-                        # Highlights wavenumber pairs in BLUE
-                        print(bcolours.BLUE, end='')
+                # Calculate modulus
+                modulus = larger / smaller
 
-                    if is_wavelength_half(wavelength, prev_wavelength, half_int_atol):
-                        if should_highlight_half_ints:
-                            # Overwrites BLUE with ORANGE in the special case of half integers
-                            print(bcolours.PURPLE, end='')
-                        if should_print_only_half_ints:
-                            print(
-                                f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t|"
-                                f"Index_1: {index}, \u03BB1: {wavelength:.4f} [nm]\t| "
-                                f"Index_2: {prev_index}, \u03BB2: {prev_wavelength:.4f} [nm]\t| "
-                                f"k_2: {prev_wavenumber: .6f} [1/nm]" + bcolours.ENDC, end="\t|\n")
-                    else:
-                        print(
-                            f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t|"
-                            f"Index_1: {index}, \u03BB1: {wavelength:.4f} [nm]\t| "
-                            f"Index_2: {prev_index}, \u03BB2: {prev_wavelength:.4f} [nm]\t| "
-                            f"k_2: {prev_wavenumber: .6f} [1/nm]" + bcolours.ENDC, end="\t|\n")
+                # Test rounding
 
+                # Check if modulus is within the tolerance range
+                # return lower_bound <= modulus <= upper_bound
+
+            # print('--------------------------------------------------------------------------------'
+            #       '\n\n\n\n'
+            #       '--------------------------------------------------------------------------------')
+            # for index, wave_number, frequency, wavelength, wave_number_n, match_close in frequency_container:
+            #
+            #     if frequency == prev_freq:
+            #         freq_count += 1
+            #
+            #         if should_print_all_wavelengths:
+            #             # Highlights wavenumber pairs in BLUE
+            #             print(bcolours.BLUE, end='')
+            #
+            #         if is_wavelength_half(wavelength, prev_wavelength, half_int_atol):
+            #             if should_highlight_half_ints:
+            #                 # Overwrites BLUE with ORANGE in the special case of half integers
+            #                 print(bcolours.PURPLE, end='')
+            #             if should_print_only_half_ints:
+            #                 print(
+            #                     f"Frequency: {frequency: .{fq_rnd}f} [GHz] | k_1: {wave_number: .{wv_rnd}f} [1/nm]\t|"
+            #                     f"Index_1: {index}, \u03BB1: {wavelength: .{wv_rnd}f} [nm]\t| "
+            #                     f"Index_2: {prev_index}, \u03BB2: {prev_wavelength: .{wv_rnd}f} [nm]\t| "
+            #                     f"k_2: {prev_wavenumber: .{wv_rnd}f} [1/nm]" + bcolours.ENDC, end="\t|\n")
+            #         else:
+            #             if not should_print_only_half_ints:
+            #                 print(
+            #                     f"Frequency: {frequency: .{fq_rnd}f} [GHz] | k_1: {wave_number: .{wv_rnd}f} [1/nm]\t|"
+            #                     f"Index_1: {index}, \u03BB1: {wavelength: .{wv_rnd}f} [nm]\t| "
+            #                     f"Index_2: {prev_index}, \u03BB2: {prev_wavelength: .{wv_rnd}f} [nm]\t| "
+            #                     f"k_2: {prev_wavenumber: .{wv_rnd}f} [1/nm]" + bcolours.ENDC, end="\t|\n")
+            #
+            #         line_counter += 1
+            #
+            #     elif should_print_all_wavelengths and not should_print_only_half_ints:
+            #         # If frequency changes and previous frequency occurred only once, move on
+            #         if freq_count == 1:
+            #             print("", end="\n")
+            #             line_counter += 1
+            #
+            #         # Update for new frequency
+            #         freq_count = 1
+            #         if index == half_max_length:
+            #             print(
+            #                 f"Frequency: {frequency: .{fq_rnd}f} [GHz] | k_1: {wave_number: .{wv_rnd}f} [1/nm]\t\t| "
+            #                 f"Index_1: {index}, \u03BB1: inf [nm]", end="\t\t| ")
+            #         else:
+            #             print(
+            #                 f"Frequency: {frequency: .{fq_rnd}f} [GHz] | k_1: {wave_number: .{wv_rnd}f} [1/nm]\t| "
+            #                 f"Index_1: {index}, \u03BB1: {wavelength: .{wv_rnd}f} [nm]", end="\t| ")
+            #
+            #     # Check if 10 lines have been printed
+            #     if line_counter >= 10 and not should_print_only_half_ints:
+            #         if line_counter >= 11:
+            #             print("")
+            #         print("\t\t\t\t------------------------------------------------")
+            #         line_counter = 0
+            #
+            #     prev_index = index
+            #     prev_freq = frequency
+            #     prev_wavenumber = wave_number
+            #     prev_wavelength = wavelength
+            #
+            # # Handle case for the last item in the list
+            # if line_counter != 0:
+            #     print("\n")
+            #
+
+            line_counter = 0  # Initialize line counter
+
+            # Iterate through the frequency_container
+            for entry in frequency_container:
+                match_frequency = entry['match_frequency']
+                match_wavevector = entry['match_wavevector']
+                match_index = entry['match_index']
+                match_wavelength = entry['match_wavelength']
+
+                if should_print_all_wavelengths:
+                    # Print the match information
+                    print(f"{bcolours.ENDC}"
+                        f"Frequency: {match_frequency:.{fq_rnd}f} [GHz] | "
+                        f"k_n: {match_wavevector:.{wv_rnd}f} [1/n] | "
+                        f"i_n: {match_index}, λ_n: {match_wavelength:.{wv_rnd}f} [nm]"
+                        f"\t|{bcolours.ENDC}", end="")
                     line_counter += 1
 
-                elif should_print_all_wavelengths:
-                    # If frequency changes and previous frequency occurred only once, move on
-                    if freq_count == 1:
-                        print("", end="\n")
-                        line_counter += 1
+                # Iterate over other occurrences should the exist
+                if entry['other_occurrences_indices']:
+                    for enum_index, (other_index, other_wavevector, other_wavelength) in enumerate(
+                            zip(entry['other_occurrences_indices'],
+                                entry['other_occurrences_wavevectors'],
+                                entry['other_occurrences_wavelengths'])):
+                        color = ""
+                        if should_highlight_half_ints and is_wavelength_half(match_wavelength, other_wavelength,
+                                                                             atol=half_int_atol):
+                            color = bcolours.PURPLE
+                        elif should_print_all_wavelengths:
+                            color = bcolours.BLUE
 
-                    # Update for new frequency
-                    freq_count = 1
-                    if index == max_len:
                         print(
-                            f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t\t| "
-                            f"Index_1: {index}, \u03BB1: inf [nm]", end="\t\t| ")
-                    elif index > max_len:
-                        print(
-                            f"Frequency: {frequency: .4f} [GHz] | k_1: {wave_number_n: .6f} [1/nm]\t| "
-                            f"Index_1: {index}, \u03BB1: {wave_number:.4f} [nm]", end="\t| ")
+                            f"{color} i_{enum_index+1}: {other_index}, "
+                            f"λ_{enum_index+1}: {other_wavelength:.{wv_rnd}f} [nm], "
+                            f"k_{enum_index+1}: {other_wavevector:.{wv_rnd}f} [1/nm]{bcolours.ENDC}", end="")
+
+                    print()
+                line_counter += 1
 
                 # Check if 10 lines have been printed
                 if line_counter >= 10:
-                    if line_counter >= 11:
-                        print("")
-                    print("\t\t\t\t------------------------------------------------")
+                    print("------------------------------------------------")
                     line_counter = 0
 
-                prev_index = index
-                prev_freq = frequency
-                prev_wavenumber = wave_number
-                prev_wavelength = wavelength
-
-            # Handle case for the last item in the list
-            if line_counter != 0:
-                print("\n")
-
+            print("--------------------------------------------------------------------------------")
             exit(0)
 
         else:
@@ -1745,7 +1902,7 @@ class PaperFigures:
             self._fig.suptitle('Comparison of my derivation with Moon\'s')
             for dmi_val in dmi_vals:
                 max_len = round(system_len / lattice_constant)
-                num_spins_array = np.arange(-max_len, max_len, 1)
+                num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
                 wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
 
                 freq_array = gyromag_ratio * (2 * exchange_field * (lattice_constant) ** 2 * wave_number_array ** 2
@@ -1755,8 +1912,8 @@ class PaperFigures:
                 ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=1., ls='-',
                          label=f'D = {dmi_val}')
 
-                ax1.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)',
-                        xlim=[-0.25, 0.25], ylim=[0, 40])
+                ax1.set(xlabel="Wavevector (nm$^{-1}$)",
+                        ylabel='Frequency (GHz)')  # , xlim=[-0.15, 0.15], ylim=[0, 20])
                 self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
                                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
@@ -1782,7 +1939,8 @@ class PaperFigures:
 
                 ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=1., ls='-',
                          label=f'D = {p_val * dmi_val}')
-                ax2.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
+                ax2.set(xlabel="Wavevector (nm$^{-1}$)",
+                        ylabel='Frequency (GHz)')  # , xlim=[-0.15, 0.15], ylim=[0, 20])
                 self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
                                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
