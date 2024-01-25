@@ -869,7 +869,7 @@ class PlotImportedData:
                             #                                          use_demag=False, compare_dis=True,
                             #                                          publication_details=False, interactive_plot=True)
 
-                            paper_fig.find_degenerate_modes(find_modes=True)
+                            paper_fig.find_degenerate_modes(find_modes=False)
                             lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
@@ -881,7 +881,7 @@ class PlotImportedData:
                             cont_plotting = False
 
         elif pf_keywords["GIF"][0]:
-            paper_fig.create_gif()
+            paper_fig.create_gif(has_static_ylim=True)
             print("GIF successfully created!")
             if self.early_exit:
                 exit(0)
