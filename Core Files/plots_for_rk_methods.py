@@ -105,7 +105,7 @@ class PaperFigures:
             if has_single_figure:
                 self._fig = plt.figure(figsize=(4.4, 4.4))
                 self._axes = self._fig.add_subplot(111)
-                self._yaxis_lim *= max(self.amplitude_data[row_index, :])
+                self._yaxis_lim *= 3e-4
             else:
                 # For GIFs only. Each frame requires a new fig to prevent stuttering.
                 cm = 1 / 2.54
@@ -113,7 +113,7 @@ class PaperFigures:
                 # self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
                 self._axes = self._fig.add_subplot(111)
                 if static_ylim:
-                    self._yaxis_lim *= max(self.amplitude_data[-1, :])
+                    self._yaxis_lim *= 3e-4
                 else:
                     self._yaxis_lim *= max(self.amplitude_data[row_index, :])
                 plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Prevent excessive image sizes
@@ -124,7 +124,7 @@ class PaperFigures:
         else:
             self._axes.clear()  # Only triggered if existing plot is present
             if static_ylim:
-                self._yaxis_lim = 1.1 * max(self.amplitude_data[-1, :])
+                self._yaxis_lim = 1.1 * 3e-4
             else:
                 self._yaxis_lim = 1.1 * max(self.amplitude_data[row_index, :])
             self._fig_kwargs["ylim"] = [-1 * self._yaxis_lim, self._yaxis_lim]
@@ -144,6 +144,8 @@ class PaperFigures:
         self._tick_setter(self._axes, self._total_num_spins / 4, self._total_num_spins / 8, 3, 4,
                           yaxis_num_decimals=1.1, show_sci_notation=True)
 
+        #self._axes.text(0.66, 0.94, f"[DR] Sites: {self._driving_width}", va='center',
+        #                ha='left', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
         if publish_plot:
             self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
                             ha='center', transform=self._axes.transAxes, fontsize=6)
@@ -166,7 +168,7 @@ class PaperFigures:
                                                alpha=0.5, facecolor="grey", edgecolor=None)
 
             rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height, lw=0,
-                                                          alpha=0.25, facecolor="grey", edgecolor=None)
+                                                          alpha=0.75, facecolor="grey", edgecolor=None)
 
             plt.gca().add_patch(rectangle_lhs)
             plt.gca().add_patch(rectangle_rhs)
@@ -189,7 +191,7 @@ class PaperFigures:
 
         :return: Saves a .png to the nominated 'Outputs' directory.
         """
-        self._draw_figure(row_index)
+        self._draw_figure(row_index, draw_regions_of_interest=False)
 
         self._axes.grid(visible=True, axis='both', which='both')
 
@@ -218,6 +220,7 @@ class PaperFigures:
             plt.show()
         else:
             self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
+            plt.close(self._fig)
 
     def _plot_paper_gif(self, row_index: int, has_static_ylim: bool = False) -> plt.Figure:
         """
@@ -1600,8 +1603,8 @@ class PaperFigures:
 
             # Error tolerances
             wv_tol = 10 ** -(wv_rnd - 1)
-            freq_atol = 12 * 10 ** -(fq_rnd - 1)
-            half_int_atol = 5e-1
+            freq_atol = 7 * 10 ** -(fq_rnd - 1)
+            half_int_atol = 3e-1
 
             # Calculate all wavevectors in system
             wave_number_array = (2 * num_spins_array * np.pi) / total_sys_pairs
@@ -1777,7 +1780,7 @@ class PaperFigures:
                         'other_occurrences_indices': other_occurrences_indices,
                         'other_occurrences_wavevectors': other_occurrences_wavevectors,
                         'other_occurrences_frequencies': other_occurrences_frequencies,
-                        'other_occurrences_wavelengths': other_occurrences_wavelengths,
+                        'other_occurrences_wavelengths': abs(other_occurrences_wavelengths),
                         'other_occurrences_half_ints': other_occurrences_half_ints,
                         'other_occurrences_scaling': other_occurrences_scaling
                     })
@@ -1831,7 +1834,7 @@ class PaperFigures:
                           f"\u03C9/2\u03C0: {match_frequency:.{fq_rnd}f} [GHz] | "
                           f"kn: {match_wavevector:.{wv_rnd}f} [1/nm] | "
                           f"in: {match_index}, "
-                          f"λn: {match_wavelength:.{0}f} [nm]"
+                          f"λn: {match_wavelength:.{2}f} [nm]"
                           f"\t", end="")
 
                     # Iterate over other occurrences should the exist
@@ -1850,7 +1853,7 @@ class PaperFigures:
 
                             print(
                                 f"{color}| i{enum_index+1}: {other_index}, "
-                                f"\u03BB{enum_index+1}: {other_wavelength:.{0}f} [nm], "
+                                f"\u03BB{enum_index+1}: {other_wavelength:.{2}f} [nm], "
                                 f"k{enum_index+1}: {other_wavevector:.{wv_rnd}f} [1/nm],"
                                 f"\t\u03BE{enum_index+1}: {other_scaling:.3f}"
                                 f" ", end="")

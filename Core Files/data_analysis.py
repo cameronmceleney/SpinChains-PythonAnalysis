@@ -869,7 +869,7 @@ class PlotImportedData:
                             #                                          use_demag=False, compare_dis=True,
                             #                                          publication_details=False, interactive_plot=True)
 
-                            paper_fig.find_degenerate_modes(find_modes=False)
+                            paper_fig.find_degenerate_modes(find_modes=True)
                             lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
