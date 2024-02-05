@@ -364,7 +364,7 @@ class PlotEigenmodes:
 class PlotImportedData:
 
     def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
-                 file_identifier="LLGTest"):
+                 file_identifier="T"):
         self.fd = file_descriptor
         self.in_path = input_dir_path
         self.out_path = output_dir_path
@@ -376,10 +376,11 @@ class PlotImportedData:
         self.override_function = None
         self.override_site = None
         self.early_exit = False
+        self.mass_produce = False
 
         rc_params_update()
 
-        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"  # want 1744
+        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
 
         self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
         self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
@@ -535,7 +536,8 @@ class PlotImportedData:
 
         return key_params, list_of_simulated_sites, sim_flags
 
-    def call_methods(self, override_method=None, override_function=None, override_site=None, early_exit=False):
+    def call_methods(self, override_method=None, override_function=None, override_site=None,
+                     early_exit=False, mass_produce=False):
 
         lg.info(f"Invoking functions to plot data...")
         print('\n--------------------------------------------------------------------------------')
@@ -546,6 +548,9 @@ class PlotImportedData:
             self.override_function = override_function
         if override_site is not None:
             self.override_site = override_site
+
+        if mass_produce:
+            self.mass_produce = mass_produce
 
         if override_method is not None:
             # Allows the user to skip input dialogues, and call a specific function from a specific method.
@@ -570,7 +575,7 @@ class PlotImportedData:
 
             initials_of_method_to_call = input("Which function to use: ").upper()
 
-        if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
+        if any([self.override_method, self.override_function, self.override_site, self.early_exit]) and not mass_produce:
             print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
                   f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
             print('--------------------------------------------------------------------------------')
@@ -583,8 +588,13 @@ class PlotImportedData:
                 while initials_of_method_to_call not in self.accepted_keywords:
                     initials_of_method_to_call = input("Invalid option. Select function should to use: ").upper()
 
-        print("Code complete!")
-        lg.info(f"Code complete! Exiting.")
+        if self.mass_produce:
+            print(f"Produced: {self.fi}{self.fd}")
+            lg.info(f"Produced: {self.fi}{self.fd}")
+
+        else:
+            print("Code complete!")
+            lg.info(f"Code complete! Exiting.")
 
     def _data_plotting_selections(self, method_to_call):
 
@@ -785,9 +795,10 @@ class PlotImportedData:
 
                     else:
                         if row_num >= 0:
-                            print(f"Generating plot for [#{row_num}]...")
+                            if not self.mass_produce:
+                                print(f"Generating plot for [#{row_num}]...")
                             lg.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial(row_num, interactive_plot=False)
+                            paper_fig.plot_row_spatial(row_num, fixed_ylim=False, interactive_plot=True)
                             lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
@@ -826,8 +837,8 @@ class PlotImportedData:
                             paper_fig.plot_site_temporal(target_site, wavepacket_fft=False, visualise_wavepackets=False,
                                                          annotate_precursors_fft=False, annotate_signal=False,
                                                          wavepacket_inset=False, add_key_params=False,
-                                                         add_signal_backgrounds=False, publication_details=True,
-                                                         interactive_plot=False)
+                                                         add_signal_backgrounds=False, publication_details=False,
+                                                         interactive_plot=True)
                             lg.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
@@ -869,7 +880,7 @@ class PlotImportedData:
                             #                                          use_demag=False, compare_dis=True,
                             #                                          publication_details=False, interactive_plot=True)
 
-                            paper_fig.find_degenerate_modes(find_modes=True)
+                            paper_fig.find_degenerate_modes(find_modes=False, interactive_plot=True)
                             lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
@@ -880,14 +891,14 @@ class PlotImportedData:
                             lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
                             cont_plotting = False
 
-        elif pf_keywords["GIF"][0]:
+        elif pf_selection == pf_keywords["GIF"][0]:
             paper_fig.create_gif(has_static_ylim=True)
             print("GIF successfully created!")
             if self.early_exit:
                 exit(0)
             self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
 
-        elif pf_keywords["FFT"][0]:
+        elif pf_selection == pf_keywords["FFT"][0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
                 if self.override_site is not None:

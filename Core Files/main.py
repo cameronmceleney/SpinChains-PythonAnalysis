@@ -36,22 +36,26 @@ if __name__ == '__main__':
 
     _should_use_eigens = False
     _mass_produce = False
-    filename_base = "1406"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "0951ac"  # str(input("Enter the unique identifier of the file: "))
+
+    system_setup = sp.SystemSetup()
+    system_setup.detect_os(False, "2024-02-02", "2024-02-02")
 
     def generate_filenames():
         suffix = 'a'  # Start with 'a' initially
+        #suffix = 1
 
         while True:
-            filename = filename_base + suffix
+            filename = filename_base + str(suffix)
 
             # Function logic here - careful to reimport the correct filenames!
-            if not _should_use_eigens:
-                dataset1 = das.PlotImportedData(filename, system_setup.input_dir(), system_setup.output_dir(),
+            dataset_mass = das.PlotImportedData(filename, system_setup.input_dir(), system_setup.output_dir(),
                                                 file_prefix="rk2", file_component='mx', file_identifier="T")
-                dataset1.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True)
+            dataset_mass.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True)
 
             # Increment suffix naturally
             suffix = increment_suffix(suffix)
+            #suffix += 1
 
             # Set `aaa` as an arb. endpoints for now
             if suffix == 'aaa':
@@ -76,16 +80,13 @@ if __name__ == '__main__':
 
         return result
 
-    system_setup = sp.SystemSetup()
-    system_setup.detect_os(True, "2024-01-26", "2024-01-26")
-
     if not _should_use_eigens:
         if _mass_produce:
             generate_filenames()
         else:
             dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                             file_prefix="rk2", file_component='mx', file_identifier="T")
-            dataset1.call_methods(override_method="pf", override_function="gif", override_site=100, early_exit=True)
+            dataset1.call_methods(override_method="pf", override_function="hd", override_site=100, early_exit=True)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()
