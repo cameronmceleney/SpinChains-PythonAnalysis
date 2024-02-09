@@ -82,7 +82,7 @@ class PaperFigures:
         self._fig = None
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
-        self._yaxis_lim_fix = 6e-5
+        self._yaxis_lim_fix = 1e-4
         self._fig_kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$",
                             "xlim": [0.0 * self._total_num_spins, 1.0 * self._total_num_spins],
                             "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
@@ -107,7 +107,7 @@ class PaperFigures:
         """
         if self._fig is None:
             if has_single_figure:
-                self._fig = plt.figure(figsize=(4.4, 4.4))
+                self._fig = plt.figure(figsize=(4.4, 2.2))
                 self._axes = self._fig.add_subplot(111)
             else:
                 # For GIFs only. Each frame requires a new fig to prevent stuttering.
@@ -215,16 +215,54 @@ class PaperFigures:
                             ha='center', va='center', bbox=parameters_text_props)
 
         if interactive_plot:
+            # Initialize variables
+            num_clicks = 0
+            total_diff_wl = 0
+            total_diff_k = 0
+            last_wl = None
+            last_k = None
+
+            def reset_clicks():
+                nonlocal num_clicks, total_diff_wl, last_wl
+                num_clicks = 0
+                total_diff_wl = 0
+                last_wl = None
+                print("Click data has been reset.")
+
             # For interactive plots
             def mouse_event(event: Any):
-                print(f'x: {event.xdata} and y: {event.ydata}')
+                nonlocal num_clicks, total_diff_wl, last_wl
+
+                if event.button == 3:  # Assuming right click is the reset trigger
+                    reset_clicks()
+                    return
+
+                # Increment clicks count
+                num_clicks += 1
+
+                # Calculate difference and average only from the second click
+                if last_wl is not None:
+                    diff_wl = abs(event.xdata - last_wl)
+                    total_diff_wl += diff_wl
+                    # Ensure at least one difference has been calculated before averaging
+                    if num_clicks > 1:
+                        avg_diff_wl = total_diff_wl / (num_clicks - 1)
+                        print(f'Click #{num_clicks}: x: {event.xdata:.1f}, Avg. \u03BB: {avg_diff_wl:.1f}, Avg. k: {(2*np.pi/avg_diff_wl):.3e} | '
+                              f'y: {event.ydata:.3e}')
+                    else:
+                        print(f'Click #{num_clicks}: x: {event.xdata}, y: {event.ydata}')
+                else:
+                    print(f'Click #{num_clicks}: x: {event.xdata}, y: {event.ydata}')
+
+                # Update last_wl with the current xdata for the next click
+                last_wl = event.xdata
 
             self._fig.canvas.mpl_connect('button_press_event', mouse_event)
-            self._fig.tight_layout()  # Must be directly before plt.show()
+            self._fig.tight_layout()
             plt.show()
-        else:
-            self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
-            plt.close(self._fig)
+
+        self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
+        plt.close(self._fig)
 
     def _plot_paper_gif(self, row_index: int, has_static_ylim: bool = False) -> plt.Figure:
         """
@@ -1568,7 +1606,7 @@ class PaperFigures:
         :return: Saves a .png image to the designated output folder.
         """
         if self._fig is None:
-            self._fig = plt.figure(figsize=(4.5, 3.375))
+            self._fig = plt.figure(figsize=(8, 6))#(figsize=(4.5, 3.375))
         self._fig.subplots_adjust(wspace=1, hspace=0.35)
 
         num_rows, num_cols = 2, 3
@@ -1591,21 +1629,21 @@ class PaperFigures:
         # Key values and compute wavenumber plus frequency for Moon
         external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 28.0e9  # 28.8e9
-        lattice_constant_moon = 1e-9  # np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 4e-6  # metres
+        lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
+        system_len_moon = 4e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
         exc_stiff_moon = 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 1e-3
+        dmi_val_const_moon = 1e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
         # Key values and computations of values for our system
-        external_field, exchange_field = external_field_moon, 32.5 # (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)  # 0.1, 132.5  # [T]
+        external_field, exchange_field = external_field_moon, (2*exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon**2)  # 32.5  (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)  # 0.1, 132.5  # [T]
         gyromag_ratio = gyromag_ratio_moon  # 28.8e9
         lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
         system_len = system_len_moon  # metres
-        dmi_val_const = 2.5
+        dmi_val_const = (2 * dmi_val_const_moon) / (sat_mag_moon * lattice_constant_moon)  # 1.9416259130841862  # 2.5
         dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
 
         getcontext().prec = 30
@@ -1641,7 +1679,7 @@ class PaperFigures:
 
             # Error tolerances
             wv_tol = 10 ** -(wv_rnd - 1)
-            freq_atol = 1 * 10 ** -(fq_rnd - 1)
+            freq_atol = 3 * 10 ** -(fq_rnd - 1)
             half_int_atol = 1e-1
 
             # Calculate all wavevectors in system
@@ -1652,6 +1690,8 @@ class PaperFigures:
                                           + external_field
                                           + dmi_val_const * lattice_constant * wave_number_array)
 
+            print(f"Lattice constant [nm]: {lattice_constant*1e9} | DMI constant [T]: +/- {dmi_val_const} | Exchange field [T]: {exchange_field} | External field [T]: {external_field} | Gyromagnetic ratio [GHz/T]: {gyromag_ratio*1e-9} | System length [um]: {system_len*1e6}")
+            print(f'wv_rnd: {wv_rnd} | fq_rnd: {fq_rnd} | wv_tol: {wv_tol} | freq_atol: {freq_atol} | half_int_atol: {half_int_atol}')
             # Calculate all wavelengths
             wavelengths_array = np.zeros_like(wave_number_array, dtype=float)
 
@@ -1661,7 +1701,7 @@ class PaperFigures:
 
             # Perform division where wave number is non-zero and convert to [nm]
             non_zero_wave_indices = ~zero_wave_indices
-            wavelengths_array[non_zero_wave_indices] = ((2 * np.pi) / wave_number_array[non_zero_wave_indices]) * m_2_nm
+            wavelengths_array[non_zero_wave_indices] = ((2 * np.pi) / wave_number_array[non_zero_wave_indices]) * lattice_constant_moon
 
             # Convert wave numbers to [1/nm] with rounding
             wave_number_array = np.round(wave_number_array * 1e-9, wv_rnd)
@@ -1910,12 +1950,14 @@ class PaperFigures:
             exit(0)
 
         else:
+            print(f"Lattice constant [nm]: {lattice_constant*1e9} | DMI constant [T]: +/- {dmi_val_const} | Exchange field [T]: {exchange_field} | External field [T]: {external_field} | Gyromagnetic ratio [GHz/T]: {gyromag_ratio*1e-9} | System length [um]: {system_len*1e6} | Sites: {round(system_len / lattice_constant)}")
+
             # Plot dispersion relations
             self._fig.suptitle('Comparison of my derivation with Moon\'s')
             for dmi_val in dmi_vals:
                 max_len = round(system_len / lattice_constant)
                 num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
-                wave_number_array = (2 * num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
+                wave_number_array = (2 * num_spins_array * np.pi) / system_len  # ((len(num_spins_array) - 1) * lattice_constant)
 
                 freq_array = gyromag_ratio * (round_to_sig_figs(exchange_field * (lattice_constant) ** 2, 3) * wave_number_array ** 2
                                               + external_field
@@ -1932,14 +1974,13 @@ class PaperFigures:
 
                 ax1.margins(0)
                 ax1.xaxis.labelpad = -2
-                ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                ax1.legend(title=f'Mine - D [T]\n(H_ex = {exchange_field:2.3f}[T])', title_fontsize=self._fontsizes["smaller"],
                            fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
             for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
                 max_len_moon = round(system_len_moon / lattice_constant_moon)
                 num_spins_array_moon = np.arange(-int(max_len_moon / 2), int(max_len_moon / 2) + 1, 1)
-                wave_number_array_moon = (2 * num_spins_array_moon * np.pi) / (
-                        (len(num_spins_array_moon) - 1) * lattice_constant_moon)
+                wave_number_array_moon = (2 * num_spins_array_moon * np.pi) / ((len(num_spins_array_moon) - 1) * lattice_constant_moon)
 
                 # Remove mu0 due to precision error when included
                 h0 = external_field_moon #/ mu0
@@ -1947,13 +1988,12 @@ class PaperFigures:
                 d_star = (2 * dmi_val) / sat_mag_moon #(mu0 * sat_mag_moon))
 
                 # gyromag_ratio_moon * mu0 *
-                freq_array_moon = gyromag_ratio_moon * (np.sqrt((h0 + j_star * wave_number_array_moon ** 2)
-                                                                      * (
-                                                                              h0 + demag_mag_moon + j_star * wave_number_array_moon ** 2))
+                freq_array_moon = gyromag_ratio_moon * (np.sqrt((h0 + j_star * (wave_number_array_moon ** 2))
+                                                                      * ( h0 + demag_mag_moon + j_star * (wave_number_array_moon ** 2)))
                                                               + p_val * d_star * wave_number_array_moon)
 
                 ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=0, ls='-',
-                         label=f'D = {p_val * dmi_val}', marker='o', markersize=1.5)
+                         label=f'D = {p_val * dmi_val:.3e}', marker='o', markersize=1.5)
                 ax2.set(xlabel="Wavevector (nm$^{-1}$)",
                         ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
                 self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
@@ -1962,7 +2002,7 @@ class PaperFigures:
                 ax2.margins(0)
                 ax2.xaxis.labelpad = -2
 
-                ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                ax2.legend(title='Theirs - D [J/m2]', title_fontsize=self._fontsizes["smaller"],
                            fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
         ########################################

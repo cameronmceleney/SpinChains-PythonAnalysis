@@ -36,32 +36,39 @@ if __name__ == '__main__':
 
     _should_use_eigens = False
     _mass_produce = False
-    filename_base = "0951ac"  # str(input("Enter the unique identifier of the file: "))
+    _has_numeric_suffix = True
+    filename_base = "1815"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2024-02-02", "2024-02-02")
+    system_setup.detect_os(True, "2024-02-08", "2024-02-08")
 
     def generate_filenames():
-        suffix = 'a'  # Start with 'a' initially
-        #suffix = 1
+        if _has_numeric_suffix:
+            suffix = 1
+        else:
+            suffix = 'a'
 
         while True:
-            filename = filename_base + str(suffix)
+            if _has_numeric_suffix:
+                filename = filename_base + '_' + str(suffix)
+            else:
+                filename = filename_base + suffix
 
             # Function logic here - careful to reimport the correct filenames!
             dataset_mass = das.PlotImportedData(filename, system_setup.input_dir(), system_setup.output_dir(),
                                                 file_prefix="rk2", file_component='mx', file_identifier="T")
             dataset_mass.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True)
 
-            # Increment suffix naturally
-            suffix = increment_suffix(suffix)
-            #suffix += 1
+            suffix = increment_suffix(suffix, _has_numeric_suffix)
 
             # Set `aaa` as an arb. endpoints for now
-            if suffix == 'aaa':
+            if suffix == 'aaa' or suffix == 100:
                 break
 
-    def increment_suffix(suffix):
+    def increment_suffix(suffix, has_numeric_suffix):
+        if has_numeric_suffix:
+            return suffix + 1
+
         alphabet = string.ascii_lowercase
 
         # Convert suffix to a number
@@ -86,7 +93,7 @@ if __name__ == '__main__':
         else:
             dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                             file_prefix="rk2", file_component='mx', file_identifier="T")
-            dataset1.call_methods(override_method="pf", override_function="hd", override_site=100, early_exit=True)
+            dataset1.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()
