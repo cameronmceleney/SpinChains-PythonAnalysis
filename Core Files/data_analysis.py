@@ -748,7 +748,8 @@ class PlotImportedData:
                             "GIF": ["GIF", "GIF"],
                             "FFT": ["FFT", "Fast Fourier Transform"],
                             "Prev. Menu": ["BACK", "Previous Menu"],
-                            "Ric. Paper": ["RIC", "Ricardo's Paper"]}
+                            "Ric. Paper": ["RIC", "Ricardo's Paper"],
+                            "Spat. FFT": ["SFFT", "Spatial FFT"]}
 
         if self.override_function is not None:
             pf_selection = self.override_function.upper()
@@ -798,7 +799,7 @@ class PlotImportedData:
                             if not self.mass_produce:
                                 print(f"Generating plot for [#{row_num}]...")
                             lg.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial(row_num, fixed_ylim=True, interactive_plot=True)
+                            paper_fig.plot_row_spatial(row_num, fixed_ylim=False, interactive_plot=True)
                             lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
@@ -809,6 +810,40 @@ class PlotImportedData:
                             lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
                             cont_plotting = False
 
+        elif pf_selection == pf_keywords["Spat. FFT"][0]:
+            while cont_plotting:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                if self.override_site is not None:
+                    rows_to_plot = [self.override_site]
+                else:
+                    rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
+
+                for row_num in rows_to_plot:
+
+                    try:
+                        row_num = int(row_num)
+
+                    except ValueError:
+                        if row_num.upper() == pf_keywords["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if row_num >= 0:
+                            if not self.mass_produce:
+                                print(f"Generating plot for [#{row_num}]...")
+                            lg.info(f"Generating PV plot for row [#{row_num}]")
+                            paper_fig.plot_row_spatial_ft(row_num, fixed_ylim=False, interactive_plot=True)
+                            lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+
+                            if self.early_exit:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-PV plotting.")
+                            lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
+                            cont_plotting = False
         elif pf_selection == pf_keywords["Temp. Ev."][0]:
             while cont_plotting:
 
