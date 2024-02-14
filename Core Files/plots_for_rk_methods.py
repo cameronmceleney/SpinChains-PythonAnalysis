@@ -49,6 +49,159 @@ class PaperFigures:
     Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
     change the invocation in data.analysis.py.
     """
+    cm_to_inch = 1 / 2.54
+
+    colour_schemes = {
+        0: {  # Controls wavepacket visualisation. From https://coolors.co/palettes/popular/3%20colors
+            "wavepacket1": "#26547c",
+            "wavepacket2": "#ef476f",
+            "wavepacket3": "#ffd166",
+            "wavepacket4": "#edae49",
+            "wavepacket5": "#d1495b",
+            "wavepacket6": "#00798c",
+        },
+        1: {  # Taken from time_variation (depreciated function)
+            'ax1_colour_matte': "#37782C",
+            'ax2_colour_matte': "#37782C",
+            'signal1_colour': "#37782C",
+            'signal2_colour': "#64bb6a",
+            'signal3_colour': "#9fd983"
+        },
+        2: {  # Taken from time_variation1
+            'ax1_colour_matte': "#73B741",  # gr #73B741 dg #8C8E8D" # dg "#80BE53"
+            'ax2_colour_matte': "#F77D6A",
+            'signal1_colour': "#CD331B",
+            'signal2_colour': "#B896B0",  # cy 3EB8A1
+            'signal3_colour': "#377582"  # B79549
+            # 37782C, #64BB6A, #9FD983
+        }
+        # ... add more colour schemes as needed
+    }
+
+    class FigureManager:
+        def __init__(self, fig, width, height, dpi):
+            self.fig = fig
+            self.figure_manager = plt.get_current_fig_manager()
+            self.width = width
+            self.height = height
+            self.dpi = dpi
+
+            self.last_click_y = None
+            self.current_keypress_ax = None
+            self.horizontal_lines = []
+
+            self.num_clicks = 0
+            self.total_diff_wl = 0
+            self.last_wl = None
+            self.print_mode = 1  # Introduce a flag to toggle between print statements
+
+            self.axes_list = []  # List to store all subplot axes in the figure
+            self._populate_axes_list()  # Populate the list with subplot axes
+
+        def connect_events(self):
+            """Connects the key press event with additional parameters."""
+            self.figure_manager.canvas.mpl_connect('key_press_event', self._reset_figure_size)
+            self.figure_manager.canvas.mpl_connect('button_press_event', self._mouse_event)
+            self.figure_manager.canvas.mpl_connect('button_press_event', self._on_mouse_click)
+            self.figure_manager.canvas.mpl_connect('key_press_event', self._handle_horizontal_lines)
+            self.figure_manager.canvas.mpl_connect('key_press_event', self._keypress_select_subplot)
+
+        def _populate_axes_list(self):
+            """Populates the list with all subplot axes in the figure."""
+            # current_figure = self.figure_manager.figure  # Adjust this based on the actual structure if needed
+            self.axes_list = plt.gcf().axes
+
+        def _keypress_select_subplot(self, event):
+            """Selects a subplot based on the key pressed."""
+            try:
+                # Convert the key press to an index (1 maps to 0, 2 to 1, etc.)
+                index = int(event.key) - 1
+                # Update the current subplot based on the key press if within range
+                if 0 <= index < len(self.axes_list):
+                    self.current_keypress_ax = self.axes_list[index]
+                    print(f"Selected subplot {index + 1}")
+            except ValueError:
+                # Ignore key presses that are not integers
+                pass
+
+        def _reset_figure_size(self, event):
+            """Resets the figure size based on the key press event."""
+            if event.key == 'r':
+                self.figure_manager.window.geometry(
+                    f"{int(self.width * 1.75 * self.dpi)}x{int(self.height * 1.75 * self.dpi)}")
+                plt.draw()
+
+        def _on_mouse_click(self, event):
+            """Handles mouse click events to store the y-coordinate."""
+            if event.inaxes:  # Check if click was inside an axes
+                self.last_click_y = event.ydata
+
+        def _handle_horizontal_lines(self, event):
+            """Handles key press events to draw or clear horizontal lines."""
+            if event.key == 'l' and self.last_click_y is not None:
+                self._draw_horizontal_line()
+            elif event.key == 'c':
+                self._clear_horizontal_lines()
+            self.figure_manager.canvas.draw_idle()  # Redraw the figure to show the added horizontal line
+
+        def _draw_horizontal_line(self):
+            """Draws a horizontal line at the y-coordinate of the last mouse click without rescaling the axis limits."""
+            # Capture the current axis limits
+            # xlim = self.current_keypress_ax.get_xlim()
+            # ylim = self.current_keypress_ax.get_ylim()
+
+            # Draw the horizontal line
+            line = self.current_keypress_ax.axhline(y=self.last_click_y, color='black', linestyle='--')
+            self.horizontal_lines.append(line)
+
+            # Reapply the original axis limits to prevent automatic rescaling
+            # self.current_keypress_ax.set_xlim(xlim)
+            # self.current_keypress_ax.set_ylim(ylim)
+
+        def _clear_horizontal_lines(self):
+            """Removes all horizontal lines from the figure."""
+            for line in self.horizontal_lines:
+                line.remove()
+            self.horizontal_lines.clear()  # Clear the list of lines
+            plt.draw()  # Redraw the figure to reflect the removed lines
+
+        def _reset_clicks(self):
+            self.num_clicks = 0
+            self.total_diff_wl = 0
+            self.last_wl = None
+            print("Click data has been reset.")
+
+        def _mouse_event(self, event: Any):
+
+            # Toggle print mode on middle mouse button press
+            if event.button == 2:  # Middle mouse button
+                self.print_mode = 2 if self.print_mode == 1 else 1
+                print(f"Print mode changed to {self.print_mode}.")
+                return
+
+            if event.button == 3:  # Assuming right click is the reset trigger
+                self._reset_clicks()
+                return
+
+            if self.print_mode == 1:
+                # Your existing code for case_one
+                self.num_clicks += 1
+                if self.last_wl is not None:
+                    diff_wl = abs(event.xdata - self.last_wl)
+                    self.total_diff_wl += diff_wl
+                    if self.num_clicks > 1:
+                        avg_diff_wl = self.total_diff_wl / (self.num_clicks - 1)
+                        print(
+                            f'Click #{self.num_clicks}: x: {event.xdata:.1f}, Avg. λ: {avg_diff_wl:.1f}, Avg. k: {(2 * np.pi / avg_diff_wl):.3e} | y: {event.ydata:.3e}')
+                    else:
+                        print(f'Click #{self.num_clicks}: x: {event.xdata}, y: {event.ydata}')
+                else:
+                    print(f'Click #{self.num_clicks}: x: {event.xdata}, y: {event.ydata}')
+                self.last_wl = event.xdata
+
+            elif self.print_mode == 2:
+                # Adjusted code for case_two
+                print(f'x: {event.xdata} and y: {event.ydata}')
 
     def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
 
@@ -108,33 +261,22 @@ class PaperFigures:
         """
         if axes is not None:
             self._axes = axes
+
         if self._fig is None:
-            if has_single_figure:
-                self._fig = plt.figure(figsize=(4.4, 2.2))
-                self._axes = self._fig.add_subplot(111)
-            else:
-                # For GIFs only. Each frame requires a new fig to prevent stuttering.
-                cm = 1 / 2.54
-                self._fig = plt.figure(figsize=(4.4, 4.4))
-                # self._fig = plt.figure(figsize=(11.12 * cm * 2, 6.15 * cm * 2))  # Sizes are from PRL guidelines
-                self._axes = self._fig.add_subplot(111)
-                plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Prevent excessive image sizes
+            figsize = (4.4, 2.2) if has_single_figure else (4.4, 4.4)
+            self._fig = plt.figure(figsize=figsize)
+            self._axes = self._fig.add_subplot(111)
+            if not has_single_figure:
+                plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Adjust for GIFs
 
-            if static_ylim:
-                self._yaxis_lim = self._yaxis_lim_fix
-            else:
-                self._yaxis_lim *= max(self.amplitude_data[row_index, :])
-            # Any method-wide updates
-            self._axes.clear()
-            self._fig_kwargs["ylim"] = [-1 * self._yaxis_lim, self._yaxis_lim]
+        # Adjust y-axis limit based on static_ylim and amplitude data
+        if static_ylim:
+            self._yaxis_lim = self._yaxis_lim_fix
         else:
-            self._axes.clear()  # Only triggered if existing plot is present
-            if static_ylim:
-                self._yaxis_lim = self._yaxis_lim_fix
-            else:
-                self._yaxis_lim = 1.1 * max(self.amplitude_data[row_index, :])
-            self._fig_kwargs["ylim"] = [-1 * self._yaxis_lim, self._yaxis_lim]
+            self._yaxis_lim = max(self.amplitude_data[row_index, :]) * (1.1 if self._fig is None else self._yaxis_lim)
 
+        self._axes.clear()
+        self._fig_kwargs["ylim"] = [-self._yaxis_lim, self._yaxis_lim]
         self._axes.set_aspect("auto")
 
         # Easier to have time-stamp as label than textbox.
@@ -142,8 +284,6 @@ class PaperFigures:
                         lw=2 * 0.75, color='#64bb6a', label=f"{self.time_data[row_index]: 2.2f} (ns)", zorder=1.01)
 
         self._axes.set(**self._fig_kwargs)
-        # self._axes.legend(fontsize=self._fontsizes["tiny"], frameon=False, fancybox=False,
-        #            facecolor=None, edgecolor=None)
 
         # Keep tick manipulations in this block to ease debugging
         self._axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
@@ -268,7 +408,32 @@ class PaperFigures:
         self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
         plt.close(self._fig)
 
-    def plot_row_spatial_ft(self, row_index: int = -1, should_annotate_parameters: bool = False,
+    def _process_signal(self, signal_xlim_min_raw, signal_xlim_max_raw, signal_colour, signal_label,
+                        negative_wavevector=False):
+
+        if signal_xlim_min_raw != signal_xlim_max_raw:
+            wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
+                                                            signal_xlim_min_raw:signal_xlim_max_raw],
+                                                            spatial_spacing=lattice_const)
+            fourier_transform = abs(fourier_transform)
+            intensities_normalized = fourier_transform / np.max(fourier_transform)
+
+            # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
+            wavevectors *= hz_pi_to_norm if negative_wavevector else -hz_pi_to_norm
+            frequencies = gyro_mag_ratio * (self._exchange_max * (lattice_const ** 2) * (wavevectors ** 2)
+                                            + self._static_field
+                                            + dmi_val_const * lattice_const * wavevectors)
+            wavevectors *= -1 * hz_to_GHz if negative_wavevector else hz_to_GHz
+
+            ax2.plot(wavevectors, fourier_transform,
+                     lw=1, color=signal_colour, marker='', markerfacecolor='black', markeredgecolor='black',
+                     label=signal_label, zorder=1.5)
+
+            scatter_x = -wavevectors * hz_to_GHz if negative_wavevector else wavevectors * hz_to_GHz
+            ax3.scatter(scatter_x, frequencies * hz_to_GHz,
+                        c=sm.to_rgba(intensities_normalized), s=12, marker='.', label=signal_label)
+
+    def plot_row_spatial_ft(self, row_index: int = -1,
                             fixed_ylim: bool = False, interactive_plot: bool = False) -> None:
         """
         Plot a row of data to show spatial evolution.
@@ -279,7 +444,6 @@ class PaperFigures:
         :param fixed_ylim:
         :param interactive_plot:
         :param row_index: Plot given row from dataset; most commonly plotted should be the default.
-        :param should_annotate_parameters: Add simulation parameters to plot. Useful when presenting work in meetings.
 
         :return: Saves a .png to the nominated 'Outputs' directory.
         """
@@ -298,36 +462,10 @@ class PaperFigures:
         self._fig.subplots_adjust(wspace=1, hspace=0.4, bottom=0.2)
 
         ########################################
-        # Set colour scheme
-        colour_schemes = {
-            0: {  # Controls wavepacket visualisation. From https://coolors.co/palettes/popular/3%20colors
-                "wavepacket1": "#26547c",
-                "wavepacket2": "#ef476f",
-                "wavepacket3": "#ffd166",
-                "wavepacket4": "#edae49",
-                "wavepacket5": "#d1495b",
-                "wavepacket6": "#00798c",
-            },
-            1: {  # Taken from time_variation (depreciated function)
-                'ax1_colour_matte': "#37782C",
-                'ax2_colour_matte': "#37782C",
-                'signal1_colour': "#37782C",
-                'signal2_colour': "#64bb6a",
-                'signal3_colour': "#9fd983"
-            },
-            2: {  # Taken from time_variation1
-                'ax1_colour_matte': "#73B741",  # gr #73B741 dg #8C8E8D" # dg "#80BE53"
-                'ax2_colour_matte': "#F77D6A",
-                'signal1_colour': "#CD331B",
-                'signal2_colour': "#B896B0",  # cy 3EB8A1
-                'signal3_colour': "#377582"  # B79549
-                # 37782C, #64BB6A, #9FD983
-            }
-            # ... add more colour schemes as needed
-        }
+
         select_colour_scheme = 2
         is_colour_matte = False
-        selected_scheme = colour_schemes[select_colour_scheme]
+        selected_scheme = self.colour_schemes[select_colour_scheme]
         ########################################
         plot_schemes = {  # D:\Data\2023-04-19\Outputs
             0: {  # mceleney2023dipsersive Fig. 1b-c [2022-08-29/T1337_site3000]
@@ -451,81 +589,10 @@ class PaperFigures:
                      lw=1, color=f'black', marker='', markerfacecolor='black', markeredgecolor='black',
                      label="Base", zorder=1.5)
 
-        if not signal1_xlim_min_raw == signal1_xlim_max_raw:
-            wavevectors_signal1, fourier_transform_signal1 = (
-                self._fft_data(self.amplitude_data[row_index, signal1_xlim_min_raw:signal1_xlim_max_raw], spatial_spacing=lattice_const))
-            fourier_transform_signal1 = abs(fourier_transform_signal1)
-            wavevectors_signal1 *= -hz_pi_to_norm
-            frequencies_signal1 = gyro_mag_ratio * (
-                    self._exchange_max * (lattice_const) ** 2 * wavevectors_signal1 ** 2
-                    + self._static_field
-                    + dmi_val_const * lattice_const * wavevectors_signal1)
-
-            wavevectors_signal1 *= -1
-
-            intensities_signal1_normalized = fourier_transform_signal1 / np.max(fourier_transform_signal1)
-
-            ax2.plot(wavevectors_signal1 * hz_to_GHz, abs(fourier_transform_signal1),
-                     lw=1, color=f'{signal1_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-                     label="Signal 1", zorder=1.5)
-
-            if intensities_signal1_normalized is not None:
-                ax3.scatter(-wavevectors_signal1 * hz_to_GHz, frequencies_signal1 * hz_to_GHz,
-                            c=sm.to_rgba(intensities_signal1_normalized),
-                            s=12, marker='.', label='Signal 1')
-            # ax3.plot(frequencies_signal1 * hz_to_GHz, abs(fourier_transform_signal1),
-            #          lw=1, color=f'{signal1_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-            #          label="Signal", zorder=1.5)
-
-        if not signal2_xlim_min_raw == signal2_xlim_max_raw:
-            wavevectors_signal2, fourier_transform_signal2 = (
-                self._fft_data(self.amplitude_data[row_index, signal2_xlim_min_raw:signal2_xlim_max_raw], spatial_spacing=lattice_const))
-            wavevectors_signal2 *= hz_pi_to_norm
-            frequencies_signal2 = gyro_mag_ratio * (
-                    self._exchange_max * (lattice_const) ** 2 * wavevectors_signal2 ** 2
-                    + self._static_field
-                    + dmi_val_const * lattice_const * wavevectors_signal2)
-            fourier_transform_signal2 = abs(fourier_transform_signal2)
-            intensities_signal2_normalized = fourier_transform_signal2 / np.max(fourier_transform_signal2)
-
-            ax2.plot(wavevectors_signal2 * hz_to_GHz, abs(fourier_transform_signal2),
-                     lw=1, color=f'{signal2_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-                     label="Signal 2", zorder=1.5)
-
-            if intensities_signal2_normalized is not None:
-                ax3.scatter(wavevectors_signal2 * hz_to_GHz, frequencies_signal2 * hz_to_GHz,
-                            c=sm.to_rgba(intensities_signal2_normalized),
-                            s=12, marker='.', label='Signal 2')
-
-            # ax3.plot(frequencies_signal2 * hz_to_GHz, abs(fourier_transform_signal2),
-            #          lw=1, color=f'{signal2_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-            #          label="Signal", zorder=1.5)
-
-        if not signal3_xlim_min_raw == signal3_xlim_max_raw:
-            wavevectors_signal3, fourier_transform_signal3 = (
-                self._fft_data(self.amplitude_data[row_index, signal3_xlim_min_raw:signal3_xlim_max_raw], spatial_spacing=lattice_const))
-            wavevectors_signal3 *= hz_pi_to_norm
-            fourier_transform_signal3 = abs(fourier_transform_signal3)
-
-            frequencies_signal3 = gyro_mag_ratio * (
-                    self._exchange_max * (lattice_const) ** 2 * wavevectors_signal3 ** 2
-                    + self._static_field
-                    + dmi_val_const * lattice_const * wavevectors_signal3)
-
-            intensities_signal3_normalized = fourier_transform_signal3 / np.max(fourier_transform_signal3)
-
-            ax2.plot(wavevectors_signal3 * hz_to_GHz, abs(fourier_transform_signal3),
-                     lw=1, color=f'{signal3_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-                     label="Signal 3", zorder=1.5)
-
-            if intensities_signal3_normalized is not None:
-                ax3.scatter(wavevectors_signal3 * hz_to_GHz, frequencies_signal3 * hz_to_GHz,
-                            c=sm.to_rgba(intensities_signal3_normalized),
-                            s=12, marker='.', label='Signal 3')
-
-            # ax3.plot(frequencies_signal3 * hz_to_GHz, abs(fourier_transform_signal3),
-            #          lw=1, color=f'{signal3_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
-            #          label="Signal 3", zorder=1.5)
+        # Process each signal
+        process_signal(signal1_xlim_min_raw, signal1_xlim_max_raw, signal1_colour, "Signal 1", True)
+        process_signal(signal2_xlim_min_raw, signal2_xlim_max_raw, signal2_colour, "Signal 2")
+        process_signal(signal3_xlim_min_raw, signal3_xlim_max_raw, signal3_colour, "Signal 3")
 
         # Adding a colourbar to ax3 using the ScalarMappable
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
@@ -559,135 +626,10 @@ class PaperFigures:
 
         plt.tight_layout(w_pad=0.4, h_pad=0.2)
 
-        class FigureManager:
-            def __init__(self, fig, width, height, dpi):
-                self.fig = fig
-                self.figure_manager = plt.get_current_fig_manager()
-                self.width = width
-                self.height = height
-                self.dpi = dpi
-
-                self.last_click_y = None
-                self.current_keypress_ax = None
-                self.horizontal_lines = []
-
-                self.num_clicks = 0
-                self.total_diff_wl = 0
-                self.last_wl = None
-                self.print_mode = 1  # Introduce a flag to toggle between print statements
-
-                self.axes_list = []  # List to store all subplot axes in the figure
-                self._populate_axes_list()  # Populate the list with subplot axes
-
-            def connect_events(self):
-                """Connects the key press event with additional parameters."""
-                self.figure_manager.canvas.mpl_connect('key_press_event', self._reset_figure_size)
-                self.figure_manager.canvas.mpl_connect('button_press_event', self._mouse_event)
-                self.figure_manager.canvas.mpl_connect('button_press_event', self._on_mouse_click)
-                self.figure_manager.canvas.mpl_connect('key_press_event', self._handle_horizontal_lines)
-                self.figure_manager.canvas.mpl_connect('key_press_event', self._keypress_select_subplot)
-
-            def _populate_axes_list(self):
-                """Populates the list with all subplot axes in the figure."""
-                #current_figure = self.figure_manager.figure  # Adjust this based on the actual structure if needed
-                self.axes_list = plt.gcf().axes
-
-            def _keypress_select_subplot(self, event):
-                """Selects a subplot based on the key pressed."""
-                try:
-                    # Convert the key press to an index (1 maps to 0, 2 to 1, etc.)
-                    index = int(event.key) - 1
-                    # Update the current subplot based on the key press if within range
-                    if 0 <= index < len(self.axes_list):
-                        self.current_keypress_ax = self.axes_list[index]
-                        print(f"Selected subplot {index + 1}")
-                except ValueError:
-                    # Ignore key presses that are not integers
-                    pass
-
-            def _reset_figure_size(self, event):
-                """Resets the figure size based on the key press event."""
-                if event.key == 'r':
-                    self.figure_manager.window.geometry(f"{int(self.width*1.75*self.dpi)}x{int(self.height*1.75*self.dpi)}")
-                    plt.draw()
-
-            def _on_mouse_click(self, event):
-                """Handles mouse click events to store the y-coordinate."""
-                if event.inaxes:  # Check if click was inside an axes
-                    self.last_click_y = event.ydata
-
-            def _handle_horizontal_lines(self, event):
-                """Handles key press events to draw or clear horizontal lines."""
-                if event.key == 'l' and self.last_click_y is not None:
-                    self._draw_horizontal_line()
-                elif event.key == 'c':
-                    self._clear_horizontal_lines()
-                self.figure_manager.canvas.draw_idle()  # Redraw the figure to show the added horizontal line
-
-
-            def _draw_horizontal_line(self):
-                """Draws a horizontal line at the y-coordinate of the last mouse click without rescaling the axis limits."""
-                # Capture the current axis limits
-                #xlim = self.current_keypress_ax.get_xlim()
-                #ylim = self.current_keypress_ax.get_ylim()
-
-                # Draw the horizontal line
-                line = self.current_keypress_ax.axhline(y=self.last_click_y, color='black', linestyle='--')
-                self.horizontal_lines.append(line)
-
-                # Reapply the original axis limits to prevent automatic rescaling
-                #self.current_keypress_ax.set_xlim(xlim)
-                #self.current_keypress_ax.set_ylim(ylim)
-
-            def _clear_horizontal_lines(self):
-                """Removes all horizontal lines from the figure."""
-                for line in self.horizontal_lines:
-                    line.remove()
-                self.horizontal_lines.clear()  # Clear the list of lines
-                plt.draw()  # Redraw the figure to reflect the removed lines
-
-            def _reset_clicks(self):
-                self.num_clicks = 0
-                self.total_diff_wl = 0
-                self.last_wl = None
-                print("Click data has been reset.")
-
-            def _mouse_event(self, event: Any):
-
-                # Toggle print mode on middle mouse button press
-                if event.button == 2:  # Middle mouse button
-                    self.print_mode = 2 if self.print_mode == 1 else 1
-                    print(f"Print mode changed to {self.print_mode}.")
-                    return
-
-                if event.button == 3:  # Assuming right click is the reset trigger
-                    self._reset_clicks()
-                    return
-
-                if self.print_mode == 1:
-                    # Your existing code for case_one
-                    self.num_clicks += 1
-                    if self.last_wl is not None:
-                        diff_wl = abs(event.xdata - self.last_wl)
-                        self.total_diff_wl += diff_wl
-                        if self.num_clicks > 1:
-                            avg_diff_wl = self.total_diff_wl / (self.num_clicks - 1)
-                            print(
-                                f'Click #{self.num_clicks}: x: {event.xdata:.1f}, Avg. λ: {avg_diff_wl:.1f}, Avg. k: {(2 * np.pi / avg_diff_wl):.3e} | y: {event.ydata:.3e}')
-                        else:
-                            print(f'Click #{self.num_clicks}: x: {event.xdata}, y: {event.ydata}')
-                    else:
-                        print(f'Click #{self.num_clicks}: x: {event.xdata}, y: {event.ydata}')
-                    self.last_wl = event.xdata
-
-                elif self.print_mode == 2:
-                    # Adjusted code for case_two
-                    print(f'x: {event.xdata} and y: {event.ydata}')
-
         if interactive_plot:
             # Initialize variables outside of your functions as needed
-            figure_manager = FigureManager(self._fig, self._fig.get_size_inches()[0],
-                                           self._fig.get_size_inches()[1], self._fig.dpi)
+            figure_manager = self.FigureManager(self._fig, self._fig.get_size_inches()[0],
+                                                self._fig.get_size_inches()[1], self._fig.dpi)
             figure_manager.connect_events()
             plt.show()
 
