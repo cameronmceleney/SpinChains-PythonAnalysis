@@ -12,6 +12,7 @@ import mpl_toolkits.axes_grid1
 import mplcursors
 import numpy as np
 import imageio as imio
+from tabulate import tabulate
 import os as os
 import seaborn as sns
 
@@ -46,6 +47,7 @@ class FigureManager:
         self.fig = fig
         self.subplots = ax
         self.figure_manager = plt.get_current_fig_manager()
+
         self.width = width
         self.height = height
         self.dpi = dpi
@@ -61,6 +63,8 @@ class FigureManager:
         self.cid2 = None
         self.cid3 = None
 
+        self.keymapping_details = None
+
         self.engage_left_click = True
         self.draw_h_line = False
         self.draw_dot = False
@@ -73,12 +77,13 @@ class FigureManager:
         self.axes_list = []  # List to store all subplot axes in the figure
         self._populate_axes_list()  # Populate the list with subplot axes
         # self.create_widgets()
+        self.default_keybindings()
 
     def connect_events(self):
         """Connects the key press event with additional parameters."""
-        self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self._on_mouse_click)
-        self.cid2 = self.figure_manager.canvas.mpl_connect('key_press_event', self._on_letter_press)
-        self.cid3 = self.figure_manager.canvas.mpl_connect('key_press_event', self._on_number_press)
+        self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self.on_mouse_click)
+        self.cid2 = self.figure_manager.canvas.mpl_connect('key_press_event', self.on_letter_press)
+        self.cid3 = self.figure_manager.canvas.mpl_connect('key_press_event', self.on_number_press)
 
     def create_widgets(self):
         button_ax = plt.axes((0.1, 0.05, 0.1, 0.075))  # left, bottom, width, height
@@ -91,7 +96,7 @@ class FigureManager:
         self.button.label.set_text('On' if self.state else 'Off')
         self.fig.canvas.draw_idle()
 
-    def _on_mouse_click(self, event: Any) -> None:
+    def on_mouse_click(self, event: Any) -> None:
         """Handles mouse click events to store the y-coordinate."""
         if not self.engage_left_click:
             return
@@ -112,14 +117,18 @@ class FigureManager:
         elif event.button == 3:
             pass
 
-    def _on_letter_press(self, event: Any) -> None:
-        if event.key == 'c':
+    def on_letter_press(self, event: Any) -> None:
+        if event.key == 'C':
             self._clear_horizontal_lines()
         elif event.key == 'f':
             self._reset_figure_size()
+        elif event.key == 'h' or event.key == 'H':
+            self._show_help(event.key)
         elif event.key == 'l':
             self.draw_h_line = not self.draw_h_line
             print(f'Horizontal line drawing has been {"enabled" if self.draw_h_line else "disabled"}.')
+            for axis in self.subplots:
+                print(axis.get_yscale())
         elif event.key == 'm':
             self.engage_left_click = not self.engage_left_click
             self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self.cid1) if (
@@ -132,7 +141,7 @@ class FigureManager:
         elif event.key == 'w':
             self._handle_conversions()
 
-    def _on_number_press(self, event: Any) -> None:
+    def on_number_press(self, event: Any) -> None:
         """Selects a subplot based on the key pressed."""
         try:
             # Convert the key press to an index (1 maps to 0, 2 to 1, etc.)
@@ -147,9 +156,88 @@ class FigureManager:
             # Ignore key presses that are not integers
             pass
 
+    def default_keybindings(self):
+        """
+        Removes matplotlib's default keymappings to free them for custom use.
+
+        One can either edit rcParams directly (like below) or create a matplotlibrc file, and place a copy in
+        "$HOME/.matplotlib/matplotlibrc". The original file (DO NOT EDIT) is located at
+        "sites-packages/matplotlib/mpl-data/" (relative to your Python installation directory).
+        """
+        plt.rcParams['keymap.fullscreen'] = 'ctrl+f, cmd+f'
+        plt.rcParams['keymap.home'] = 'H, home'
+        plt.rcParams['keymap.back'] = 'left'
+        plt.rcParams['keymap.forward'] = 'right'
+        plt.rcParams['keymap.pan'] = 'up'
+        plt.rcParams['keymap.zoom'] = 'down'
+        plt.rcParams['keymap.save'] = 'ctrl+s'
+        plt.rcParams['keymap.help'] = 'f1'
+        plt.rcParams['keymap.quit'] = 'Q'
+        plt.rcParams['keymap.quit_all'] = 'ctrl+Q, cmd+Q'  # ctrl+shift+Q
+        plt.rcParams['keymap.grid'] = 'G'
+        plt.rcParams['keymap.grid_minor'] = ''
+        plt.rcParams['keymap.yscale'] = 'ctrl+l, cmd+l'
+        plt.rcParams['keymap.xscale'] = 'ctrl+k, cmd+k'
+        plt.rcParams['keymap.copy'] = 'ctrl+c, cmd+c'
+
+        self.keymapping_details = {
+            'fullscreen': ['Toggle fullscreen mode'],
+            'home': ['Reset original view'],
+            'back': ['Back to previous view'],
+            'forward': ['Forward to next view'],
+            'pan': ['Pan axes with left mouse, zoom with right'],
+            'zoom': ['Zoom to rectangle'],
+            'save': ['Save the figure'],
+            'help': ['Show help'],
+            'quit': ['Close the current figure'],
+            'quit_all': ['Close all figures'],
+            'grid': ['Toggle grid'],
+            'grid_minor': ['Toggle minor grid'],
+            'yscale': ['Toggle scaling of y-axes (log/linear)'],
+            'xscale': ['Toggle scaling of x-axes (log/linear)'],
+            'copy': ['Copy the current selection to the clipboard'],
+        }
+
+        # Print keymap bindings and descriptions
+        for key, value in self.keymapping_details.items():
+            self.keymapping_details[key].append(plt.rcParams.get('keymap.' + key, ''))
+            self.keymapping_details[key].append(['default'])
+
+        custom_keymaps = ({
+            'clear lines': ['Clear all drawn lines', 'C'],
+            'resize figure': ['Resize to original figure size', 'f'],
+            'User help': ['List all keymappings', 'h'],
+            'Full help': ['List all keymappings', 'H'],
+            'draw hlines': ['Toggle horizontal line drawing', 'l'],
+            'use mouse': ['Toggle mouse interaction (WIP)', 'm'],
+            'reset clicks': ['Reset click data', 'r'],
+            'toggle state': ['Toggle state of button (WIP)', 't'],
+            'convert x-value': ['Convert last x-axis value to λ [nm]', 'w']
+        })
+
+        for key, value in custom_keymaps.items():
+            custom_keymaps[key].append(['custom'])
+
+        self.keymapping_details.update(custom_keymaps)
+
     def _populate_axes_list(self):
         """Populates the list with all subplot axes in the figure."""
         self.axes_list = list(range(0, len(plt.gcf().axes) + 1))
+
+    def _show_help(self, key: str):
+
+        for key, value in self.keymapping_details.items():
+            value[1] = ', '.join(value[1])
+            value[2] = ', '.join(value[2])
+
+        table_data = None
+
+        if key == 'h':
+            table_data = [[key, value[0], value[1]] for key, value in self.keymapping_details.items() if 'custom' in value[2]]
+
+        elif key == 'H':
+            table_data = [[key, value[0], value[1]] for key, value in self.keymapping_details.items()]
+        print(tabulate(table_data, headers=["Event", "Effect", "Keymap"], tablefmt="simple_grid"))
 
     def _reset_figure_size(self):
         """Resets the figure size based on the key press event."""
@@ -163,8 +251,14 @@ class FigureManager:
         # xlim = event.inaxes.get_xlim()
         # ylim = event.inaxes.get_ylim()
 
+        for axis in self.subplots:
+            print(axis.get_yscale())
+
         line = event.inaxes.axhline(y=event.ydata, color='black', ls='-.', lw=1.0, alpha=0.75)
         self.horizontal_lines.append(line)
+
+        for axis in self.subplots:
+            print(axis.get_yscale())
         # event.inaxes.set_xlim(xlim)
         # event.inaxes.set_ylim(ylim)
         self.fig.canvas.draw_idle()  # Redraw the figure to show the added horizontal line
@@ -325,7 +419,7 @@ class PaperFigures:
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
         self._yaxis_lim_fix = 1e-4
-        self._fig_kwargs = {"xlabel": f"Site Number [$N_i$]", "ylabel": f"m$_x$",
+        self._fig_kwargs = {"xlabel": f"Position, $n_i$ (site index)", "ylabel": f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
                             "xlim": [0.0 * self._total_num_spins, 1.0 * self._total_num_spins],
                             "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
 
@@ -369,16 +463,16 @@ class PaperFigures:
 
         # Easier to have time-stamp as label than textbox.
         self._axes.plot(np.arange(0, self._total_num_spins), self.amplitude_data[row_index, :], ls='-',
-                        lw=2 * 0.75, color='#64bb6a', label=f"{self.time_data[row_index]: 2.2f} (ns)", zorder=1.01)
+                        lw=2 * 0.75, color='#64bb6a', label=f"Signal", zorder=1.01)
 
         self._axes.set(**self._fig_kwargs)
 
         # Keep tick manipulations in this block to ease debugging
         self._tick_setter(self._axes, 1000, 200, 3, 4,
-                          yaxis_num_decimals=1.1, show_sci_notation=True)
+                          yaxis_num_decimals=1.1, show_sci_notation=False)
 
-        self._axes.text(0.66, 0.88, f"[DR] Sites: {self._driving_width}", va='center',
-                        ha='left', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
+        # self._axes.text(0.66, 0.88, f"[DR] Sites: {self._driving_width}", va='center',
+        #                 ha='left', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
         if publish_plot:
             self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
                             ha='center', transform=self._axes.transAxes, fontsize=6)
@@ -554,16 +648,16 @@ class PaperFigures:
         ########################################
         ax[0].plot(np.arange(signal_xlim_min, signal_xlim_max),
                    self.amplitude_data[row_index, signal_xlim_min:signal_xlim_max],
-                   ls='-', lw=1.5, color=signal_colour, label=f"Signal {signal_index}",
+                   ls='-', lw=1.5, color=signal_colour, label=f"Segment {signal_index}",
                    markerfacecolor='black', markeredgecolor='black', zorder=1.2)
 
         ax[1].plot(wavevectors, fourier_transform,
                    lw=1.5, color=signal_colour, marker='', markerfacecolor='black', markeredgecolor='black',
-                   label=f"Signal {signal_index}", zorder=1.5)
+                   label=f"Segment {signal_index}", zorder=1.5)
 
         scatter_x = -wavevectors if negative_wavevector else wavevectors
         ax[2].scatter(scatter_x, frequencies,
-                      c=scalar_map.to_rgba(intensities_normalized), s=12, marker='.', label=f"Signal {signal_index}")
+                      c=scalar_map.to_rgba(intensities_normalized), s=12, marker='.', label=f"Segment {signal_index}")
 
     def _plot_cleanup(self, axis=None):
         if axis is None:
@@ -619,10 +713,10 @@ class PaperFigures:
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
                 'signal_xlim': [0, int(self._total_num_spins)],  # Example value, replace 100 with self._total_num_spins
-                'ax2_xlim': [0.0, 1.2],
-                'ax2_ylim': [1e-4, 1e-2],
-                'ax3_xlim': [-0.7, 0.7],
-                'ax3_ylim': [0, 60],
+                'ax2_xlim': [0.0, 0.6],
+                'ax2_ylim': [1e-4, 2e-2],
+                'ax3_xlim': [-0.5, 0.5],
+                'ax3_ylim': [0, 30],
                 'signal1_xlim': [300, 1900],
                 'signal2_xlim': [2100, 3700],
                 'signal3_xlim': [0, 0],
@@ -656,13 +750,12 @@ class PaperFigures:
         ########################################
         # ax_subplots[1] is handled in the _draw_figure method
         ax_subplots[0].set(yscale='linear')
-        ax_subplots[1].set(xlabel=f"Wavevector [1/nm]", ylabel=f"Amplitude (a.u.)", yscale='log',
+        ax_subplots[1].set(xlabel=f"Wavevector, $k$ (nm"r"$^{-1}$)", ylabel=f"Intensity (a.u.)", yscale='log',
                            xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'])
-        ax_subplots[2].set(ylabel=f"Frequency [GHz]", yscale='linear',
+        ax_subplots[2].set(ylabel=f"Frequency, $f$ (GHz)", yscale='linear',
                            xlim=select_plot_scheme['ax3_xlim'], ylim=select_plot_scheme['ax3_ylim'])
         ax_subplots[2].tick_params(pad=2, labeltop=True, labelbottom=False, labelsize=self._fontsizes["smaller"])
         ax_subplots[2].invert_yaxis()
-
 
         self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
                           4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
@@ -673,7 +766,7 @@ class PaperFigures:
                           yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
         ########################################
         # Process each signal
-        self._draw_figure(row_index, axes=ax_subplots[0], draw_regions_of_interest=False, static_ylim=fixed_ylim)
+        self._draw_figure(row_index, axes=ax_subplots[0], draw_regions_of_interest=False, static_ylim=True)
 
         self._process_signal(ax_subplots, row_index, 1, sm, select_plot_scheme, [2, False], True)
         self._process_signal(ax_subplots, row_index, 2, sm, select_plot_scheme, [2, False])
@@ -682,6 +775,8 @@ class PaperFigures:
 
         ########################################
         # Post-processing actions
+        ax_subplots[0].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
+                              facecolor=None, edgecolor=None)
         ax_subplots[1].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
                               facecolor=None, edgecolor=None)
         # ax3.legend(ncol=1, loc='upper center', fontsize=self._fontsizes["small"], frameon=False, fancybox=True,
@@ -692,6 +787,7 @@ class PaperFigures:
         ########################################
         # All additional functionality should be after here
         if interactive_plot:
+            print(mpl.matplotlib_fname())
             # Initialize variables outside of your functions as needed
             figure_manager = FigureManager(self._fig, ax_subplots, self._fig.get_size_inches()[0],
                                            self._fig.get_size_inches()[1], self._fig.dpi)
