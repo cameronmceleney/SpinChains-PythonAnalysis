@@ -21,7 +21,7 @@ import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 import gif as gif
 from scipy.fft import rfft, rfftfreq, fft, fftfreq
-from typing import Any
+from typing import TypedDict, Any, Dict, List, Optional, Tuple, Union
 from decimal import Decimal, getcontext
 
 # My packages / Any header files
@@ -41,6 +41,192 @@ from decimal import Decimal, getcontext
 """
 
 
+class FigureManager:
+    def __init__(self, fig, ax, width, height, dpi):
+        self.fig = fig
+        self.subplots = ax
+        self.figure_manager = plt.get_current_fig_manager()
+        self.width = width
+        self.height = height
+        self.dpi = dpi
+        self.state = False
+        self.button = None
+
+        self.last_click_x = None
+        self.last_click_y = None
+        self.last_click_ax = None
+        self.select_subplot = 0
+        self.horizontal_lines = []
+        self.cid1 = None
+        self.cid2 = None
+        self.cid3 = None
+
+        self.engage_left_click = True
+        self.draw_h_line = False
+        self.draw_dot = False
+
+        self.num_clicks = 0
+        self.total_diff_wl = 0
+        self.last_wl = None
+        self.print_mode = 1  # Introduce a flag to toggle between print statements
+
+        self.axes_list = []  # List to store all subplot axes in the figure
+        self._populate_axes_list()  # Populate the list with subplot axes
+        # self.create_widgets()
+
+    def connect_events(self):
+        """Connects the key press event with additional parameters."""
+        self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self._on_mouse_click)
+        self.cid2 = self.figure_manager.canvas.mpl_connect('key_press_event', self._on_letter_press)
+        self.cid3 = self.figure_manager.canvas.mpl_connect('key_press_event', self._on_number_press)
+
+    def create_widgets(self):
+        button_ax = plt.axes((0.1, 0.05, 0.1, 0.075))  # left, bottom, width, height
+        self.button = mpl.widgets.Button(button_ax, 'Click Me')
+
+    def toggle_state(self):
+        self.state = not self.state
+        print(f"State is now: {self.state}")
+        # Update the button label or appearance based on the state
+        self.button.label.set_text('On' if self.state else 'Off')
+        self.fig.canvas.draw_idle()
+
+    def _on_mouse_click(self, event: Any) -> None:
+        """Handles mouse click events to store the y-coordinate."""
+        if not self.engage_left_click:
+            return
+        if event.button == 1:
+            # Left click
+            if event.inaxes:
+                self.last_click_x = event.xdata
+                self.last_click_y = event.ydata
+                self.last_click_ax = event.inaxes
+                self._console_output(event.xdata, event.ydata, event.inaxes)
+                if self.draw_h_line:
+                    self._draw_horizontal_line(event)
+        elif event.button == 2:
+            # Middle mouse
+            self.print_mode = 2 if self.print_mode == 1 else 1
+            print('----------------------------------------')
+            print(f"Print mode changed to {self.print_mode}.")
+        elif event.button == 3:
+            pass
+
+    def _on_letter_press(self, event: Any) -> None:
+        if event.key == 'c':
+            self._clear_horizontal_lines()
+        elif event.key == 'f':
+            self._reset_figure_size()
+        elif event.key == 'l':
+            self.draw_h_line = not self.draw_h_line
+            print(f'Horizontal line drawing has been {"enabled" if self.draw_h_line else "disabled"}.')
+        elif event.key == 'm':
+            self.engage_left_click = not self.engage_left_click
+            self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self.cid1) if (
+                self.engage_left_click) else self.figure_manager.canvas.mpl_disconnect(self.cid1)
+            print(f'Mouse had been {"enabled" if self.engage_left_click else "disabled"}.')
+        elif event.key == 'r':
+            self._reset_clicks()
+        elif event.key == 't':  # Example: Toggle state with the 't' key
+            self.toggle_state()
+        elif event.key == 'w':
+            self._handle_conversions()
+
+    def _on_number_press(self, event: Any) -> None:
+        """Selects a subplot based on the key pressed."""
+        try:
+            # Convert the key press to an index (1 maps to 0, 2 to 1, etc.)
+            event_key = int(event.key)
+            if event_key in self.axes_list:
+                # Update the current subplot based on the key press if within range
+                self.select_subplot = self.axes_list[event_key]
+                print('--------------------')
+                print(f"Selected subplot {event_key}")
+
+        except ValueError:
+            # Ignore key presses that are not integers
+            pass
+
+    def _populate_axes_list(self):
+        """Populates the list with all subplot axes in the figure."""
+        self.axes_list = list(range(0, len(plt.gcf().axes) + 1))
+
+    def _reset_figure_size(self):
+        """Resets the figure size based on the key press event."""
+        self.figure_manager.window.geometry(
+            f"{int(self.width * 1.75 * self.dpi)}x{int(self.height * 1.75 * self.dpi)}")
+        self.fig.canvas.draw_idle()
+
+    def _draw_horizontal_line(self, event: Any) -> None:
+        """Draws a horizontal line at the y-coordinate of the last mouse click without rescaling the axis limits."""
+        # Capture the current axis limits
+        # xlim = event.inaxes.get_xlim()
+        # ylim = event.inaxes.get_ylim()
+
+        line = event.inaxes.axhline(y=event.ydata, color='black', ls='-.', lw=1.0, alpha=0.75)
+        self.horizontal_lines.append(line)
+        # event.inaxes.set_xlim(xlim)
+        # event.inaxes.set_ylim(ylim)
+        self.fig.canvas.draw_idle()  # Redraw the figure to show the added horizontal line
+
+        # plt.draw()  # Redraw the figure to show the added horizontal line
+
+        # Reapply the original axis limits to prevent automatic rescaling
+        # self.select_subplot.set_xlim(xlim)
+        # self.select_subplot.set_ylim(ylim)
+
+    def _draw_dot(self):
+        pass
+
+    def _clear_horizontal_lines(self):
+        """Removes all horizontal lines from the figure."""
+        for line in self.horizontal_lines:
+            line.remove()
+        self.horizontal_lines.clear()  # Clear the list of lines
+        self.fig.canvas.draw_idle()  # Redraw the figure to show the added horizontal line
+
+    def _reset_clicks(self):
+        self.num_clicks = 0
+        self.total_diff_wl = 0
+        self.last_wl = None
+        print("Click data has been reset.")
+
+    def _handle_conversions(self):
+        if self.last_click_x is not None and self.last_click_y is not None:
+            print(f'λ: {(2 * np.pi) / self.last_click_x:.3f} [nm]')
+        else:
+            pass
+
+    def _console_output(self, xdata: Any, ydata: Any, inaxes: Any) -> None:
+        """Handles console outputs based on the mouse event."""
+        if self.print_mode == 1:
+            # Override each default by pressing num key after mouse is hovering over plot
+            if self.select_subplot == 1 or inaxes == self.subplots[0]:
+                print(f'n: {round(xdata, 0):.0f} [site] | m_x: {ydata:.3e} [a.u.]')
+            elif self.select_subplot == 2 or inaxes == self.subplots[1]:
+                print(f'k: {xdata:.5f} [nm] | Amplitude: {ydata:.3e} [a.u.]')
+            elif self.select_subplot == 3 or inaxes == self.subplots[2]:
+                print(f'k: {xdata:.5f} [nm] | f: {ydata:.5f} [GHz]')
+            else:
+                print(f'x: {xdata} | y: {ydata}')
+
+        elif self.print_mode == 2 and inaxes == self.subplots[0]:
+            # Only used to find average wavelength
+            self.num_clicks += 1
+            print(f'n: {round(xdata, 0):.0f} [site] | m_x: {ydata:.3e} [a.u.]', end='')
+
+            if self.last_wl is not None:
+                diff_wl = abs(xdata - self.last_wl)
+                self.total_diff_wl += diff_wl
+
+                if self.num_clicks > 1:
+                    avg_diff_wl = self.total_diff_wl / (self.num_clicks - 1)
+                    print(
+                        f' | Avg. λ: {avg_diff_wl:.1f}, Avg. k: {(2 * np.pi / avg_diff_wl):.3e}', end='')
+            print(end='\n')
+            self.last_wl = xdata
+
+
 # -------------------------------------- Plot paper figures -------------------------------------
 class PaperFigures:
     """
@@ -50,6 +236,7 @@ class PaperFigures:
     change the invocation in data.analysis.py.
     """
     cm_to_inch = 1 / 2.54
+    hz_to_Ghz = 1e-9
 
     colour_schemes = {
         0: {  # Controls wavepacket visualisation. From https://coolors.co/palettes/popular/3%20colors
@@ -74,134 +261,31 @@ class PaperFigures:
             'signal2_colour': "#B896B0",  # cy 3EB8A1
             'signal3_colour': "#377582"  # B79549
             # 37782C, #64BB6A, #9FD983
+        },
+        3: {  # Default Blender colours (previously called `bcolors` by me)
+            'PURPLE': '\033[95m',
+            'BLUE': '\033[94m',
+            'GREEN': '\033[92m',
+            'ORANGE': '\033[93m',
+            'RED': '\033[91m',
+            'ENDC': '\033[0m'  # Black
         }
         # ... add more colour schemes as needed
     }
 
-    class FigureManager:
-        def __init__(self, fig, width, height, dpi):
-            self.fig = fig
-            self.figure_manager = plt.get_current_fig_manager()
-            self.width = width
-            self.height = height
-            self.dpi = dpi
-
-            self.last_click_y = None
-            self.current_keypress_ax = None
-            self.horizontal_lines = []
-
-            self.num_clicks = 0
-            self.total_diff_wl = 0
-            self.last_wl = None
-            self.print_mode = 1  # Introduce a flag to toggle between print statements
-
-            self.axes_list = []  # List to store all subplot axes in the figure
-            self._populate_axes_list()  # Populate the list with subplot axes
-
-        def connect_events(self):
-            """Connects the key press event with additional parameters."""
-            self.figure_manager.canvas.mpl_connect('key_press_event', self._reset_figure_size)
-            self.figure_manager.canvas.mpl_connect('button_press_event', self._mouse_event)
-            self.figure_manager.canvas.mpl_connect('button_press_event', self._on_mouse_click)
-            self.figure_manager.canvas.mpl_connect('key_press_event', self._handle_horizontal_lines)
-            self.figure_manager.canvas.mpl_connect('key_press_event', self._keypress_select_subplot)
-
-        def _populate_axes_list(self):
-            """Populates the list with all subplot axes in the figure."""
-            # current_figure = self.figure_manager.figure  # Adjust this based on the actual structure if needed
-            self.axes_list = plt.gcf().axes
-
-        def _keypress_select_subplot(self, event):
-            """Selects a subplot based on the key pressed."""
-            try:
-                # Convert the key press to an index (1 maps to 0, 2 to 1, etc.)
-                index = int(event.key) - 1
-                # Update the current subplot based on the key press if within range
-                if 0 <= index < len(self.axes_list):
-                    self.current_keypress_ax = self.axes_list[index]
-                    print(f"Selected subplot {index + 1}")
-            except ValueError:
-                # Ignore key presses that are not integers
-                pass
-
-        def _reset_figure_size(self, event):
-            """Resets the figure size based on the key press event."""
-            if event.key == 'r':
-                self.figure_manager.window.geometry(
-                    f"{int(self.width * 1.75 * self.dpi)}x{int(self.height * 1.75 * self.dpi)}")
-                plt.draw()
-
-        def _on_mouse_click(self, event):
-            """Handles mouse click events to store the y-coordinate."""
-            if event.inaxes:  # Check if click was inside an axes
-                self.last_click_y = event.ydata
-
-        def _handle_horizontal_lines(self, event):
-            """Handles key press events to draw or clear horizontal lines."""
-            if event.key == 'l' and self.last_click_y is not None:
-                self._draw_horizontal_line()
-            elif event.key == 'c':
-                self._clear_horizontal_lines()
-            self.figure_manager.canvas.draw_idle()  # Redraw the figure to show the added horizontal line
-
-        def _draw_horizontal_line(self):
-            """Draws a horizontal line at the y-coordinate of the last mouse click without rescaling the axis limits."""
-            # Capture the current axis limits
-            # xlim = self.current_keypress_ax.get_xlim()
-            # ylim = self.current_keypress_ax.get_ylim()
-
-            # Draw the horizontal line
-            line = self.current_keypress_ax.axhline(y=self.last_click_y, color='black', linestyle='--')
-            self.horizontal_lines.append(line)
-
-            # Reapply the original axis limits to prevent automatic rescaling
-            # self.current_keypress_ax.set_xlim(xlim)
-            # self.current_keypress_ax.set_ylim(ylim)
-
-        def _clear_horizontal_lines(self):
-            """Removes all horizontal lines from the figure."""
-            for line in self.horizontal_lines:
-                line.remove()
-            self.horizontal_lines.clear()  # Clear the list of lines
-            plt.draw()  # Redraw the figure to reflect the removed lines
-
-        def _reset_clicks(self):
-            self.num_clicks = 0
-            self.total_diff_wl = 0
-            self.last_wl = None
-            print("Click data has been reset.")
-
-        def _mouse_event(self, event: Any):
-
-            # Toggle print mode on middle mouse button press
-            if event.button == 2:  # Middle mouse button
-                self.print_mode = 2 if self.print_mode == 1 else 1
-                print(f"Print mode changed to {self.print_mode}.")
-                return
-
-            if event.button == 3:  # Assuming right click is the reset trigger
-                self._reset_clicks()
-                return
-
-            if self.print_mode == 1:
-                # Your existing code for case_one
-                self.num_clicks += 1
-                if self.last_wl is not None:
-                    diff_wl = abs(event.xdata - self.last_wl)
-                    self.total_diff_wl += diff_wl
-                    if self.num_clicks > 1:
-                        avg_diff_wl = self.total_diff_wl / (self.num_clicks - 1)
-                        print(
-                            f'Click #{self.num_clicks}: x: {event.xdata:.1f}, Avg. λ: {avg_diff_wl:.1f}, Avg. k: {(2 * np.pi / avg_diff_wl):.3e} | y: {event.ydata:.3e}')
-                    else:
-                        print(f'Click #{self.num_clicks}: x: {event.xdata}, y: {event.ydata}')
-                else:
-                    print(f'Click #{self.num_clicks}: x: {event.xdata}, y: {event.ydata}')
-                self.last_wl = event.xdata
-
-            elif self.print_mode == 2:
-                # Adjusted code for case_two
-                print(f'x: {event.xdata} and y: {event.ydata}')
+    class PlotScheme(TypedDict):
+        signal_xlim: List[int]
+        ax2_xlim: List[float]
+        ax2_ylim: List[float]
+        ax3_xlim: List[float]
+        ax3_ylim: List[int]
+        signal1_xlim: List[int]
+        signal2_xlim: List[int]
+        signal3_xlim: List[int]
+        ax1_label: str
+        ax2_label: str
+        ax3_label: str
+        ax1_line_height: float
 
     def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
 
@@ -231,6 +315,10 @@ class PaperFigures:
         self._stepsize = key_data['stepsize'] * 1e9
         self._gilbert_factor = key_data['gilbertFactor']
         self._gyro_mag_ratio = key_data['gyroMagRatio']
+
+        # These parameters still need to be added to the C++ output files
+        self._lattice_constant = 1e-9
+        self._dmi_val_const = 1.25
 
         # Attributes for plots
         self._fig = None
@@ -286,7 +374,6 @@ class PaperFigures:
         self._axes.set(**self._fig_kwargs)
 
         # Keep tick manipulations in this block to ease debugging
-        self._axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
         self._tick_setter(self._axes, 1000, 200, 3, 4,
                           yaxis_num_decimals=1.1, show_sci_notation=True)
 
@@ -320,7 +407,6 @@ class PaperFigures:
             plt.gca().add_patch(rectangle_rhs)
             plt.gca().add_patch(rectangle_driving_region)
 
-        self._axes.grid(visible=False, axis='both', which='both')
         self._fig.tight_layout()
 
     def plot_row_spatial(self, row_index: int = -1, should_annotate_parameters: bool = False,
@@ -340,7 +426,8 @@ class PaperFigures:
         """
         self._draw_figure(row_index, draw_regions_of_interest=False, static_ylim=fixed_ylim)
 
-        self._axes.grid(visible=True, axis='both', which='both')
+        self._plot_cleanup(self._axes)
+
 
         if should_annotate_parameters:
             if self._exchange_min == self._exchange_max:
@@ -361,9 +448,7 @@ class PaperFigures:
             # Initialize variables
             num_clicks = 0
             total_diff_wl = 0
-            total_diff_k = 0
             last_wl = None
-            last_k = None
 
             def reset_clicks():
                 nonlocal num_clicks, total_diff_wl, last_wl
@@ -408,30 +493,102 @@ class PaperFigures:
         self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
         plt.close(self._fig)
 
-    def _process_signal(self, signal_xlim_min_raw, signal_xlim_max_raw, signal_colour, signal_label,
-                        negative_wavevector=False):
+    def _process_signal(self, ax: Optional[Union[plt.Axes, List[plt.Axes]]] = None, row_index: int = -1,
+                        signal_index: int = 1, scalar_map: mpl.cm.ScalarMappable = None,
+                        plot_scheme: PlotScheme = None,
+                        colour_scheme_settings: List[int | bool] = [1, False], negative_wavevector: bool = False):
 
-        if signal_xlim_min_raw != signal_xlim_max_raw:
-            wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
-                                                            signal_xlim_min_raw:signal_xlim_max_raw],
-                                                            spatial_spacing=lattice_const)
-            fourier_transform = abs(fourier_transform)
-            intensities_normalized = fourier_transform / np.max(fourier_transform)
+        signal_xlims = plot_scheme[f'signal{signal_index}_xlim']
+        signal_xlim_min, signal_xlim_max = signal_xlims[0], signal_xlims[1]
+        if signal_xlim_min == signal_xlim_max:
+            # Escape case
+            return
 
-            # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
-            wavevectors *= hz_pi_to_norm if negative_wavevector else -hz_pi_to_norm
-            frequencies = gyro_mag_ratio * (self._exchange_max * (lattice_const ** 2) * (wavevectors ** 2)
-                                            + self._static_field
-                                            + dmi_val_const * lattice_const * wavevectors)
-            wavevectors *= -1 * hz_to_GHz if negative_wavevector else hz_to_GHz
+        ########################################
+        if ax is None:
+            ax = [plt.gca()]
+        elif isinstance(ax, plt.Axes):
+            ax = [ax]
+        if plot_scheme is None:
+            exit("No plot scheme provided for signal processing.")
 
-            ax2.plot(wavevectors, fourier_transform,
-                     lw=1, color=signal_colour, marker='', markerfacecolor='black', markeredgecolor='black',
-                     label=signal_label, zorder=1.5)
+        ########################################
+        # Access colour scheme for time evolution and plot
+        colour_scheme = self.colour_schemes[colour_scheme_settings[0]]
+        if colour_scheme_settings[1]:
+            signal_colour = colour_scheme['ax1_colour_matte']
+        else:
+            signal_colour = colour_scheme[f'signal{signal_index}_colour']
 
-            scatter_x = -wavevectors * hz_to_GHz if negative_wavevector else wavevectors * hz_to_GHz
-            ax3.scatter(scatter_x, frequencies * hz_to_GHz,
-                        c=sm.to_rgba(intensities_normalized), s=12, marker='.', label=signal_label)
+        if scalar_map is None:
+            norm = mpl.colors.Normalize(vmin=0, vmax=1)  # Assuming you want to normalize from 0 to 1
+            cmap = 'hot'
+            scalar_map = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+        ########################################
+        # Internal constants
+        hz_pi_to_norm = 2 * np.pi  # Convert from 1/k to k
+
+        ########################################
+        # Take FFT of the signal
+        wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
+                                                        signal_xlim_min:signal_xlim_max],
+                                                        spatial_spacing=self._lattice_constant)
+        fourier_transform = abs(fourier_transform)
+        intensities_normalized = fourier_transform / np.max(fourier_transform)
+
+        ########################################
+        # Obtain frequencies: default is 'angular' when γ in [rad * s^-1 * T^-1]
+        # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
+        wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
+
+        # hz_pi_to_norm required for `frequencies` to be linear and not angular when γ in [rad * s^-1 * T^-1]
+        frequencies = ((self._gyro_mag_ratio / hz_pi_to_norm) *
+                       (self._exchange_max * (self._lattice_constant ** 2) * (wavevectors ** 2)
+                        + self._static_field
+                        + self._dmi_val_const * self._lattice_constant * wavevectors))
+
+        wavevectors *= -1 * self.hz_to_Ghz if negative_wavevector else self.hz_to_Ghz
+        frequencies *= self.hz_to_Ghz
+
+        ########################################
+        ax[0].plot(np.arange(signal_xlim_min, signal_xlim_max),
+                   self.amplitude_data[row_index, signal_xlim_min:signal_xlim_max],
+                   ls='-', lw=1.5, color=signal_colour, label=f"Signal {signal_index}",
+                   markerfacecolor='black', markeredgecolor='black', zorder=1.2)
+
+        ax[1].plot(wavevectors, fourier_transform,
+                   lw=1.5, color=signal_colour, marker='', markerfacecolor='black', markeredgecolor='black',
+                   label=f"Signal {signal_index}", zorder=1.5)
+
+        scatter_x = -wavevectors if negative_wavevector else wavevectors
+        ax[2].scatter(scatter_x, frequencies,
+                      c=scalar_map.to_rgba(intensities_normalized), s=12, marker='.', label=f"Signal {signal_index}")
+
+    def _plot_cleanup(self, axis=None):
+        if axis is None:
+            axis = [plt.gca()]
+        elif isinstance(axis, plt.Axes):
+            axis = [axis]
+
+        for ax in axis:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            ax.grid(visible=False, axis='both', which='both')
+
+            for tick_pos in [1, -2]:
+                tick_label_last = ax.get_xticklabels()[tick_pos]
+                tick_label_last.set_visible(False)
+
+                tick_label_last.set_visible(False)
+                tick_xcoord, tick_yoord = tick_label_last.get_position()
+                tick_text = tick_label_last.get_text()
+                y_offset = 0.125 if ax == axis[2] else -0.045
+                if tick_pos == 1:
+                    ax.text(tick_xcoord, tick_yoord + y_offset, str(tick_text), ha='left', va='top',
+                            fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
+                else:
+                    ax.text(tick_xcoord, tick_yoord + y_offset, str(tick_text), ha='right', va='top',
+                            fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
 
     def plot_row_spatial_ft(self, row_index: int = -1,
                             fixed_ylim: bool = False, interactive_plot: bool = False) -> None:
@@ -448,188 +605,96 @@ class PaperFigures:
         :return: Saves a .png to the nominated 'Outputs' directory.
         """
         self._fig = plt.figure(figsize=(4.5, 6))
+        num_rows, num_cols = 3, 3
+        ax_subplots = []
 
-        num_rows = 3
-        num_cols = 3
-
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 3),
-                               colspan=num_cols, fig=self._fig)
-        ax2 = plt.subplot2grid((num_rows, num_cols), (1, 0),
-                               rowspan=1, colspan=num_cols, fig=self._fig)
-        ax3 = plt.subplot2grid((num_rows, num_cols), (2, 0),
-                               rowspan=1, colspan=num_cols, fig=self._fig)
+        for i in range(0, 3):
+            ax_subplots.append(plt.subplot2grid((num_rows, num_cols), (i, 0), rowspan=1,
+                                                colspan=num_cols, fig=self._fig))
 
         self._fig.subplots_adjust(wspace=1, hspace=0.4, bottom=0.2)
 
         ########################################
-
-        select_colour_scheme = 2
-        is_colour_matte = False
-        selected_scheme = self.colour_schemes[select_colour_scheme]
-        ########################################
-        plot_schemes = {  # D:\Data\2023-04-19\Outputs
-            0: {  # mceleney2023dipsersive Fig. 1b-c [2022-08-29/T1337_site3000]
-                'signal_xlim': (0.0, self._total_num_spins),
-                'ax2_xlim': [0, 0.5],
-                'ax2_ylim': [1e-5, 1e-2],
-                'ax3_xlim': [-0.5, 0.5],
+        # Nested Dict to enable many cases (different plots and papers)
+        plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
+            0: {
+                'signal_xlim': [0, int(self._total_num_spins)],  # Example value, replace 100 with self._total_num_spins
+                'ax2_xlim': [0.0, 1.2],
+                'ax2_ylim': [1e-4, 1e-2],
+                'ax3_xlim': [-0.7, 0.7],
                 'ax3_ylim': [0, 60],
-                'signal1_xlim': (300, 1900),  # 12:3356
-                'signal2_xlim': (2100, 3700),  # 3445:5079
-                'signal3_xlim': (0, 0),  # 5079::
+                'signal1_xlim': [300, 1900],
+                'signal2_xlim': [2100, 3700],
+                'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
+                'ax3_label': '(c)',
                 'ax1_line_height': 3.15e-3
             }
         }
-        # Accessing the selected colour scheme
+
+        ########################################
+        # Accessing the selected colour scheme and create a colourbar
         select_plot_scheme = plot_schemes[0]
-        signal_xlim_min, signal_xlim_max = select_plot_scheme['signal_xlim']
-
-        signal1_xlim_min_raw, signal1_xlim_max_raw = select_plot_scheme['signal1_xlim']
-        signal2_xlim_min_raw, signal2_xlim_max_raw = select_plot_scheme['signal2_xlim']
-        signal3_xlim_min_raw, signal3_xlim_max_raw = select_plot_scheme['signal3_xlim']
-        ########################################
-        # Access colour scheme for time evolution and plot
-        if is_colour_matte:
-            ax1_colour_matte = signal1_colour = signal2_colour = signal3_colour = selected_scheme['ax1_colour_matte']
-        else:
-            ax1_colour_matte = selected_scheme['ax1_colour_matte']
-            signal1_colour = selected_scheme['signal1_colour']
-            signal2_colour = selected_scheme['signal2_colour']
-            signal3_colour = selected_scheme['signal3_colour']
-
-        ########################################
-        ax2.set(xlabel=f"Wavevector [1/nm]", ylabel=f"Amplitude (arb. units)", yscale='log',
-                xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'] )
-        ax3.set(xlabel=f"Wavevector [1/nm]", ylabel=f"Frequency [GHz]",
-                xlim=select_plot_scheme['ax3_xlim'], ylim=select_plot_scheme['ax3_ylim'])
-
-        self._tick_setter(ax2, select_plot_scheme['ax2_xlim'][1]/2, select_plot_scheme['ax2_xlim'][1]/8,
-                          4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
-
-        self._tick_setter(ax3, x_major=select_plot_scheme['ax3_xlim'][1]/2, x_minor=select_plot_scheme['ax3_xlim'][1]/4,
-                          y_major=select_plot_scheme['ax3_ylim'][1]/2, y_minor=select_plot_scheme['ax3_ylim'][1]/4,
-                          yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
-        ########################################
-
-        self._draw_figure(row_index, draw_regions_of_interest=False, static_ylim=fixed_ylim, axes=ax1)
-        self._axes.grid(visible=False, axis='both', which='both')
-
-        if not signal1_xlim_min_raw == signal1_xlim_max_raw:
-            self._axes.plot(np.arange(signal1_xlim_min_raw, signal1_xlim_max_raw),
-                            self.amplitude_data[row_index, signal1_xlim_min_raw:signal1_xlim_max_raw],
-                            ls='-', lw=0.75, color=f'{signal1_colour}', label=f"Signal 1",
-                            markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-        if not signal2_xlim_min_raw == signal2_xlim_max_raw:
-            self._axes.plot(np.arange(signal2_xlim_min_raw, signal2_xlim_max_raw),
-                            self.amplitude_data[row_index, signal2_xlim_min_raw:signal2_xlim_max_raw],
-                            ls='-', lw=0.75, color=f'{signal2_colour}', label=f"Signal 2",
-                            markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-        if not signal3_xlim_min_raw == signal3_xlim_max_raw:
-            self._axes.plot(np.arange(signal3_xlim_min_raw, signal3_xlim_max_raw),
-                            self.amplitude_data[row_index, signal3_xlim_min_raw:signal3_xlim_max_raw],
-                            ls='-', lw=0.75, color=f'{signal3_colour}', label=f"Signal 3",
-                            markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-
-        ########################################
-        lattice_const = 1e-9
-        dmi_val_const = 1.25
-        hz_pi_to_norm = (2 * np.pi)
-        hz_to_GHz = 1e-9
-        gyro_mag_ratio = self._gyro_mag_ratio / (2 * np.pi)
-        show_base_dis = False
 
         # Create a ScalarMappable for the color mapping
         norm = mpl.colors.Normalize(vmin=0, vmax=1)  # Assuming you want to normalize from 0 to 1
-        cmap = 'viridis'
+        cmap = 'magma_r'
         sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
 
-        if show_base_dis:
-            def round_to_sig_figs(x, sig_figs):
-                if x == 0:
-                    return 0
-                else:
-                    return round(x, sig_figs - int(math.floor(math.log10(abs(x)))) - 1)
-
-            # Key values and compute wavenumber plus frequency for Moon
-            external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
-            gyromag_ratio_moon = 28.0e9  # 28.8e9
-            lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-            system_len_moon = 4e-6  # metres 4e-6
-            sat_mag_moon = 800e3  # A/m
-            exc_stiff_moon = 0.25 * 1.3e-11  # J/m
-            dmi_val_const_moon = 0.6e-3  # 1.0e-3
-
-            # Key values and computations of values for our system
-            external_field, exchange_field = external_field_moon, (2 * exc_stiff_moon) / (
-                    sat_mag_moon * lattice_constant_moon ** 2)  # 32.5  (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)  # 0.1, 132.5  # [T]
-            gyromag_ratio = gyromag_ratio_moon  # 28.8e9
-            lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
-            system_len = system_len_moon  # metres
-            dmi_val_const = (2 * dmi_val_const_moon) / (
-                        sat_mag_moon * lattice_constant_moon)  # 1.9416259130841862  # 2.5
-            dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
-
-            max_len = round(system_len / lattice_constant)
-            num_spins_array = np.arange(-int(self._total_num_spins / 2), int(self._total_num_spins / 2) + 1, 1)
-            wave_number_array = (
-                                        2 * num_spins_array * np.pi) / (self._total_num_spins * lattice_const)  # ((len(num_spins_array) - 1) * lattice_constant)
-
-            wavevectors_base, fourier_transform_base = (
-                self._fft_data(self.amplitude_data[row_index, signal1_xlim_min_raw:signal1_xlim_max_raw], spatial_spacing=lattice_const))
-
-
-            freq_array = self._gyro_mag_ratio * (
-                    round_to_sig_figs(exchange_field * (lattice_const) ** 2, 3) * wave_number_array ** 2
-                    + self._static_field
-                    + (dmi_val_const * lattice_const * wave_number_array))
-
-            ax3.plot(freq_array * 1e-9, freq_array * 1e-9,
-                     lw=1, color=f'black', marker='', markerfacecolor='black', markeredgecolor='black',
-                     label="Base", zorder=1.5)
-
-        # Process each signal
-        process_signal(signal1_xlim_min_raw, signal1_xlim_max_raw, signal1_colour, "Signal 1", True)
-        process_signal(signal2_xlim_min_raw, signal2_xlim_max_raw, signal2_colour, "Signal 2")
-        process_signal(signal3_xlim_min_raw, signal3_xlim_max_raw, signal3_colour, "Signal 3")
-
         # Adding a colourbar to ax3 using the ScalarMappable
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
-        cax3 = divider.append_axes("top", size="7.5%", pad=0.0)
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax_subplots[2])
+        cax3 = divider.append_axes("bottom", size="7.5%", pad=0.0)
 
         # Set the ticks at the top and bottom using normalized values
-        ax3_cbar = self._fig.colorbar(sm, ax=ax3, cax=cax3, location='top',orientation='horizontal', shrink=1.0)
+        ax3_cbar = self._fig.colorbar(sm, ax=ax_subplots[2], cax=cax3, location='bottom', orientation='horizontal',
+                                      shrink=1.0)
         ax3_cbar.set_label('Normalised Intensity', loc='center', labelpad=-7.5, fontsize=self._fontsizes["smaller"])
-        ax3_cbar.ax.tick_params(axis='x', top=True, bottom=False, pad=2, labelsize=self._fontsizes["smaller"])
+        ax3_cbar.ax.tick_params(axis='x', top=False, bottom=True, pad=2, labelsize=self._fontsizes["smaller"])
         ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.03], labels=[norm.vmin, norm.vmax])
 
-        ax2.legend(ncol=1, loc='upper left', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
-                   facecolor=None, edgecolor=None)
-        #ax3.legend(ncol=1, loc='upper center', fontsize=self._fontsizes["small"], frameon=False, fancybox=True,
+        ########################################
+        # ax_subplots[1] is handled in the _draw_figure method
+        ax_subplots[0].set(yscale='linear')
+        ax_subplots[1].set(xlabel=f"Wavevector [1/nm]", ylabel=f"Amplitude (a.u.)", yscale='log',
+                           xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'])
+        ax_subplots[2].set(ylabel=f"Frequency [GHz]", yscale='linear',
+                           xlim=select_plot_scheme['ax3_xlim'], ylim=select_plot_scheme['ax3_ylim'])
+        ax_subplots[2].tick_params(pad=2, labeltop=True, labelbottom=False, labelsize=self._fontsizes["smaller"])
+        ax_subplots[2].invert_yaxis()
+
+
+        self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
+                          4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
+
+        self._tick_setter(ax_subplots[2], x_major=select_plot_scheme['ax3_xlim'][1] / 2,
+                          x_minor=select_plot_scheme['ax3_xlim'][1] / 4,
+                          y_major=select_plot_scheme['ax3_ylim'][1] / 2, y_minor=select_plot_scheme['ax3_ylim'][1] / 4,
+                          yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
+        ########################################
+        # Process each signal
+        self._draw_figure(row_index, axes=ax_subplots[0], draw_regions_of_interest=False, static_ylim=fixed_ylim)
+
+        self._process_signal(ax_subplots, row_index, 1, sm, select_plot_scheme, [2, False], True)
+        self._process_signal(ax_subplots, row_index, 2, sm, select_plot_scheme, [2, False])
+        self._process_signal(ax_subplots, row_index, 3, sm, select_plot_scheme, [2, False])
+
+
+        ########################################
+        # Post-processing actions
+        ax_subplots[1].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
+                              facecolor=None, edgecolor=None)
+        # ax3.legend(ncol=1, loc='upper center', fontsize=self._fontsizes["small"], frameon=False, fancybox=True,
         #           facecolor=None, edgecolor=None)
+        plt.tight_layout(w_pad=0.2, h_pad=0.25)
+        self._plot_cleanup(ax_subplots)
 
-        for ax in [ax1, ax2, ax3]:
-            for tick_pos in [1, -2]:
-                tick_label_last = ax.get_xticklabels()[tick_pos]
-                tick_label_last.set_visible(False)
-
-                tick_label_last.set_visible(False)
-                tick_xcoord, tick_yoord = tick_label_last.get_position()
-                tick_text = tick_label_last.get_text()
-                if tick_pos == 1:
-                    ax.text(tick_xcoord, tick_yoord-0.045, str(tick_text), ha='left', va='top',
-                            fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
-                else:
-                    ax.text(tick_xcoord, tick_yoord-0.045, str(tick_text), ha='right', va='top',
-                            fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
-
-        plt.tight_layout(w_pad=0.4, h_pad=0.2)
-
+        ########################################
+        # All additional functionality should be after here
         if interactive_plot:
             # Initialize variables outside of your functions as needed
-            figure_manager = self.FigureManager(self._fig, self._fig.get_size_inches()[0],
-                                                self._fig.get_size_inches()[1], self._fig.dpi)
+            figure_manager = FigureManager(self._fig, ax_subplots, self._fig.get_size_inches()[0],
+                                           self._fig.get_size_inches()[1], self._fig.dpi)
             figure_manager.connect_events()
             plt.show()
 
@@ -664,7 +729,7 @@ class PaperFigures:
 
         with imio.get_writer(f"{self.output_filepath}.gif", mode='I', fps=frames_per_second, loop=0) as writer:
             for filename in frame_filenames:
-                image = imio.imread(filename)
+                image = imio.v3.imread(filename)
                 writer.append_data(image)
 
         # Clean up by removing the individual frame files
@@ -727,37 +792,11 @@ class PaperFigures:
 
         ########################################
         # Set colour scheme
-        colour_schemes = {
-            0: {  # Controls wavepacket visualisation. From https://coolors.co/palettes/popular/3%20colors
-                "wavepacket1": "#26547c",
-                "wavepacket2": "#ef476f",
-                "wavepacket3": "#ffd166",
-                "wavepacket4": "#edae49",
-                "wavepacket5": "#d1495b",
-                "wavepacket6": "#00798c",
-            },
-            1: {  # Taken from time_variation (depreciated function)
-                'ax1_colour_matte': "#37782C",
-                'ax2_colour_matte': "#37782C",
-                'precursor_colour': "#37782C",
-                'shock_colour': "#64bb6a",
-                'equil_colour': "#9fd983"
-            },
-            2: {  # Taken from time_variation1
-                'ax1_colour_matte': "#73B741",  # gr #73B741 dg #8C8E8D" # dg "#80BE53"
-                'ax2_colour_matte': "#F77D6A",
-                'precursor_colour': "#CD331B",
-                'shock_colour': "#B896B0",  # cy 3EB8A1
-                'equil_colour': "#377582"  # B79549
-                # 37782C, #64BB6A, #9FD983
-            }
-            # ... add more colour schemes as needed
-        }
 
         # Accessing the selected colour scheme
         select_colour_scheme = 2
         is_colour_matte = False
-        selected_scheme = colour_schemes[select_colour_scheme]
+        selected_scheme = self.colour_schemes[select_colour_scheme]
 
         ########################################
         # All times in nanosecnds (ns)
@@ -1011,17 +1050,17 @@ class PaperFigures:
         if visualise_wavepackets:
             ax1.plot(self.time_data[wavepacket1_xlim_min:wavepacket1_xlim_max],
                      self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index],
-                     lw=0.75, color=colour_schemes[0]["wavepacket1"], marker='', markerfacecolor='black',
+                     lw=0.75, color=self.colour_schemes[0]["wavepacket1"], marker='', markerfacecolor='black',
                      markeredgecolor='black',
                      label="Shockwave", zorder=1.2)
             ax1.plot(self.time_data[wavepacket2_xlim_min:wavepacket2_xlim_max],
                      self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index],
-                     lw=0.75, color=colour_schemes[0]["wavepacket2"], marker='', markerfacecolor='black',
+                     lw=0.75, color=self.colour_schemes[0]["wavepacket2"], marker='', markerfacecolor='black',
                      markeredgecolor='black',
                      label="Steady State", zorder=1.2)
             ax1.plot(self.time_data[wavepacket3_xlim_min:wavepacket3_xlim_max],
                      self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index],
-                     lw=0.75, color=colour_schemes[0]["wavepacket3"], marker='', markerfacecolor='black',
+                     lw=0.75, color=self.colour_schemes[0]["wavepacket3"], marker='', markerfacecolor='black',
                      markeredgecolor='black',
                      label="Steady State", zorder=1.2)
 
@@ -1071,15 +1110,15 @@ class PaperFigures:
             if visualise_wavepackets:
                 ax1_inset.plot(time_dataset[wavepacket1_xlim_min:wavepacket1_xlim_max],
                                amplitude_dataset[wavepacket1_xlim_min:wavepacket1_xlim_max], marker='',
-                               lw=0.75, color=colour_schemes[0]["wavepacket1"],
+                               lw=0.75, color=self.colour_schemes[0]["wavepacket1"],
                                markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
                 ax1_inset.plot(self.time_data[wavepacket2_xlim_min:wavepacket2_xlim_max],
                                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index], marker='',
-                               lw=0.75, color=colour_schemes[0]["wavepacket2"],
+                               lw=0.75, color=self.colour_schemes[0]["wavepacket2"],
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
                 ax1_inset.plot(self.time_data[wavepacket3_xlim_min:wavepacket3_xlim_max],
                                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index], marker='',
-                               lw=0.75, color=colour_schemes[0]["wavepacket3"],
+                               lw=0.75, color=self.colour_schemes[0]["wavepacket3"],
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
 
             # Select data (of original) to show in inset through changing axis limits
@@ -1141,17 +1180,17 @@ class PaperFigures:
                                                       (precursors_xlim_max_raw - precursors_xlim_min_raw),
                                                       2 * self.amplitude_data[:, site_index].max() + extend_height,
                                                       alpha=0.3,
-                                                      facecolor=colour_schemes[0]["wavepacket4"], edgecolor=None, lw=0)
+                                                      facecolor=self.colour_schemes[0]["wavepacket4"], edgecolor=None, lw=0)
             shock_background = mpatches.Rectangle((shock_xlim_min_raw, -1 * self.amplitude_data[:, site_index].max()),
                                                   (shock_xlim_max_raw - shock_xlim_min_raw),
                                                   2 * self.amplitude_data[:, site_index].max() + extend_height,
                                                   alpha=0.15,
-                                                  facecolor=colour_schemes[0]["wavepacket5"], edgecolor=None, lw=0)
+                                                  facecolor=self.colour_schemes[0]["wavepacket5"], edgecolor=None, lw=0)
             equil_background = mpatches.Rectangle((equil_xlim_min_raw, -1 * self.amplitude_data[:, site_index].max()),
                                                   (equil_xlim_max_raw - equil_xlim_min_raw),
                                                   2 * self.amplitude_data[:, site_index].max() + extend_height,
                                                   alpha=0.3,
-                                                  facecolor=colour_schemes[0]["wavepacket6"], edgecolor=None, lw=0)
+                                                  facecolor=self.colour_schemes[0]["wavepacket6"], edgecolor=None, lw=0)
 
             ax1.add_patch(precursor_background)
             ax1.add_patch(shock_background)
@@ -1980,6 +2019,8 @@ class PaperFigures:
 
         Filler text. TODO
 
+        :param find_modes:
+        :param use_demag:
         :param publication_details: Add figure reference lettering
         :param interactive_plot: If `True` mouseclicks to print x/y coords to terminal, else saves image.
 
@@ -2004,7 +2045,7 @@ class PaperFigures:
         ########################################
         # Key values and computations that are common to both systems
         hz_2_GHz, hz_2_THz, m_2_nm = 1e-9, 1e-12, 1e9
-        mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
+        # mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
         external_field_moon = 0.3  # exchange_field = [8.125, 32.5]  # [T]
@@ -2019,7 +2060,8 @@ class PaperFigures:
         p_vals_moon = [0, -1, 1]
 
         # Key values and computations of values for our system
-        external_field, exchange_field = external_field_moon, (2*exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon**2)  # 32.5  (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)  # 0.1, 132.5  # [T]
+        external_field, exchange_field = external_field_moon, (2 * exc_stiff_moon) / (
+                sat_mag_moon * lattice_constant_moon ** 2)  # 32.5  (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)  # 0.1, 132.5  # [T]
         gyromag_ratio = gyromag_ratio_moon  # 28.8e9
         lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
         system_len = system_len_moon  # metres
@@ -2067,14 +2109,17 @@ class PaperFigures:
 
             # Calculate all frequencies in system assuming that there is no demagnetisation
             freq_array = gyromag_ratio * (
-                        round_to_sig_figs(exchange_field * (lattice_constant) ** 2, 3) * wave_number_array ** 2
-                        + external_field
-                        + dmi_val_const * lattice_constant * wave_number_array)
+                    round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
+                    + external_field
+                    + dmi_val_const * lattice_constant * wave_number_array)
 
             print(
-                f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} | Exchange field [T]: {exchange_field} | External field [T]: {external_field} | Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9} | System length [um]: {system_len * 1e6}")
+                f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} | "
+                f"Exchange field [T]: {exchange_field} | External field [T]: {external_field} | "
+                f"Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9} | System length [um]: {system_len * 1e6}")
             print(
-                f'wv_rnd: {wv_rnd} | fq_rnd: {fq_rnd} | wv_tol: {wv_tol} | freq_atol: {freq_atol} | half_int_atol: {half_int_atol}')
+                f'wv_rnd: {wv_rnd} | fq_rnd: {fq_rnd} | wv_tol: {wv_tol} | freq_atol: {freq_atol} | '
+                f'half_int_atol: {half_int_atol}')
             # Calculate all wavelengths
             wavelengths_array = np.zeros_like(wave_number_array, dtype=float)
 
@@ -2158,26 +2203,6 @@ class PaperFigures:
 
                 return results, scaling_factors
 
-            def is_wavelength_whole(n1, n2, atol=1e-2, convert_to_wavelength=False):
-                if convert_to_wavelength:
-                    # Convert from wavenumber [m] to wavelength [nm]
-                    wavelength1 = abs(((2 * np.pi) / n1) * m_2_nm)
-                    wavelength2 = abs(((2 * np.pi) / n2) * m_2_nm)
-                else:
-                    wavelength1 = abs(n1)
-                    wavelength2 = abs(n2)
-
-                # Determine larger and smaller numbers
-                larger, smaller = max(wavelength1, wavelength2), min(wavelength1, wavelength2)
-
-                # Calculate modulus
-                modulus = larger / smaller
-
-                # Test rounding
-
-                # Check if modulus is within the tolerance range
-                # return lower_bound <= modulus <= upper_bound
-
             for wavevector_n in wavevectors_from_n:
                 if use_original_wavenumbers:
                     # Will always exactly match so no need to test
@@ -2255,21 +2280,7 @@ class PaperFigures:
             #     print((entry['match_frequency'], entry['other_occurrences_frequencies']))
             # exit(0)
 
-            class bcolours:
-                PURPLE = '\033[95m'
-                BLUE = '\033[94m'
-                GREEN = '\033[92m'
-                ORANGE = '\033[93m'
-                RED = '\033[91m'
-                ENDC = '\033[0m'  # Black
-
-                def disable(self):
-                    self.HEADER = ''
-                    self.OKBLUE = ''
-                    self.OKGREEN = ''
-                    self.WARNING = ''
-                    self.FAIL = ''
-                    self.ENDC = ''  # Black
+            bcolours = self.colour_schemes[3]
 
             line_counter = 0
             for entry in frequency_container:
@@ -2283,14 +2294,14 @@ class PaperFigures:
                 if should_print_only_half_ints and not any(entry['other_occurrences_half_ints']):
                     continue
 
-                color = bcolours.ENDC
+                color = bcolours['ENDC']
                 if entry['other_occurrences_indices']:
                     # Current case has a match. Rarest case first
                     if should_highlight_half_ints and any(entry['other_occurrences_half_ints']):
-                        color = bcolours.PURPLE
+                        color = bcolours['PURPLE']
 
                     elif should_highlight_all_matches:
-                        color = bcolours.BLUE
+                        color = bcolours['BLUE']
                 if entry['other_occurrences_indices'] or not should_print_only_matches:
                     # Print the match information
                     print(f"{color}"
@@ -2312,9 +2323,9 @@ class PaperFigures:
                                 entry['other_occurrences_half_ints'])):
 
                             if should_highlight_half_ints and other_half_int:
-                                color = bcolours.PURPLE
+                                color = bcolours['PURPLE']
                             elif should_highlight_all_matches:
-                                color = bcolours.BLUE
+                                color = bcolours['BLUE']
 
                             print(
                                 f"{color}| i{enum_index + 1}: {other_index}, "
@@ -2344,18 +2355,16 @@ class PaperFigures:
                 max_len = round(system_len / lattice_constant)
                 num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
                 wave_number_array = (
-                                                2 * num_spins_array * np.pi) / system_len  # ((len(num_spins_array) - 1) * lattice_constant)
+                                            2 * num_spins_array * np.pi) / system_len  # ((len(num_spins_array) - 1) * lattice_constant)
 
                 freq_array = gyromag_ratio * (
-                            round_to_sig_figs(exchange_field * (lattice_constant) ** 2, 3) * wave_number_array ** 2
-                            + external_field
-                            + (dmi_val * lattice_constant * wave_number_array))
+                        round_to_sig_figs(exchange_field * (lattice_constant) ** 2, 3) * wave_number_array ** 2
+                        + external_field
+                        + (dmi_val * lattice_constant * wave_number_array))
                 # + (((2 * dmi_val) / (sat_mag_moon)) * wave_number_array))
 
                 ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
                          label=f'D = {dmi_val}', marker='o', markersize=1.5)
-
-
 
                 ax1.set(xlabel="Wavevector (nm$^{-1}$)",
                         ylabel='Frequency (GHz)', xlim=[-0.5, 0.5], ylim=[0, 60])
@@ -2372,7 +2381,7 @@ class PaperFigures:
                 max_len_moon = round(system_len_moon / lattice_constant_moon)
                 num_spins_array_moon = np.arange(-int(max_len_moon / 2), int(max_len_moon / 2) + 1, 1)
                 wave_number_array_moon = (2 * num_spins_array_moon * np.pi) / (
-                            (len(num_spins_array_moon) - 1) * lattice_constant_moon)
+                        (len(num_spins_array_moon) - 1) * lattice_constant_moon)
 
                 # Remove mu0 due to precision error when included
                 h0 = external_field_moon  # / mu0
@@ -2382,7 +2391,7 @@ class PaperFigures:
                 # gyromag_ratio_moon * mu0 *
                 freq_array_moon = gyromag_ratio_moon * (np.sqrt((h0 + j_star * (wave_number_array_moon ** 2))
                                                                 * (h0 + demag_mag_moon + j_star * (
-                            wave_number_array_moon ** 2)))
+                        wave_number_array_moon ** 2)))
                                                         + p_val * d_star * wave_number_array_moon)
 
                 ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=0, ls='-',
@@ -2432,7 +2441,6 @@ class PaperFigures:
             self._fig.tight_layout()  # has to be here
             self._fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
             plt.show()
-
 
 
 class Eigenmodes:
