@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Standard libraries
-import logging as lg
+# Full packages
+import logging as log
+import string
 
-# My packages / Any header files
+# Specific functions from packages
+
+
+# My full modules
 import system_preparation as sp
 import data_analysis as das
-import string
+
+# Specific functions from my modules
+
 
 """
     This file acts as the main function for the software. To ensure encapsulation is adhered to, all data_analysis is 
@@ -32,12 +38,12 @@ if __name__ == '__main__':
     """
     All functions should be initialised here (excluding core operating features like logging).
     """
-    lg.info(f"Program start...")
+    log.info(f"Program start...")
 
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1050_25"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1050_10"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
     system_setup.detect_os(False, "2024-02-14", "2024-02-14")

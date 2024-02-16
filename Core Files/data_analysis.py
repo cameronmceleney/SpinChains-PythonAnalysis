@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Standard libraries
-import logging as lg
-import matplotlib.pyplot as plt
+# Full packages
+import csv
+import errno
+import logging as log
 import numpy as np
-import seaborn as sns
+import shutil
+import os
 
-# Additional libraries
-import csv as csv
-from os import path, makedirs, listdir, rename
-import errno as errno
-import shutil as sh
-import glob as gl
+# Specific functions from packages
+from glob import glob
 
-# My packages / Any header files
-import plots_for_rk_methods as plt_rk
+# My full modules
+import plot_rk_methods as plt_rk
+import plot_eigenmodes as plt_eigens
 import plot_rk_methods_legacy as plt_rk_legacy
+
+# Specific functions from my modules
+from figure_manager import rc_params_update
 
 """
     Description of what data_analysis does
@@ -100,7 +102,7 @@ class PlotEigenmodes:
                         self._generate_file_that_is_missing(i)
 
                 except ValueError:
-                    lg.info(f"Boolean variable (does_exist) was dtype None.")
+                    log.info(f"Boolean variable (does_exist) was dtype None.")
                     exit(1)
                 finally:
                     pass
@@ -110,14 +112,14 @@ class PlotEigenmodes:
 
     def _check_directory_tree(self, should_show_errors=False):
 
-        if path.exists(self.input_dir_path):
+        if os.path.exists(self.input_dir_path):
             print(f"Simulation_Data/{self.child_dir_name}: directory found")
             self.is_input_dir_present = True
             self._check_if_files_present(True)
 
-        elif path.exists(f"{self.parent_dir_path}{self.fi}{self.fd}/"):
+        elif os.path.exists(f"{self.parent_dir_path}{self.fi}{self.fd}/"):
             # Included to handle legacy files
-            rename(f"{self.parent_dir_path}{self.fi}{self.fd}", self.input_dir_path)
+            os.rename(f"{self.parent_dir_path}{self.fi}{self.fd}", self.input_dir_path)
             print(f"Simulation_Data/{self.fi}{self.fd}: directory found. Name updated to {self.child_dir_name}")
             self.is_input_dir_present = True
             self._check_if_files_present(True)
@@ -126,7 +128,7 @@ class PlotEigenmodes:
             print(f"Simulation_Data/{self.child_dir_name}: not found")
             try:
                 # Try to create each subdirectory (and parent if needed). Always show instances of dirs being created
-                makedirs(self.input_dir_path, exist_ok=False)
+                os.makedirs(self.input_dir_path, exist_ok=False)
                 print(f"Directory '{self.child_dir_name}' created successfully")
                 self.is_input_dir_present = True
                 self.import_eigenmodes()
@@ -152,7 +154,7 @@ class PlotEigenmodes:
                 # Tests if the required files already exist in the target (input data) directory.
                 file_to_search_for = self.input_dir_path + filename
 
-                if path.exists(file_to_search_for):
+                if os.path.exists(file_to_search_for):
                     self.is_input_data_present[i] = True
                     print(f"{file_description}: found")
                 else:
@@ -166,7 +168,7 @@ class PlotEigenmodes:
             # Tests if the required files already exist in the target (input data) directory.
             file_to_search_for = self.input_dir_path + filename
 
-            if path.exists(file_to_search_for):
+            if os.path.exists(file_to_search_for):
                 self.is_formatted_data_present[i] = True
                 print(f"{file_description}: found")
             else:
@@ -176,20 +178,20 @@ class PlotEigenmodes:
 
         if all(item is False for item in self.is_formatted_data_present):
 
-            if len(listdir(self.input_dir_path)) == 0:
+            if len(os.listdir(self.input_dir_path)) == 0:
                 # Target directory is empty
                 src_folder = self.parent_dir_path
                 dst_folder = self.input_dir_path
 
                 # Search files with .txt extension in source directory
                 pattern = f"/*{self.fi}{self.fd}.csv"
-                files = gl.glob(src_folder + pattern)
+                files = glob(src_folder + pattern)
 
                 # move the files with txt extension
                 for file in files:
                     # extract file name form file path
-                    file_name = path.basename(file)
-                    sh.move(file, dst_folder + file_name)
+                    file_name = os.path.basename(file)
+                    shutil.move(file, dst_folder + file_name)
                     print('Moved:', file)
             elif all(item is True for item in self.is_input_data_present):
                 for i in range(0, 3):
@@ -212,12 +214,12 @@ class PlotEigenmodes:
             self._generate_missing_eigenvalues()
             return
         else:
-            lg.error(f"Index of value {index} was called")
+            log.error(f"Index of value {index} was called")
             return
 
     def _generate_missing_eigenvalues(self):
 
-        lg.info(f"Missing Eigenvalues file found. Attempting to generate new file in correct format...")
+        log.info(f"Missing Eigenvalues file found. Attempting to generate new file in correct format...")
 
         # 'Raw' refers to the data produces from the C++ code.
         print(f"Here: {self.input_dir_path}")
@@ -230,11 +232,11 @@ class PlotEigenmodes:
         np.savetxt(f"{self.input_dir_path}{self.formatted_filenames[2]}", eigenvalues_filtered,
                    delimiter=',')
 
-        lg.info(f"Successfully generated missing (eigenvalues) file, which is saved in {self.input_dir_path}")
+        log.info(f"Successfully generated missing (eigenvalues) file, which is saved in {self.input_dir_path}")
 
     def _generate_missing_eigenvectors(self, should_separate_afm_modes=False):
 
-        lg.info(f"Missing (mx) and/or (my) file(s) found. Attempting to generate new files in correct format...")
+        log.info(f"Missing (mx) and/or (my) file(s) found. Attempting to generate new files in correct format...")
 
         # 'Raw' refers to the data produces from the C++ code.
         eigenvectors_raw = np.loadtxt(f"{self.input_dir_path}eigenvectors_{self.fi}{self.fd}.csv",
@@ -262,10 +264,10 @@ class PlotEigenmodes:
 
             print(f"AFM files: generated")
 
-        lg.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
+        log.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
 
     def plot_eigenmodes(self):
-        lg.info(f"Invoking functions to plot data...")
+        log.info(f"Invoking functions to plot data...")
 
         """
         Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used
@@ -276,9 +278,9 @@ class PlotEigenmodes:
         :return: A figure (png).
 
         """
-        handle_eigenmodes = plt_rk.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
-                                              self._arrays_to_output[2], f"{self.fi}{self.fd}",
-                                              self.input_dir_path, self.full_output_path)
+        handle_eigenmodes = plt_eigens.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
+                                                  self._arrays_to_output[2], f"{self.fi}{self.fd}",
+                                                  self.input_dir_path, self.full_output_path)
 
         print('--------------------------------------------------------------------------------')
         print('''
@@ -402,19 +404,19 @@ class PlotImportedData:
         Contained in single method to unify processing option. Separated from import_data_headers() (unlike in previous
         files) for when multiple datafiles, with the same header, are imported.
         """
-        lg.info(f"Importing data points...")
+        log.info(f"Importing data points...")
 
         # Loads all input data without the header
         try:
-            is_file_present_in_dir = path.exists(input_data_path)
+            is_file_present_in_dir = os.path.exists(input_data_path)
             if not is_file_present_in_dir:
                 raise FileNotFoundError
         except FileNotFoundError:
             print(f"File {filename} was not found")
-            lg.error(f"File {filename} was not found")
+            log.error(f"File {filename} was not found")
             exit(1)
         else:
-            lg.info(f"Data points imported!")
+            log.info(f"Data points imported!")
             return np.loadtxt(input_data_path, delimiter=",", skiprows=11)
 
     def import_headers_from_file(self):
@@ -430,7 +432,7 @@ class PlotImportedData:
         :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
         containing strings; the names of each spin site.
         """
-        lg.info(f"Importing file headers...")
+        log.info(f"Importing file headers...")
 
         if self.fi == "LLGTest":
             with open(self.input_data_path) as file_header_data:
@@ -529,7 +531,7 @@ class PlotImportedData:
             key_params['shockGradientTime'] = float(data_values[19])
             key_params['shockApplyTime'] = float(data_values[20])
 
-        lg.info(f"File headers imported!")
+        log.info(f"File headers imported!")
 
         if "Time [s]" in list_of_simulated_sites:
             list_of_simulated_sites.remove("Time [s]")
@@ -539,7 +541,7 @@ class PlotImportedData:
     def call_methods(self, override_method=None, override_function=None, override_site=None,
                      early_exit=False, mass_produce=False):
 
-        lg.info(f"Invoking functions to plot data...")
+        log.info(f"Invoking functions to plot data...")
         print('\n--------------------------------------------------------------------------------')
 
         if early_exit:
@@ -575,7 +577,8 @@ class PlotImportedData:
 
             initials_of_method_to_call = input("Which function to use: ").upper()
 
-        if any([self.override_method, self.override_function, self.override_site, self.early_exit]) and not mass_produce:
+        if (any([self.override_method, self.override_function, self.override_site, self.early_exit])
+                and not mass_produce):
             print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
                   f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
             print('--------------------------------------------------------------------------------')
@@ -590,11 +593,11 @@ class PlotImportedData:
 
         if self.mass_produce:
             print(f"Produced: {self.fi}{self.fd}")
-            lg.info(f"Produced: {self.fi}{self.fd}")
+            log.info(f"Produced: {self.fi}{self.fd}")
 
         else:
             print("Code complete!")
-            lg.info(f"Code complete! Exiting.")
+            log.info(f"Code complete! Exiting.")
 
     def _data_plotting_selections(self, method_to_call):
 
@@ -617,8 +620,8 @@ class PlotImportedData:
             self._exit_conditions()
 
     def _invoke_three_panes(self):
-        # Use this if you wish to see what ranplotter.py would output
-        lg.info(f"Plotting function selected: three panes.")
+        # Use this if you wish to see what my old Spyder code would output
+        log.info(f"Plotting function selected: three panes.")
 
         sites_to_compare = []
         should_compare_sites = "Y"
@@ -641,12 +644,12 @@ class PlotImportedData:
         print("Generating plot...")
         plt_rk_legacy.three_panes(self.m_spin_data[:, :], self.header_data_params,
                                   self.full_output_path, sites_to_compare)
-        lg.info(f"Plotting 3P complete!")
+        log.info(f"Plotting 3P complete!")
 
     def _invoke_fs_functions(self):
         # Use this to see fourier transforms of data
 
-        lg.info(f"Plotting function selected: Fourier Signal.")
+        log.info(f"Plotting function selected: Fourier Signal.")
 
         has_more_to_plot = True
         while has_more_to_plot:
@@ -658,25 +661,25 @@ class PlotImportedData:
 
                 if target_spin >= 1:
                     print(f"Generating plot for [#{target_spin}]...")
-                    lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
+                    log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
                     plt_rk_legacy.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
                                                       target_spin,
                                                       self.header_data_params,
                                                       self.full_output_path)
-                    lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
+                    log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
                     print("Exiting FFT plotting.")
-                    lg.info(f"Exiting FS based upon user input of [{target_spin}]")
+                    log.info(f"Exiting FS based upon user input of [{target_spin}]")
                     has_more_to_plot = False
 
-        lg.info(f"Completed plotting FS!")
+        log.info(f"Completed plotting FS!")
 
     def _invoke_fft_functions(self):
         # Use this to see fourier transforms of data
 
-        lg.info(f"Plotting function selected: Fourier Signal only.")
+        log.info(f"Plotting function selected: Fourier Signal only.")
 
         # dataset2_full_filename = "rk2_mx_T1614.csv"
         # dataset2_input_data_path = f"D:/Data/2022-11-30/Simulation_Data/{dataset2_full_filename}"
@@ -693,7 +696,7 @@ class PlotImportedData:
 
                 if target_spin >= 1:
                     print(f"Generating plot for [#{target_spin}]...")
-                    lg.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
+                    log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
                     plt_rk_legacy.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
                                            self.header_data_params,
@@ -702,18 +705,18 @@ class PlotImportedData:
                     #                      dataset2_m_spin_data[:, target_spin_in_data], target_spin,
                     #                      self.header_data_params,
                     #                      self.full_output_path)
-                    lg.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
+                    log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
                     print("Exiting FFT plotting.")
-                    lg.info(f"Exiting FS based upon user input of [{target_spin}]")
+                    log.info(f"Exiting FS based upon user input of [{target_spin}]")
                     has_more_to_plot = False
 
-        lg.info(f"Completed plotting FS!")
+        log.info(f"Completed plotting FS!")
 
     def _invoke_contour_plot(self):
-        # Use this if you wish to see what ranplotter.py would output
-        lg.info(f"Plotting function selected: contour plot.")
+        # Use this if you wish to see what my old Spyder code would output
+        log.info(f"Plotting function selected: contour plot.")
         spin_site = int(input("Plot which site: "))
 
         mx_name = f"{self.fp}_mx_{self.fi}{self.fd}"
@@ -731,25 +734,25 @@ class PlotImportedData:
                                                input_data_path=mz_path)
         # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
         plt_rk_legacy.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
-        lg.info(f"Plotting CP complete!")
+        log.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
-        lg.info(f"Plotting function selected: paper figure.")
+        log.info(f"Plotting function selected: paper figure.")
 
         paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
                                         self.header_data_params, self.header_sim_flags, self.header_data_sites,
                                         self.full_output_path)
 
         pf_keywords = {  # Full-name: [Initials, Abbreviation]
-                            "Spat. Ev.": ["SE", "Spatial Evolution"],
-                            "Temp. Ev.": ["TE", "Temporal Evolution"],
-                            "Heav. Dis.": ["HD", "Heaviside-Dispersion"],
-                            "GIF": ["GIF", "GIF"],
-                            "FFT": ["FFT", "Fast Fourier Transform"],
-                            "Prev. Menu": ["BACK", "Previous Menu"],
-                            "Ric. Paper": ["RIC", "Ricardo's Paper"],
-                            "Spat. FFT": ["SFFT", "Spatial FFT"]}
+            "Spat. Ev.": ["SE", "Spatial Evolution"],
+            "Temp. Ev.": ["TE", "Temporal Evolution"],
+            "Heav. Dis.": ["HD", "Heaviside-Dispersion"],
+            "GIF": ["GIF", "GIF"],
+            "FFT": ["FFT", "Fast Fourier Transform"],
+            "Prev. Menu": ["BACK", "Previous Menu"],
+            "Ric. Paper": ["RIC", "Ricardo's Paper"],
+            "Spat. FFT": ["SFFT", "Spatial FFT"]}
 
         if self.override_function is not None:
             pf_selection = self.override_function.upper()
@@ -798,16 +801,16 @@ class PlotImportedData:
                         if row_num >= 0:
                             if not self.mass_produce:
                                 print(f"Generating plot for [#{row_num}]...")
-                            lg.info(f"Generating PV plot for row [#{row_num}]")
+                            log.info(f"Generating PV plot for row [#{row_num}]")
                             paper_fig.plot_row_spatial(row_num, fixed_ylim=False, interactive_plot=True)
-                            lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+                            log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
                                 cont_plotting = False
 
                         else:
                             print("Exiting PF-PV plotting.")
-                            lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
+                            log.info(f"Exiting PF-PV based upon user input of [{row_num}]")
                             cont_plotting = False
 
         elif pf_selection == pf_keywords["Spat. FFT"][0]:
@@ -833,16 +836,16 @@ class PlotImportedData:
                         if row_num >= 0:
                             if not self.mass_produce:
                                 print(f"Generating plot for [#{row_num}]...")
-                            lg.info(f"Generating PV plot for row [#{row_num}]")
+                            log.info(f"Generating PV plot for row [#{row_num}]")
                             paper_fig.plot_row_spatial_ft(row_num, fixed_ylim=False, interactive_plot=True)
-                            lg.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+                            log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.early_exit:
                                 cont_plotting = False
 
                         else:
                             print("Exiting PF-PV plotting.")
-                            lg.info(f"Exiting PF-PV based upon user input of [{row_num}]")
+                            log.info(f"Exiting PF-PV based upon user input of [{row_num}]")
                             cont_plotting = False
         elif pf_selection == pf_keywords["Temp. Ev."][0]:
             while cont_plotting:
@@ -868,20 +871,20 @@ class PlotImportedData:
                         if target_site >= 0:
                             print(f"Generating temporal evolution plot for [#{target_site}]...")
 
-                            lg.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
+                            log.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
                             paper_fig.plot_site_temporal(target_site, wavepacket_fft=False, visualise_wavepackets=False,
                                                          annotate_precursors_fft=False, annotate_signal=False,
                                                          wavepacket_inset=False, add_key_params=False,
                                                          add_signal_backgrounds=False, publication_details=False,
                                                          interactive_plot=True)
-                            lg.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
+                            log.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
                                 cont_plotting = False
 
                         else:
                             print("Exiting PF-TV plotting.")
-                            lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
+                            log.info(f"Exiting PF-TV based upon user input of [{target_site}]")
                             cont_plotting = False
 
         elif pf_selection == pf_keywords["Heav. Dis."][0]:
@@ -907,7 +910,7 @@ class PlotImportedData:
                     else:
                         if target_site >= 0:
                             print(f"Generating Heaviside-Dispersion plot for [#{target_site}]...")
-                            lg.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
+                            log.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
                             # paper_fig.plot_heaviside_and_dispersions(dispersion_relations=True,
                             #                                          use_dual_signal_inset=False,
                             #                                          show_group_velocity_cases=False,
@@ -916,14 +919,14 @@ class PlotImportedData:
                             #                                          publication_details=False, interactive_plot=True)
 
                             paper_fig.find_degenerate_modes(find_modes=False, interactive_plot=True)
-                            lg.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
+                            log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
                                 cont_plotting = False
 
                         else:
                             print("Exiting PF-TV plotting.")
-                            lg.info(f"Exiting PF-TV based upon user input of [{target_site}]")
+                            log.info(f"Exiting PF-TV based upon user input of [{target_site}]")
                             cont_plotting = False
 
         elif pf_selection == pf_keywords["GIF"][0]:
@@ -956,16 +959,16 @@ class PlotImportedData:
                         if target_site >= 1:
                             print(f"Generating plot for [#{target_site}]...")
 
-                            lg.info(f"Generating FFT plot for Spin Site [#{target_site}]")
+                            log.info(f"Generating FFT plot for Spin Site [#{target_site}]")
                             paper_fig.plot_fft(target_site - 1, add_zoomed_region=False)
-                            lg.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+                            log.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
                                 cont_plotting = False
 
                         else:
                             print("Exiting PF-FFT plotting.")
-                            lg.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
+                            log.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
                             cont_plotting = False
 
         elif pf_selection == pf_keywords["Ric. Paper"][0]:
@@ -974,57 +977,10 @@ class PlotImportedData:
         elif pf_selection == pf_keywords["Prev. Menu"][0]:
             self.call_methods()
 
-        lg.info(f"Plotting PF complete!")
+        log.info(f"Plotting PF complete!")
 
     @staticmethod
     def _exit_conditions():
         print("Exiting program...")
-        lg.info(f"Exiting program from (select_plotter == EXIT)!")
+        log.info(f"Exiting program from (select_plotter == EXIT)!")
         exit(0)
-
-
-def rc_params_update():
-    """Container for program's custom rc params, as well as Seaborn (library) selections."""
-    plt.style.use('fivethirtyeight')
-    sns.set(context='notebook', font='Kohinoor Devanagari', palette='muted', color_codes=True)
-    ##############################################################################
-    # Sets global conditions including font sizes, ticks and sheet style
-    # Sets various font size. fsize: general text. lsize: legend. tsize: title. ticksize: numbers next to ticks
-    medium_size = 14
-    small_size = 12
-    large_size = 20
-    smaller_size = 10
-    # tiny_size = 8
-
-    # sets the tick direction. Options: 'in', 'out', 'inout'
-    t_dir = 'in'
-    # sets the tick size(s) and tick width(w) for the major and minor axes of all plots
-    t_maj_s = 5
-    t_min_s = t_maj_s / 2
-    t_maj_w = 1
-    t_min_w = t_maj_w / 2
-
-    # updates rcParams of the selected style with my preferred options for these plots. Feel free to change
-    plt.rcParams.update({'font.family': 'arial', 'font.size': small_size, 'font.weight': 'normal',
-
-                         'figure.titlesize': large_size, 'axes.titlesize': medium_size,
-                         'axes.labelsize': small_size, 'legend.fontsize': small_size,
-
-                         'text.color': 'black', 'axes.edgecolor': 'black', 'axes.linewidth': t_maj_w,
-                         'figure.facecolor': 'white', 'axes.facecolor': 'white', 'savefig.facecolor': 'white',
-
-                         'xtick.major.size': t_maj_s, 'xtick.major.width': t_maj_w,
-                         'xtick.minor.size': t_min_s, 'xtick.minor.width': t_min_w,
-                         'ytick.major.size': t_maj_s, 'ytick.major.width': t_maj_w,
-                         'ytick.minor.size': t_min_s, 'ytick.minor.width': t_min_w,
-                         'xtick.labelsize': smaller_size, 'ytick.labelsize': smaller_size,
-
-                         'xtick.color': 'black', 'ytick.color': 'black', 'ytick.labelcolor': 'black',
-                         'xtick.direction': t_dir, 'ytick.direction': t_dir,
-
-                         "xtick.bottom": True, "ytick.left": True,
-                         'axes.spines.top': True, 'axes.spines.bottom': True, 'axes.spines.left': True,
-                         'axes.spines.right': True,
-                         'axes.grid': False,
-
-                         'savefig.dpi': 1200, "figure.dpi": 100})
