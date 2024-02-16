@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Standard libraries
-from datetime import datetime
-import errno as errno
-import logging as lg
-import os as os
+# Full packages
+import errno
+import logging as log
+import os
 import re
-from sys import platform
+import sys
+
+# Specific functions from packages
+from datetime import datetime
+
+# My full modules
+
+
+# Specific functions from my modules
+
 
 """
     Description of what system_preparation.py does
@@ -71,10 +79,10 @@ class SystemSetup:
         self._is_dir_name_valid(str_code="input", str_to_test=self.input_dir_name)
         self._is_dir_name_valid(str_code="output", str_to_test=self.output_dir_name)
 
-        if platform == "linux" or platform == "linux2":
+        if sys.platform == "linux" or sys.platform == "linux2":
             raise SystemError("Detected Linux, which is not yet supported.")
 
-        elif platform == "darwin":
+        elif sys.platform == "darwin":
             # OS X. This is the permanent location on my Macbook
             mac_dir_root = "/Users/cameronaidanmceleney/CLionProjects/Data/"
 
@@ -85,7 +93,7 @@ class SystemSetup:
             self.output_data_directory = f"{mac_dir_root}{self.output_dir_name}/Outputs/"
             self.logging_directory = f"{mac_dir_root}{self.input_dir_name}/Logs/"
 
-        elif platform == "win32" or platform == "win64":
+        elif sys.platform == "win32" or sys.platform == "win64":
             # Windows. This is the permanent location on my desktop
             windows_dir_root = "D:/Data/"
 
@@ -97,7 +105,7 @@ class SystemSetup:
             self.logging_directory = f"{windows_dir_root}{self.input_dir_name}/Logs/"
 
         self._logging_setup()
-        lg.info(f"Target (parent) directory is {self.input_dir_name}.")
+        log.info(f"Target (parent) directory is {self.input_dir_name}.")
 
     def _set_parameters(self, use_default, custom_input_dir_name, custom_output_dir_name):
 
@@ -264,9 +272,9 @@ class SystemSetup:
         today_date = datetime.now().strftime("%y%m%d")
         current_time = datetime.now().strftime("%H%M")
 
-        lg.basicConfig(filename=f'{self.logging_directory}/{today_date}-{current_time}.log',
+        log.basicConfig(filename=f'{self.logging_directory}/{today_date}-{current_time}.log',
                        filemode='w',
-                       level=lg.INFO,
+                       level=log.INFO,
                        format='%(asctime)s | %(module)s::%(funcName)s | %(levelname)s | %(message)s',
                        datefmt='%Y-%m-%d %H:%M:%S',
                        force=True)
