@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Full packages
+import csv
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.widgets
@@ -32,6 +33,8 @@ from typing import Any, List
     Filename    : figure_manager.py
     IDE         : PyCharm
 """
+
+
 class Debouncer:
     def __init__(self, delay_ms=500):
         """
@@ -56,14 +59,16 @@ class Debouncer:
         """
         return not self.should_process()
 
+
 class FigureManager:
-    def __init__(self, fig, ax, width, height, dpi):
+    def __init__(self, fig, ax, width, height, dpi, driving_freq):
         self.fig = fig
         self.subplots = ax
         self.figure_manager = plt.get_current_fig_manager()
 
         # If frequently crashing due to being unresponsive, increase the delay
-        self.debouncer = Debouncer(delay_ms=250)
+        self.debouncer = Debouncer(delay_ms=100)
+        self.driving_freq = driving_freq
 
         self.width = width
         self.height = height
@@ -71,8 +76,10 @@ class FigureManager:
         self.state = False
         self.button = None
 
-        self.mouse_inputs = {'MB1': {'xdata': None, 'ydata': None, 'inaxes': None}}
+        self.mouse_inputs = {'MB1': {'xdata': None, 'ydata': None, 'inaxes': None, 'key': None, 'button': None}}
+        self.modifiers = {'ctrl', 'cmd', 'shift'}
         self.should_draw = {'elements': {'dot': False, 'vline': False, 'hline': False}}
+        self.file_empty = True
 
         self.select_subplot = 0
         self.drawn_lines = []
@@ -98,6 +105,7 @@ class FigureManager:
 
     def wait_for_close(self):
         plt.show()
+
     def connect_events(self):
         """Connects the key press event with additional parameters."""
         self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self.on_mouse_click)
@@ -140,6 +148,9 @@ class FigureManager:
             'clear lines': ('Clear all drawn lines', ['C']),
             'draw dots': ('Toggle (on/off) drawing dots', ['d']),
             'draw lines': ('Toggle (parallel/perp./off) drawing lines', ['D']),
+            'export new': ('Export the current frequency and wavevector', ['e']),
+            'export existing': ('Export the current wavevector', ['E']),
+            'export clear': ('Clear the last export', ['ctrl+e', 'cmd+e']),
             'resize figure': ('Resize to original figure size', ['f']),
             'user help': ('List core keymappings', ['H']),
             'full help': ('List all keymappings', ['ctrl+h', 'cmd+h']),
@@ -158,16 +169,16 @@ class FigureManager:
         if not self.engage_left_click:
             return
 
-        if not self.debouncer.should_process():
+        if self.debouncer.should_not_process():
             return
-
-
 
         if event.button == 1:
             # Left click
             self.mouse_inputs['MB1'].update({"xdata": event.xdata,
                                              "ydata": event.ydata,
-                                             "inaxes": event.inaxes})
+                                             "inaxes": event.inaxes,
+                                             "key": event.key,
+                                             "button": event.button})
             if event.inaxes:
                 self._console_output()
                 self._drawing_element_interface()
@@ -182,14 +193,20 @@ class FigureManager:
             pass
 
     def on_letter_press(self, event: Any) -> None:
-        if not self.debouncer.should_process():
-            return
+
+        if not any(event.key.startswith(mod + '+') for mod in self.modifiers):
+            if self.debouncer.should_not_process():
+                return
 
         if event.key in self.keymappings['clear dots'][1] + self.keymappings['clear lines'][1]:
             self.clear_element_interface(event)
 
         elif event.key in self.keymappings['draw dots'][1] + self.keymappings['draw lines'][1]:
             self._drawing_element_selector(event.key)
+
+        elif (event.key in self.keymappings['export new'][1] + self.keymappings['export existing'][1]
+              + self.keymappings['export clear'][1]):
+            self._export_data(event.key, 'D:/Data/2024-02-14/output_data3.csv')
 
         elif event.key in self.keymappings['resize figure'][1]:
             self._reset_figure_size()
@@ -211,15 +228,129 @@ class FigureManager:
 
     def on_number_press(self, event: Any) -> None:
         """Selects a subplot based on the key pressed."""
-        if not self.debouncer.should_process():
+        if not any(event.key.startswith(mod + '+') for mod in self.modifiers):
+            if self.debouncer.should_not_process():
+                return
+
+        try:
+            event_key = int(event.key)
+            if event_key in self.axes_list:
+                # Update the current subplot based on the key press if within range
+                self.select_subplot = self.axes_list[event_key]
+                print('--------------------')
+                print(f"Selected subplot {event_key}")
+        except ValueError:
+            pass
+        else:
+            pass
+
+    def _export_data(self, event_key: str, file_path: str = 'event_data.csv') -> None:
+        # Proceed with original function's logic
+        if self.mouse_inputs['MB1']['xdata'] is None:
+            print("No data to export.")
+            return
+        elif self.mouse_inputs['MB1']['inaxes'] is not self.subplots[1] or self.mouse_inputs['MB1']['inaxes'] is not self.subplots[2]:
             return
 
-        event_key = int(event.key)
-        if event_key in self.axes_list:
-            # Update the current subplot based on the key press if within range
-            self.select_subplot = self.axes_list[event_key]
-            print('--------------------')
-            print(f"Selected subplot {event_key}")
+        header_row = ['Frequency [GHz]', 'Wavevector (LHS) [1/nm]', 'Wavevector (RHS) [1/nm]']
+        if self.file_empty:
+            try:
+                # Attempt to open the file in 'r+' mode to read and write without truncating existing content
+                with open(file_path, 'r+', newline='') as csvfile:
+                    reader = csv.reader(csvfile)
+                    first_row = next(reader, None)
+
+                    # If the file is not empty but the first row is not the header, seek to start and write the header
+                    if not first_row:
+                        csvfile.seek(0)
+                        writer = csv.writer(csvfile)
+                        writer.writerow(header_row)
+                        print("Inserted default values into empty file.")
+                        csvfile.flush()  # Ensure the header is written before proceeding
+                        csvfile.seek(0)  # Reset file pointer to start for subsequent operations
+                        self.file_empty = False
+
+                    elif first_row != header_row:
+                        # Handle the case if the first row is not the header
+                        csvfile.seek(0)  # Reset file pointer to start for subsequent operations
+                        self.file_empty = False
+
+                    #if event_key in self.keymappings['export existing'][1] + self.keymappings['export clear'][1]:
+                    #    print("Cannot work on empty file.")
+                    #    return
+
+            except FileNotFoundError:
+                # If the file doesn't exist, create it and write the header
+                with open(file_path, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(header_row)
+                    print("Created the file and inserted default values.")
+                self.file_empty = False
+            else:
+                with open(file_path, 'r+', newline='') as csvfile:
+                    # Read the file to check if the frequency is already present
+                    reader = list(csv.reader(csvfile))
+                    if event_key in self.keymappings['export existing'][1] or event_key in \
+                            self.keymappings['export clear'][1]:
+                        if not reader:
+                            print("Cannot work on empty file.")
+                            return
+
+        with open(file_path, 'r+', newline='') as csvfile:
+            # Read the file to check if the frequency is already present
+            reader = list(csv.reader(csvfile))
+            last_row = reader[-1] if reader else None
+
+            last_value = last_row[-1] if last_row else None
+
+            if last_value == str(self.mouse_inputs['MB1']['xdata']) and event_key not in self.keymappings['export clear'][1]:
+                print("Skipped writing duplicate data.")
+                return
+
+            freq_already_present = str(self.driving_freq) in last_row if last_row else False
+
+        if event_key in self.keymappings['export new'][1]:
+            # Append a new row with the current frequency and wavevector
+            if freq_already_present:
+                print("Freq. already present in current line. Append instead.")
+            else:
+                with open(file_path, 'a', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([self.driving_freq, self.mouse_inputs['MB1']['xdata']])
+                print(f"Export. FREQ: {self.driving_freq} | K: {self.mouse_inputs['MB1']['xdata']: .3f}")
+
+        elif event_key in self.keymappings['export existing'][1]:
+            # Append the current wavevector to the last row
+            with open(file_path, 'r+', newline='') as csvfile:
+                reader = list(csv.reader(csvfile))
+                if reader:
+                    reader[-1].append(self.mouse_inputs['MB1']['xdata'])
+                    csvfile.seek(0)
+                    csvfile.truncate()
+                    writer = csv.writer(csvfile)
+                    writer.writerows(reader)
+                    print(f'Append. K: {self.mouse_inputs["MB1"]["xdata"]: .3f}')
+
+        elif event_key in self.keymappings['export clear'][1]:
+            # Read the file, remove the last value in the last row, and rewrite the file
+            with open(file_path, 'r+', newline='') as csvfile:
+                if header_row[2] in reader[-1]:
+                    print(f"Can't clear the header row.")
+                    return
+                else:
+                    if len(reader[-1]) > 1:
+                        removed = reader[-1].pop()
+                        csvfile.seek(0)
+                        csvfile.truncate()
+                        writer = csv.writer(csvfile)
+                        writer.writerows(reader)
+                        print(f"Removed: {removed}")
+
+                    elif str(self.driving_freq) in reader[-1][0]:
+                        print(f"Can't clear: only freq. exported.")
+                        return
+        else:
+            print("Error: Failed to export.")
 
     def _populate_axes_list(self):
         """Populates the list with all subplot axes in the figure."""
@@ -297,15 +428,15 @@ class FigureManager:
 
         elif self.should_draw['elements']['hline']:
             new_element = self.mouse_inputs['MB1']['inaxes'].axhline(y=self.mouse_inputs['MB1']['ydata'],
-                                                              xmin=line_lims[0], xmax=line_lims[1],
-                                                              ls='-', lw=1.0, color='black',
-                                                              alpha=0.5, zorder=1.3)
+                                                                     xmin=line_lims[0], xmax=line_lims[1],
+                                                                     ls='-', lw=1.0, color='black',
+                                                                     alpha=0.5, zorder=1.3)
 
         elif self.should_draw['elements']['vline']:
             new_element = self.mouse_inputs['MB1']['inaxes'].axvline(x=self.mouse_inputs['MB1']['xdata'],
-                                                              ymin=line_lims[0], ymax=line_lims[1],
-                                                              ls='-', lw=1.0, color='black',
-                                                              alpha=0.5, zorder=1.3)
+                                                                     ymin=line_lims[0], ymax=line_lims[1],
+                                                                     ls='-', lw=1.0, color='black',
+                                                                     alpha=0.5, zorder=1.3)
 
         if self.should_draw['elements']['vline'] or self.should_draw['elements']['hline']:
             self.drawn_lines.append(new_element)
