@@ -577,11 +577,14 @@ class PlotImportedData:
 
             initials_of_method_to_call = input("Which function to use: ").upper()
 
-        if (any([self.override_method, self.override_function, self.override_site, self.early_exit])
-                and not mass_produce):
-            print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
-                  f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
-            print('--------------------------------------------------------------------------------')
+        if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
+            if self.mass_produce:
+                print(f"Producing: {self.fi}{self.fd}")
+                log.info(f"Producing: {self.fi}{self.fd}")
+            else:
+                print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
+                      f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
+                print('--------------------------------------------------------------------------------')
 
         while True:
             if initials_of_method_to_call in self.accepted_keywords:
@@ -594,7 +597,6 @@ class PlotImportedData:
         if self.mass_produce:
             print(f"Produced: {self.fi}{self.fd}")
             log.info(f"Produced: {self.fi}{self.fd}")
-
         else:
             print("Code complete!")
             log.info(f"Code complete! Exiting.")

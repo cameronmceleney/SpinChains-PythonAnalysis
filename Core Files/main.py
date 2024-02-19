@@ -43,7 +43,7 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1050_10"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1050_80"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
     system_setup.detect_os(False, "2024-02-14", "2024-02-14")
@@ -62,13 +62,14 @@ if __name__ == '__main__':
 
             # Function logic here - careful to reimport the correct filenames!
             dataset_mass = das.PlotImportedData(filename, system_setup.input_dir(), system_setup.output_dir(),
-                                                file_prefix="rk2", file_component='mx', file_identifier="T")
-            dataset_mass.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True)
+                                                file_prefix="rk2", file_component='mx', file_identifier="T",)
+            dataset_mass.call_methods(override_method="pf", override_function="hd", override_site=100, early_exit=True,
+                                      mass_produce=_mass_produce)
 
             suffix = increment_suffix(suffix, _has_numeric_suffix)
 
             # Set `aaa` as an arb. endpoints for now
-            if suffix == 'aaa' or suffix == 100:
+            if suffix == 'aaa' or suffix == 1000:
                 break
 
     def increment_suffix(suffix, has_numeric_suffix):
@@ -99,7 +100,7 @@ if __name__ == '__main__':
         else:
             dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
                                             file_prefix="rk2", file_component='mx', file_identifier="T")
-            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=100, early_exit=True)
+            dataset1.call_methods(override_method="pf", override_function="hd", override_site=100, early_exit=True)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()

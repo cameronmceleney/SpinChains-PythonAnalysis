@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import csv
 
 import matplotlib as mpl
 from sys import platform as sys_platform
@@ -109,7 +110,7 @@ class PaperFigures:
         self._fig = None
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
-        self._yaxis_lim_fix = 1e-4
+        self._yaxis_lim_fix = 3e-5
         self._fig_kwargs = {"xlabel": f"Position, $n_i$ (site index)",
                             "ylabel": f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
                             "xlim": [0.0 * self._total_num_spins, 1.0 * self._total_num_spins],
@@ -407,12 +408,12 @@ class PaperFigures:
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
                 'signal_xlim': [0, int(self._total_num_spins)],  # Example value, replace 100 with self._total_num_spins
-                'ax2_xlim': [0.0, 0.6],
-                'ax2_ylim': [1e-4, 2e-2],
+                'ax2_xlim': [0.0, 1.0],
+                'ax2_ylim': [1e-4, 1e-1],
                 'ax3_xlim': [-0.5, 0.5],
                 'ax3_ylim': [0, 30],
-                'signal1_xlim': [300, 1900],
-                'signal2_xlim': [2100, 3700],
+                'signal1_xlim': [int(self._num_damped_spins + 1), int(self._driving_region_lhs + self._num_damped_spins - 1)],
+                'signal2_xlim': [int(self._driving_region_rhs + self._num_damped_spins + 1), int(self._total_num_spins - self._num_damped_spins - 1)],
                 'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
@@ -481,7 +482,7 @@ class PaperFigures:
         # All additional functionality should be after here
         if interactive_plot:
             figure_manager = FigureManager(self._fig, ax_subplots, self._fig.get_size_inches()[0],
-                                           self._fig.get_size_inches()[1], self._fig.dpi)
+                                           self._fig.get_size_inches()[1], self._fig.dpi, self._driving_freq)
             figure_manager.connect_events()
             figure_manager.wait_for_close()
         else:
@@ -1841,7 +1842,7 @@ class PaperFigures:
             self._fig = plt.figure(figsize=(8, 6))  # (figsize=(4.5, 3.375))
         self._fig.subplots_adjust(wspace=1, hspace=0.35)
 
-        num_rows, num_cols = 2, 3
+        num_rows, num_cols = 1, 3
 
         def round_to_sig_figs(x, sig_figs):
             if x == 0:
@@ -1849,10 +1850,10 @@ class PaperFigures:
             else:
                 return round(x, sig_figs - int(math.floor(math.log10(abs(x)))) - 1)
 
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 1),
                                colspan=num_cols, fig=self._fig)
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
-                               rowspan=num_rows, colspan=num_cols, fig=self._fig)
+        #ax2 = plt.subplot2grid((num_rows, num_cols), (0, 0),
+        #                       rowspan=num_rows, colspan=num_cols, fig=self._fig)
         ########################################
         # Key values and computations that are common to both systems
         hz_2_GHz, hz_2_THz, m_2_nm = 1e-9, 1e-12, 1e9
@@ -1866,7 +1867,7 @@ class PaperFigures:
         sat_mag_moon = 800e3  # A/m
         exc_stiff_moon = 0.2 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 0.5e-3  # 1.0e-3
+        dmi_val_const_moon = 0.75e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
@@ -2163,7 +2164,7 @@ class PaperFigures:
                   f" Sites: {round(system_len / lattice_constant)}")
 
             # Plot dispersion relations
-            self._fig.suptitle('Comparison of my derivation with Moon\'s')
+            self._fig.suptitle('Dispersion Relation')
             for dmi_val in dmi_vals:
                 max_len = round(system_len / lattice_constant)
                 num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
@@ -2180,7 +2181,7 @@ class PaperFigures:
                          label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
                 ax1.set(xlabel="Wavevector (nm$^{-1}$)",
-                        ylabel='Frequency (GHz)', xlim=[-0.5, 0.5], ylim=[0, 60])
+                        ylabel='Frequency (GHz)', xlim=[-0.75, 0.75], ylim=[0, 60])
                 self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
                                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
@@ -2190,6 +2191,17 @@ class PaperFigures:
                            title_fontsize=self._fontsizes["smaller"],
                            fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
+                # file_name = 'D:/Data/2024-02-14/disp_data1.csv'
+#
+                # # Writing to the file
+                # with open(file_name, 'w', newline='') as csvfile:
+                #     writer = csv.writer(csvfile)
+#
+                #     # Iterate over the arrays and write
+                #     for i in range(len(wave_number_array)):
+                #         writer.writerow([wave_number_array[i] * hz_2_GHz, freq_array[i] * hz_2_GHz])
+
+            """
             for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
                 max_len_moon = round(system_len_moon / lattice_constant_moon)
                 num_spins_array_moon = np.arange(-int(max_len_moon / 2), int(max_len_moon / 2) + 1, 1)
@@ -2219,14 +2231,14 @@ class PaperFigures:
 
                 ax2.legend(title='Theirs - D [J/m2]', title_fontsize=self._fontsizes["smaller"],
                            fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
-
+            """
         ########################################
         if publication_details:
             ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
                      transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
 
-            ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
-                     transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+            #ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+            #         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
 
         for ax in self._fig.axes:
             ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
