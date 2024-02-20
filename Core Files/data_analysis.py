@@ -8,6 +8,7 @@ import logging as log
 import numpy as np
 import shutil
 import os
+import re
 
 # Specific functions from packages
 from glob import glob
@@ -15,6 +16,7 @@ from glob import glob
 # My full modules
 import plot_rk_methods as plt_rk
 import plot_eigenmodes as plt_eigens
+import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
 import plot_rk_methods_legacy as plt_rk_legacy
 
 # Specific functions from my modules
@@ -389,7 +391,12 @@ class PlotImportedData:
 
         self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
 
-        [self.header_data_params, self.header_data_sites, self.header_sim_flags] = self.import_headers_from_file()
+        if self.fp == "rk2":
+            [self.header_data_params, self.header_data_sites,
+             self.header_sim_flags] = self.import_headers_from_file_legacy()
+        else:
+            [self.header_data_params, self.header_data_sites,
+             self.header_sim_flags] = self.import_headers_from_file()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
@@ -419,12 +426,159 @@ class PlotImportedData:
             log.info(f"Data points imported!")
             return np.loadtxt(input_data_path, delimiter=",", skiprows=11)
 
+    @staticmethod
+    def custom_string_mappings(data_name, keep_units=False):
+        """Handles the mapping of data names to their corresponding strings as per these rules."""
+
+        def _abbreviations(string, target, replacement):
+            if target in string:
+                string = string.replace(target, replacement)
+            return string
+
+        def _parentheses(string, target, replacement):
+            # Updated logic to handle parentheses according to specified rules
+            pattern = re.compile(r"\((.*?)\)")
+            matches = pattern.findall(string)
+            for match in matches:
+                formatted_match = f"({match})"
+                if match == target:
+                    # If match equals target and replacement is not empty, replace it; else remove it
+                    if replacement:
+                        string = string.replace(formatted_match, replacement)
+                    else:
+                        string = string.replace(formatted_match, "")
+                elif len(match) == 1:
+                    # Remove single-character matches and their parentheses
+                    string = string.replace(formatted_match, "")
+
+            return string
+
+        def _units(string, target, replacement):
+            target_formatted = f"[{target}]"
+            if target_formatted in string:
+                if keep_units:
+                    string = string.replace(target_formatted, "")
+                    string += f" _{replacement}"
+                else:
+                    string = re.sub(r"\[.*?\]", "", string)
+            return string
+
+        custom_replacements = {
+            'Abbreviations': {
+                'function': _abbreviations,
+                'mappings': {
+                    'Frequency': 'Freq',
+                    'Gyromagnetic': 'Gyro',
+                    'No.': 'Num'
+                }
+            },
+            'Parentheses': {
+                'function': _parentheses,
+                'mappings': {
+                    'lower': 'Lower',
+                    'upper': 'Upper',
+                    'Shape': 'Shape',
+                    'H0': '',
+                    'H_D1': '',
+                    'H_D2': '',
+                    '2Pi*Y': '',
+                    'Hz': ''
+                }
+            },
+            'Units': {
+                'function': _units,
+                'mappings': {
+                    'J': 'Joules',
+                    'T': 'Tesla',
+                    's': 'Seconds',
+                    'J/m': 'JoulesPerMetre',
+                    'kA/m': 'KiloAmperePerMetre',
+                    'Hz': 'Hertz'
+                }
+            }
+        }
+
+        def to_lower_camel_case(s):
+            # Split by non-alphanumeric characters and capitalize the first letter of each word except the first one
+            s = re.sub(r"\.", "", s)
+            parts = re.split(r'\W+', s)
+            return parts[0].lower() + ''.join(word.capitalize() for word in parts[1:])
+
+        for category_dict in custom_replacements.values():
+            category_rule_func = category_dict['function']
+            for find, swap in category_dict['mappings'].items():
+                data_name = category_rule_func(data_name, find, swap)
+
+        data_name = to_lower_camel_case(data_name)
+
+        return data_name
+
+    @staticmethod
+    def _custom_cast_mappings(data_value):
+        data_value = data_value.strip()
+        if '.' in data_value or 'e' in data_value.lower():
+            return float(data_value)
+        else:
+            return int(data_value)
+
     def import_headers_from_file(self):
+        log.info("Importing file headers...")
+
+        sim_flags = {}
+        key_params = {}
+
+        with open(self.input_data_path) as file_header_data:
+            csv_reader = csv.reader(file_header_data)
+            next(csv_reader)  # 0th.
+            next(csv_reader)  # 1st. Always blank.
+
+            data_flags_titles = next(csv_reader)  # 2nd. Boolean titles which might also include values (older)
+            data_flags_values = next(csv_reader)  # 3rd. Might include Boolean values (newer)
+
+            # Count is now in terms of (newer); (older) doesn't have this additional blank line
+
+            if data_flags_values:
+                next(csv_reader)  # 4th line. Blank.
+            key_sim_param_titles = next(csv_reader)  # 5th. Titles for each key simulation parameter.
+            key_sim_param_values = next(csv_reader)  # 6th. Values for each key simulation parameter.
+            next(csv_reader)  # 7th. Blank.
+            next(csv_reader)  # 8th. Simulation notes.
+            next(csv_reader)  # 9th. Description of how to read tabular data
+            next(csv_reader)  # 10th. Blank.
+            simulated_sites = next(csv_reader)  # 11th line. Titular value (site number) for each simulated site.
+
+        for i, val in enumerate(data_flags_titles):
+            if i % 2 == 0:
+                mapped_title = self.custom_string_mappings(data_flags_titles[i], False)
+                if len(val) > 1:
+                    mapped_value = self.custom_string_mappings(data_flags_titles[i+1], False)
+                else:
+                    mapped_value = bool(data_flags_titles[i+1])
+                sim_flags[mapped_title] = mapped_value
+            else:
+                continue
+
+        for title, value in zip(key_sim_param_titles, key_sim_param_values):
+            mapped_title = self.custom_string_mappings(title)
+            mapped_value = self._custom_cast_mappings(value)
+            key_params[mapped_title] = mapped_value
+
+        # Cleanup
+        if 'numericalMethodUsed' not in sim_flags.keys():
+            sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
+
+        if "Time [s]" in simulated_sites:
+            simulated_sites.remove("Time [s]")
+
+        return key_params, simulated_sites, sim_flags
+
+    def import_headers_from_file_legacy(self):
         """
         Import the header lines of each csv file to obtain the C++ simulation parameters.
 
-        Each simulation in C++ returns all the key parameters, required to replicate the simulation, as headers in csv
-        files. This function imports that data, and creates dictionaries to store it.
+        THIS IS LEGACY CODE FOR ALL DATA PRODUCED BEFORE 2024-02-20. Each simulation in C++ returns all the key
+        parameters, required to replicate the simulation, as headers in csv files. This function imports that data,
+        and creates dictionaries to store it.
 
         The Python dictionary keys are the same variable names as their C++ counterparts (for consistency). Casting is
         required as data comes from csvreader as strings.
@@ -456,7 +610,8 @@ class PlotImportedData:
                 data_flags = next(
                     csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
                 next(csv_reader)  # 3rd line. Blank.
-                next(csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
+                data_value_names = next(
+                    csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
                 data_values = next(csv_reader)  # 5th line. Values associated with column titles from 4th line.
                 next(csv_reader)  # 6th line. Blank.
                 next(csv_reader)  # 7th line. Simulation notes.
@@ -644,7 +799,7 @@ class PlotImportedData:
         sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
 
         print("Generating plot...")
-        plt_rk_legacy.three_panes(self.m_spin_data[:, :], self.header_data_params,
+        plt_rk_legacy_standalone.three_panes(self.m_spin_data[:, :], self.header_data_params,
                                   self.full_output_path, sites_to_compare)
         log.info(f"Plotting 3P complete!")
 
@@ -665,7 +820,7 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk_legacy.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
+                    plt_rk_legacy_standalone.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
                                                       target_spin,
                                                       self.header_data_params,
                                                       self.full_output_path)
@@ -700,7 +855,7 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk_legacy.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
+                    plt_rk_legacy_standalone.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
                                            self.header_data_params,
                                            self.full_output_path)
                     # plt_rk.multi_fft_only(self.m_spin_data[:, target_spin_in_data],
@@ -735,16 +890,21 @@ class PlotImportedData:
         mz_m_data = self.import_data_from_file(filename=mz_name,
                                                input_data_path=mz_path)
         # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
-        plt_rk_legacy.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
+        plt_rk_legacy_standalone.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         log.info(f"Plotting CP complete!")
 
     def _invoke_paper_figures(self):
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         log.info(f"Plotting function selected: paper figure.")
 
-        paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
-                                        self.header_data_params, self.header_sim_flags, self.header_data_sites,
-                                        self.full_output_path)
+        if self.fp == "rk2":
+            paper_fig = plt_rk_legacy.PaperFigures(self.m_time_data, self.m_spin_data,
+                                            self.header_data_params, self.header_sim_flags, self.header_data_sites,
+                                            self.full_output_path)
+        else:
+            paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
+                                            self.header_data_params, self.header_sim_flags, self.header_data_sites,
+                                            self.full_output_path)
 
         pf_keywords = {  # Full-name: [Initials, Abbreviation]
             "Spat. Ev.": ["SE", "Spatial Evolution"],
