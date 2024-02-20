@@ -81,11 +81,87 @@ class PaperFigures:
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
+        print(key_data)
+        print(sim_flags)
+
+        self.key_data_attribute_mappings = {
+            'staticBiasField': 'staticZeemanStrength',
+            'dynamicBiasField': 'oscillatingZeemanStrength1',
+            'dynamicBiasFieldScaleFactor': 'shockwaveScaling',
+            'secondDynamicBiasField': 'oscillatingZeemanStrength2',
+            'drivingFreq': 'drivingFreq',
+            'drivingRegionStartSite': 'drivingRegionLhs',
+            'drivingRegionEndSite': 'drivingRegionRhs',
+            'drivingRegionWidth': 'drivingRegionWidth',
+            'maxSimTime': 'maxSimTime',
+            'minExchangeVal': 'exchangeEnergyMin',
+            'maxExchangeVal': 'exchangeEnergyMax',
+            'maxIterations': 'iterationEnd',
+            'numDatapoints': 'numberOfDataPoints',
+            'numSpinsInChain': 'numSpinsInChain',
+            'numDampedSpinsPerSide': 'numSpinsInABC',
+            'numTotalSpins': 'systemTotalSpins',
+            'Stepsize': 'stepsize',
+            'gilbertDampingFactor': 'gilbertDamping',
+            'gyroRatio': 'gyroMagConst',
+            'shockwaveGradientTime': 'shockwaveGradientTime',
+            'shockwaveApplicationTime': 'shockwaveApplicationTime',
+            'abcDampingLower': 'gilbertABCOuter',
+            'abcDampingUpper': 'gilbertABCInner',
+            'dmiConstant': 'dmiConstant',
+            'saturationMagnetisation': 'satMag',
+            'exchangeStiffness': 'exchangeStiffness',
+            'anisotropyShapeField': 'anisotropyField'
+        }
+        self.sim_flags_attribute_mappings = {
+            'usingMagdynamics': 'shouldUseLLG',
+            'usingShockwave': 'hasShockwave',
+            'driveFromLhs': 'shouldDriveLHS',
+            'numericalMethodUsed': 'numericalMethod',
+            'hasStaticDrive': 'isOscillatingZeemanStatic',
+            'hasDipolar': 'hasDipolar',
+            'hasDmi': 'hasDMI',
+            'hasStt': 'hasSTT',
+            'hasZeeman': 'hasStaticZeeman',
+            'hasDemagIntense': 'hasDemagIntense',
+            'hasDemagFft': 'hasDemagFFT',
+            'hasShapeAnisotropy': 'hasShapeAnisotropy'
+        }
+
+        print(sim_flags)
+
+        for key, value in key_data.items():
+            attr_name = key_data.get(key)
+            setattr(self, key, value)
+
+        print(self.numSpinsInChain)
+        exit(0)
+        # Initialize all attributes to default values
+        for attr_name in self.key_data_attribute_mappings.values():
+            setattr(self, attr_name, None)
+
+        for key, value in key_data.items():
+            attr_name = self.key_data_attribute_mappings.get(key)
+            if attr_name:
+                setattr(self, attr_name, value)
+
+        # Initialize all attributes to default values
+        for attr_name in self.sim_flags_attribute_mappings.values():
+            setattr(self, attr_name, None)
+
+        for key, value in sim_flags.items():
+            attr_name = self.sim_flags_attribute_mappings.get(key)
+            if attr_name:
+                setattr(self, attr_name, value)
+
+        print(self.key_data_attribute_mappings['hasDipolar'])
+        exit(0)
+
         # Individual attributes from key_data that are needed for the class
         self._nm_method = sim_flags['numericalMethodUsed']
         self._static_field = key_data['staticBiasField']
-        self._driving_field1 = key_data['dynamicBiasField1']
-        self._driving_field2 = key_data['dynamicBiasField2']
+        self._driving_field1 = key_data['dynamicBiasField']
+        self._driving_field2 = key_data['secondDynamicBiasField']
         self._driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to (ns).
         self._driving_region_lhs = key_data['drivingRegionLHS']
         self._driving_region_rhs = key_data['drivingRegionRHS']

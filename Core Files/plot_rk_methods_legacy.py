@@ -1,785 +1,1480 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import csv
 
-# -------------------------- Preprocessing Directives -------------------------
+import matplotlib as mpl
+from sys import platform as sys_platform
 
-# Standard Libraries
+if sys_platform == 'darwin':
+    mpl.use('macosx')
+elif sys_platform in ['win32', 'win64']:
+    mpl.use('TkAgg')
 
-# 3rd Party packages
+# Full packages
+import decimal as dec
+import imageio as imio
+import math as math
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import numpy as np
-
 import matplotlib.ticker as ticker
-from typing import Any
-from scipy.fft import rfft, rfftfreq
+import mplcursors
+import mpl_toolkits.axes_grid1
+import mpl_toolkits.axes_grid1.inset_locator
+import numpy as np
+import os as os
+import scipy as sp
 
-# My packages/Header files
-# Here
+# Specific functions from packages
+from typing import TypedDict, Any, Dict, List, Optional, Union
 
-# ----------------------------- Program Information ----------------------------
+# My full modules
+
+
+# Specific functions from my modules
+from figure_manager import FigureManager, colour_schemes
 
 """
-This file contains functions that I wrote early on in my PhD. While they have generally been
-"""
-PROGRAM_NAME = "plot_rk_methods_legacy.py"
-"""
-Created on 18:38 by CameronMcEleney
+    Contains all the plotting functionality required for my data analysis. The data for each method comes from the file
+    data_analysis.py. These plots will only work for data from my RK methods.
 """
 
+"""
+    Core Details
+    
+    Author      : cameronmceleney
+    Created on  : 13/03/2022 18:06
+    Filename    : plot_rk_methods.py
+    IDE         : PyCharm
+"""
 
-# -------------------------------------- Useful to look at shockwaves. Three panes -------------------------------------
-def three_panes(amplitude_data, key_data, filename, sites_to_compare=None):
+
+# -------------------------------------- Plot paper figures -------------------------------------
+class PaperFigures:
     """
-    Plots a graph
+    Generates a single subplot that can either be a PNG or GIF.
 
-    :param Any amplitude_data: Array of magnitudes of the spin's magnetisation at each moment in time for each spin
-                               site.
-    :param dict key_data: All key simulation parameters imported from csv file.
-    :param list[list[int]] sites_to_compare: Optional. User-defined list of sites to plot.
-    :param filename: data.
+    Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
+    change the invocation in data.analysis.py.
     """
-    key_data['maxSimTime'] *= 1e9
-
-    flat_list = [item for sublist in sites_to_compare for item in sublist]
-    subplot_labels = create_plot_labels(flat_list, key_data['drivingRegionLHS'], key_data['drivingRegionRHS'])
-
-    time_values = np.linspace(0, key_data['maxSimTime'], int(key_data['numberOfDataPoints']) + 1)
-
-    fig = plt.figure(figsize=(16, 12))
-    plt.suptitle('Comparison of $M_x$ Values At\nDifferent Spin Sites', size=24)
-
-    # Three subplots which are each a different pane
-    plot_pane_1 = plt.subplot2grid((4, 4), (0, 0), colspan=4, rowspan=2)  # Top pane for comparison of multiple datasets
-    plot_pane_2 = plt.subplot2grid((4, 4), (2, 0), colspan=2, rowspan=2)  # Bottom left pane to show any single dataset
-    plot_pane_3 = plt.subplot2grid((4, 4), (2, 2), colspan=2, rowspan=2)  # Bottom right pane to track final spin site
-
-    # for ax in [plot_pane_1, plot_pane_2, plot_pane_3]:
-    #     # Convert all x-axis tick labels to scientific notation on all panes
-    #     ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
-
-    max_value = max([max(sublist) for sublist in sites_to_compare])
-
-    spin_sites_to_plot = []
-    for i in range(1, len(amplitude_data[0])):
-        # Exclude 0 as the first column of data will always be time values.
-        # The variable spin_sites_to_plot is useful when building the software, as sometimes not all sites are wanted.
-        spin_sites_to_plot.append(amplitude_data[:, i])
-
-    label_counter = 0
-    line_width = 1
-    for site in range(1, len(amplitude_data[0, :] + 1)):
-        magnitudes = amplitude_data[:, site]
-
-        if site > max_value:
-            break
-
-        # Assigns each spin site to a pane based upon either user's input (IF), or presets (ELSE)
-        if site in sites_to_compare[0]:
-            # dt = np.pi / 100.
-            # fs = 1. / dt
-            # t = np.arange(0, 8, dt)
-            # y = 10. * np.sin(2 * np.pi * 4 * t) + 5. * np.sin(2 * np.pi * 4.25 * t)
-            # y = y + np.random.randn(*t.shape)
-            # plot_pane_1.psd(y, NFFT=len(t), pad_to=len(t), Fs=fs)
-            fs = (key_data['maxSimTime'] / (key_data['numberOfDataPoints'] - 1)) \
-                 / 1e-9
-            norm = np.linalg.norm(magnitudes)
-            normal_magnitudes = magnitudes / norm
-            plot_pane_1.psd(normal_magnitudes, NFFT=len(time_values), pad_to=len(time_values), Fs=fs)
-            # plot_pane_1.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
-            label_counter += 1
-
-        elif site in sites_to_compare[1]:
-            plot_pane_2.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
-            label_counter += 1
-
-        elif site in sites_to_compare[2]:
-            plot_pane_3.plot(time_values, magnitudes, ls='-', lw=line_width, label=subplot_labels[label_counter])
-            label_counter += 1
-
-    for axes in [plot_pane_1, plot_pane_2, plot_pane_3]:
-        axes.set(xlabel='Time (ns)', ylabel="m$_x$")  # xlim=[0, key_data['maxSimTime']]
-        axes.legend(loc=1, frameon=True)
-        # axes.xaxis.set(major_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.1),
-        #                minor_locator=ticker.MultipleLocator(key_data['maxSimTime'] * 0.05))
-        # This IF statement allows the comparison pane (a1) to have different axis limits to the other panes
-        if axes == plot_pane_1:
-            axes.set(title=f"Primary Sites")
-            axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                           minor_locator=ticker.AutoMinorLocator())
-        else:
-            if axes == plot_pane_2:
-                axes.set(title=f'Secondary Sites')
-            elif axes == plot_pane_3:
-                axes.set(title=f'Tertiary Sites')
-
-            axes.yaxis.set(major_locator=ticker.MaxNLocator(nbins=5, prune='lower'),
-                           minor_locator=ticker.AutoMinorLocator())
-
-    fig.tight_layout()
-    fig.savefig(f"{filename}_site_comparisons.png")
-
-
-def create_plot_labels(simulated_sites, drive_lhs_site, drive_rhs_site):
-    """
-    Generates arrays for use in plotting.
-
-    :param list simulated_sites: List of sites that were simulated.
-    :param int drive_lhs_site:  Site number of the left-hand (lhs) endpoint of the driving region.
-    :param int drive_rhs_site:  Site number of the right-hand site (rhs) endpoint of the driving region.
-
-    :return:  List of strings. Each string provides a description of each simulated spin site, including any
-              significance of the site.To be used as 'legend labels' in plots.
-    """
-    # for i, site in enumerate(simulated_sites):
-    # Imported data will be range of dtypes. Casting here ensures later comparisons can occur.
-    simulated_sites = [int(site) for site in simulated_sites]
-
-    # Save as lists; will be accessed sequentially in plotting functions
-    legend_labels = []
-
-    for _, spin_site in enumerate(simulated_sites):
-        # Test if each spin site is special, such as being within the driving region.
-        if spin_site == drive_lhs_site:
-            legend_labels.append(f"LHS DR Spin Site #{spin_site}")
-
-        elif spin_site == drive_rhs_site:
-            legend_labels.append(f"RHS DR Spin Site #{spin_site}")
-
-        elif drive_lhs_site < spin_site < drive_rhs_site:
-            # Spin site is within the driving region, but not an endpoint
-            legend_labels.append(f"DR Spin Site #{spin_site}")
-
-        else:
-            legend_labels.append(f"Spin Site #{spin_site}")
-
-    return legend_labels
-
-
-# ------------------------------------------ FFT and Signal Analysis Functions -----------------------------------------
-def fft_only(amplitude_data, spin_site, simulation_params, filename):
-    plt.rcParams.update({'savefig.dpi': 100, "figure.dpi": 100})
-
-    interactive = True
-    # Use for interactive plot. Also change DPI to 40 and allow Pycharm to plot outside of tool window
-    if interactive:
-        fig = plt.figure(figsize=(9, 9))
-    else:
-        fig = plt.figure(figsize=(12, 9), constrained_layout=True)
-
-    fig.suptitle(f"Data from Spin Site #{14000}")
-    ax = plt.subplot(1, 1, 1)
-    num_dp = simulation_params['numberOfDataPoints']
-    # frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
-    # frequencies, fourier_transform = fft_data2(amplitude_data[:])
-    # lower1, upper1 = 3363190, 3430357
-    # lower2, upper2 = 3228076, 3287423
-    # lower3, upper3 = 3118177, 3162992
-    # frequencies_blob1, fourier_transform_blob1 = fft_data2(amplitude_data[lower1:upper1],
-    #                                                        simulation_params['maxSimTime'],
-    #                                                        simulation_params['numberOfDataPoints'])
-    # frequencies_blob2, fourier_transform_blob2 = fft_data2(amplitude_data[lower2:upper2],
-    #                                                        simulation_params['maxSimTime'],
-    #                                                        simulation_params['numberOfDataPoints'])
-    # frequencies_blob3, fourier_transform_blob3 = fft_data2(amplitude_data[lower3:upper3],
-    #                                                        simulation_params['maxSimTime'],
-    #                                                        simulation_params['numberOfDataPoints'])
-    frequencies_precursors, fourier_transform_precursors = fft_data2(amplitude_data[12:int(num_dp * 0.25)],
-                                                                     simulation_params['maxSimTime'],
-                                                                     simulation_params['numberOfDataPoints'])
-    frequencies_dsw, fourier_transform_dsw = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.34)],
-                                                       simulation_params['maxSimTime'],
-                                                       simulation_params['numberOfDataPoints'])
-    frequencies_dsw2, fourier_transform_dsw2 = fft_data2(amplitude_data[int(num_dp * 0.27) + 1:int(num_dp * 0.4)],
-                                                         simulation_params['maxSimTime'],
-                                                         simulation_params['numberOfDataPoints'])
-    frequencies_eq, fourier_transform_eq = fft_data2(amplitude_data[int(num_dp * 0.6) + 1:int(num_dp * 0.95)],
-                                                     simulation_params['maxSimTime'],
-                                                     simulation_params['numberOfDataPoints'])
-
-    # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
-    # Set marker='o' to see each datapoint, else leave as marker= to hide
-    # ax.plot(frequencies, abs(fourier_transform), lw=1, color='white', markerfacecolor='black',
-    # markeredgecolor='black', label='all data', alpha=0.0)
-
-    # ax.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
-    #        markerfacecolor='black', markeredgecolor='black', ls=':', label='Blob 1')
-    # ax.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
-    #        markerfacecolor='black', markeredgecolor='black', ls='--', label='Blob 2')
-    # ax.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
-    #        markerfacecolor='black', markeredgecolor='black', ls='-.', label='Blob 3')
-    ax.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#4fc1e8',
-            markerfacecolor='black', markeredgecolor='black', label="Pre-Precursors", zorder=1.5)
-    ax.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#a0d568',
-            markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=1.3)
-    ax.plot(frequencies_dsw2, abs(fourier_transform_dsw2), marker='', lw=1, color='#ffce54',
-            markerfacecolor='black', markeredgecolor='black', label="Shockwave Region", zorder=1.2)
-    ax.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#ed5564',
-            markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.1)
-
-    ax.set(xlabel="Frequency (GHz)", ylabel="Amplitude (arb. units)", yscale='log', xlim=[0, 16000], ylim=[1e-7, 1e-0])
-
-    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title=f'Freq. List (GHz)\nDriving - {12500} GHz', fontsize=12)
-
-    # ax.xaxis.set_major_locator(MultipleLocator(5))
-    # ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-
-    # For the minor ticks, use no labels; default NullFormatter.
-    # ax.xaxis.set_minor_locator(MultipleLocator(1))
-
-    ax.grid(color='white')
-    ax.grid(False)
-
-    if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
-        exchangeString = f"Uniform = True ({simulation_params['exchangeMinVal']}) (T)"
-    else:
-        exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} (T) | J$_{{max}}$ = " \
-                         f"{simulation_params['exchangeMaxVal']} (T)"
-    text_string = (f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | "
-                   f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']: 2.2e} (T) |\n"
-                   f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']: 2.2e}(T) | {exchangeString} | "
-                   f"N = {simulation_params['totalSpins']}")
-
-    props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
-    # place a text box in upper left in axes coords
-    ax.text(0.5, -0.10, text_string, transform=ax.transAxes, fontsize=18,
-            verticalalignment='top', bbox=props, ha='center', va='center')
-    fig.tight_layout()
-
-    if interactive:
-        # For interactive plots
-        def mouse_event(event: Any):
-            print(f'x: {event.xdata} and y: {event.ydata}')
-
-        fig.canvas.mpl_connect('button_press_event', mouse_event)
-        fig.tight_layout()  # has to be here
-        plt.show()
-    else:
-        fig.savefig(f"{filename}_ft_only_{spin_site}.png")
-
-
-def fft_and_signal_four(time_data, amplitude_data, spin_site, simulation_params, filename):
-    """
-    Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
-
-    :param time_data: The time data as an array which must be of the same length as y_axis_data.
-    :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
-    :param dict simulation_params: Key simulation parameters.
-    :param int spin_site: The spin site being plotted.
-    :param filename: The name of the file that is being read from.
-
-    :return: A figure containing four sub-plots.
-    """
-    # Find maximum time in (ns) to the nearest whole (ns), then find how large shaded region should be.
-    temporal_xlim = np.round(simulation_params['stopIterVal'] * simulation_params['stepsize'] * 1e9, 1)
-    x_scaling = 0.1
-    fft_shaded_box_width = 10  # In GHz
-    offset = 0  # Zero by default
-    t_shaded_xlim = temporal_xlim * x_scaling + offset
-
-    plot_set_params = {0: {"title": "Full Simulation", "xlabel": "Time (ns)", "ylabel": "Amplitude (arb. units)",
-                           "xlim": (offset, temporal_xlim)},
-                       1: {"title": "Shaded Region", "xlabel": "Time (ns)", "xlim": (offset, t_shaded_xlim)},
-                       2: {"title": "Showing All Artefacts", "xlabel": "Frequency (GHz)",
-                           "ylabel": "Amplitude (arb. units)",
-                           "xlim": (0, 60)},
-                       3: {"title": "Shaded Region", "xlabel": "Frequency (GHz)", "xlim": (0, fft_shaded_box_width)}}
-
-    fig = plt.figure(figsize=(16, 12), constrained_layout=True)
-
-    fig.suptitle(f"Data from Spin Site #{spin_site}")
-
-    # create 2 rows of sub-figures
-    all_sub_figs = fig.subfigures(nrows=2, ncols=1)
-
-    for row, sub_fig in enumerate(all_sub_figs):
-        if row == 0:
-            sub_fig.suptitle(f"Temporal Data")
-
-            axes = sub_fig.subplots(nrows=1, ncols=2)
-
-            for i, ax in enumerate(axes, start=row * 2):
-                custom_temporal_plot(time_data, amplitude_data, ax=ax, which_subplot=i,
-                                     plt_set_kwargs=plot_set_params[i], xlim_scaling=x_scaling, offset=offset)
-
-        else:
-            sub_fig.suptitle(f"FFT Data")
-
-            axes = sub_fig.subplots(nrows=1, ncols=2)
-
-            for i, ax in enumerate(axes, start=row * 2):
-                custom_fft_plot(amplitude_data, ax=ax, which_subplot=i,
-                                plt_set_kwargs=plot_set_params[i], simulation_params=simulation_params,
-                                box_width=fft_shaded_box_width)
-
-    fig.savefig(f"{filename}_{spin_site}.png")
-
-
-def custom_temporal_plot(time_data, amplitude_data, plt_set_kwargs, which_subplot, offset=0, xlim_scaling=0.2, ax=None):
-    """
-    Custom plotter for each temporal signal within 'fft_and_signal_four'.
-
-    Description.
-
-    :param float time_data: The time data as an array which must be of the same length as y_axis_data.
-    :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
-    :param dict plt_set_kwargs: **kwargs for the ax.set() function.
-    :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
-    :param float offset: Shift x-axis of plots by the given amount.
-    :param float xlim_scaling: Allows for the shaded region to have its width varied.
-    :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
-
-    :return: The subplot information required to be plotted in the main figure environment.
-    """
-
-    if ax is None:
-        ax = plt.gca()
-
-    ax.plot(time_data, amplitude_data)
-    ax.set(**plt_set_kwargs)
-    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-
-    if which_subplot == 0:
-        # plt_set_kwargs['xlim'][1] is the upper value of the xlim
-        ax.axvspan(offset, offset + plt_set_kwargs['xlim'][1] * xlim_scaling, color='#DC143C', alpha=0.2, lw=0)
-
-    ax.grid(False)
-
-    return ax
-
-
-def custom_fft_plot(amplitude_data, plt_set_kwargs, which_subplot, simulation_params, box_width, ax=None):
-    """
-    Custom plotter for each FFT within 'fft_and_signal_four'.
-
-    Description.
-
-    :param box_width: Width of box to draw.
-    :param amplitude_data: The magnitudes of the spin's magnetisation at each moment in time.
-    :param dict plt_set_kwargs: **kwargs for the ax.set() function.
-    :param int which_subplot: Number of subplot (leftmost is 0). Used to give a subplot any special characteristics.
-    :param dict simulation_params: Key simulation parameters from csv header.
-    :param ax: Axes data from plt.subplots(). Used to define subplot and figure behaviour.
-
-    :return: The subplot information required to be plotted in the main figure environment."""
-    frequencies, fourier_transform, natural_frequency, driving_freq = fft_data(amplitude_data, simulation_params)
-
-    # driving_freq_hz = simulation_params['drivingFreq'] / 1e9
-
-    if ax is None:
-        ax = plt.gca()
-
-    # Plotting. To normalise data, change y-component to (1/N)*abs(fourier_transform) where N is the number of samples.
-    # Set marker='o' to see each datapoint, else leave as marker= to hide
-    ax.plot(frequencies, abs(fourier_transform),
-            marker='', lw=1, color='red', markerfacecolor='black', markeredgecolor='black')
-    ax.set(**plt_set_kwargs)
-
-    # ax.axvline(x=driving_freq_hz, label=f"Driving. {driving_freq_hz:2.2f}", color='green')
-
-    if which_subplot == 2:
-        ax.axvspan(0, box_width, color='#DC143C', alpha=0.2, lw=0)
-        # If at a node, then 3-wave generation may be occurring. This loop plots that location.
-        # triple_wave_gen_freq = driving_freq_hz * 3
-        # ax.axvline(x=triple_wave_gen_freq, label=f"T.W.G. {triple_wave_gen_freq:2.2f}", color='purple')
-    else:
-        if simulation_params['exchangeMinVal'] == simulation_params['exchangeMaxVal']:
-            exchangeString = f"Uniform Exc. ({simulation_params['exchangeMinVal']} (T))"
-        else:
-            exchangeString = f"J$_{{min}}$ = {simulation_params['exchangeMinVal']} (T) | J$_{{max}}$ = " \
-                             f"{simulation_params['exchangeMaxVal']} (T)"
-        text_string = ((f"H$_{{0}}$ = {simulation_params['staticBiasField']} (T) | "
-                        f"H$_{{D1}}$ = {simulation_params['dynamicBiasField1']: 2.2e} (T) | "
-                        f"H$_{{D2}}$ = {simulation_params['dynamicBiasField2']: 2.2e}(T) \n{exchangeString} | "
-                        f"N = {simulation_params['chainSpins']} | ") + r"$\alpha$" +
-                       f" = {simulation_params['gilbertFactor']: 2.2e}")
-
-        props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
-        # place a text box in upper left in axes coords
-        ax.text(0.5, -0.2, text_string, transform=ax.transAxes, fontsize=18,
-                verticalalignment='top', bbox=props, ha='center', va='center')
-        # By default, plots the natural frequency.
-        # ax.axvline(x=natural_frequency, label=f"Natural. {natural_frequency:2.2f}")
-
-    ax.legend(loc=0, frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-              title='Freq. List (GHz)', fontsize=12)
-
-    ax.grid(color='white')
-    ax.grid(False)
-
-    return ax
-
-
-def fft_data(amplitude_data, simulation_params):
-    """
-    Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
-
-    :param dict simulation_params: Imported key simulation parameters.
-    :param amplitude_data: Magnitudes of magnetic moments for a spin site
-
-    :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
-    (1st eigenvalue) [2], and driving frequency [3] for the system.
-    """
-    # Simulation parameters needed for FFT computations that are always the same are saved here.
-    # gamma is in [GHz/T] here.
-    core_values = {"gamma": simulation_params["gyroMagRatio"] / (2 * np.pi),
-                   "hz_to_ghz": 1e-9}
-
-    # Data in file header is in [Hz] by default.
-    driving_freq_ghz = simulation_params['drivingFreq'] * core_values["hz_to_ghz"]
-
-    # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
-    # add other markers to the plot(s)
-    natural_freq = core_values['gamma'] * simulation_params['staticBiasField']
-
-    # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
-    sample_spacing = (simulation_params["maxSimTime"] / (simulation_params['numberOfDataPoints'] - 1)) / core_values[
-        'hz_to_ghz']
-
-    # Compute the FFT
-    n = amplitude_data.size
-    normalised_data = amplitude_data
-
-    fourier_transform = rfft(normalised_data)
-    frequencies = rfftfreq(n, sample_spacing)
-
-    return frequencies, fourier_transform, natural_freq, driving_freq_ghz
-
-
-def fft_data2(amplitude_data, maxtime, number_dp):
-    """
-        Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
-
-        :param number_dp: Number of datapoints
-        :param maxtime: Maximum time simulated.
-        :param amplitude_data: Magnitudes of magnetic moments for a spin site
-
-        :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
-        (1st eigenvalue) [2], and driving frequency [3] for the system.
+    cm_to_inch = 1 / 2.54
+    hz_to_Ghz = 1e-9
+
+    class PlotScheme(TypedDict):
+        signal_xlim: List[int]
+        ax2_xlim: List[float]
+        ax2_ylim: List[float]
+        ax3_xlim: List[float]
+        ax3_ylim: List[int]
+        signal1_xlim: List[int]
+        signal2_xlim: List[int]
+        signal3_xlim: List[int]
+        ax1_label: str
+        ax2_label: str
+        ax3_label: str
+        ax1_line_height: float
+
+    def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
+
+        # Data and paths read-in from data_analysis.py
+        self.time_data = time_data
+        self.amplitude_data = amplitude_data
+        self.sites_array = array_of_sites
+        self.output_filepath = output_filepath
+
+        # Individual attributes from key_data that are needed for the class
+        self._nm_method = sim_flags['numericalMethodUsed']
+        self._static_field = key_data['staticBiasField']
+        self._driving_field1 = key_data['dynamicBiasField1']
+        self._driving_field2 = key_data['dynamicBiasField2']
+        self._driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to (ns).
+        self._driving_region_lhs = key_data['drivingRegionLHS']
+        self._driving_region_rhs = key_data['drivingRegionRHS']
+        self._driving_width = key_data['drivingRegionWidth']
+        self._max_time = key_data['maxSimTime'] * 1e9
+        self._stop_iteration_value = key_data['stopIterVal']
+        self._exchange_min = key_data['exchangeMinVal']
+        self._exchange_max = key_data['exchangeMaxVal']
+        self._num_data_points = key_data['numberOfDataPoints']
+        self._chain_spins = key_data['chainSpins']
+        self._num_damped_spins = key_data['dampedSpins']
+        self._total_num_spins = key_data['totalSpins']
+        self._stepsize = key_data['stepsize'] * 1e9
+        self._gilbert_factor = key_data['gilbertFactor']
+        self._gyro_mag_ratio = key_data['gyroMagRatio']
+
+        # These parameters still need to be added to the C++ output files
+        self._lattice_constant = 1e-9
+        self._dmi_val_const = 1.25
+
+        # Attributes for plots
+        self._fig = None
+        self._axes = None
+        self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
+        self._yaxis_lim_fix = 3e-5
+        self._fig_kwargs = {"xlabel": f"Position, $n_i$ (site index)",
+                            "ylabel": f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
+                            "xlim": [0.0 * self._total_num_spins, 1.0 * self._total_num_spins],
+                            "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
+
+        # Text sizes for class to override rcParams
+        self._fontsizes = {"large": 20, "medium": 14, "small": 11, "smaller": 10, "tiny": 8, "mini": 7}
+
+    def _draw_figure(self, row_index: int = -1, has_single_figure: bool = True, publish_plot: bool = False,
+                     draw_regions_of_interest: bool = False, static_ylim=False, axes=None,
+                     interactive_plot: bool = False) -> None:
         """
-    # Simulation parameters needed for FFT computations that are always the same are saved here.
-    # gamma is in [GHz/T] here.
-    core_values = {"gamma": 29.2e9 / (2 * np.pi),
-                   "hz_to_ghz": 1e-9}
+        Private method to plot the given row of data, and create a single figure.
 
-    # Data in file header is in [Hz] by default.
-    # driving_freq_ghz = self.driving_freq # * core_values["hz_to_ghz"]
+        Figure attributes are controlled from __init__ to ensure consistency.
 
-    # This is the (first) natural frequency of the system, corresponding to the first eigenvalue. Change as needed to
-    # add other markers to the plot(s)
-    # natural_freq = core_values['gamma'] * self.static_field
+        :param static_ylim:
+        :param row_index: Plot given row from dataset; most commonly plotted should be the default.
+        :param has_single_figure: If `False`, change figure dimensions for GIFs
+        :param draw_regions_of_interest: Draw coloured boxes onto plot to show driving- and damping-regions.
+        :param publish_plot: Flag to add figure number and LaTeX annotations for publication.
 
-    # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
-    sample_spacing = (maxtime / (number_dp - 1)) / core_values[
-        'hz_to_ghz']
-
-    # Compute the FFT
-    n = amplitude_data.size
-    normalised_data = amplitude_data
-
-    fourier_transform = rfft(normalised_data)
-    frequencies = rfftfreq(n, sample_spacing)
-
-    return frequencies, fourier_transform  # , natural_freq, driving_freq_ghz
-
-
-def create_contour_plot(mx_data, my_data, mz_data, spin_site, output_file, use_tri=False):
-    x = mx_data[:, spin_site]
-    y = my_data[:, spin_site]
-    z = mz_data[:, spin_site]
-    time = mx_data[:, 0]
-
-    # 'magma' is also nice
-    fig = plt.figure(figsize=(12, 12))
-    ax = plt.axes(projection='3d')
-    ax.plot_trisurf(time, x, y, label=f'Spin Site {spin_site}', cmap='Blues', edgecolor='none', lw=0.1)
-    ax.set_xlabel('time', fontsize=12)
-    ax.set_ylabel('m$_x$', fontsize=12)
-    ax.set_zlabel('m$_y$', fontsize=12)
-    ax = plt.axes(projection='3d')
-    if use_tri:
-        ax.plot_trisurf(x, y, z, cmap='Blues', lw=0.1, edgecolor='none', label=f'Spin Site {spin_site}')
-    else:
-        ax.plot3D(x, y, z, label=f'Spin Site {spin_site}')
-        ax.legend()
-
-    ax.set_xlabel('m$_x$', fontsize=12)
-    ax.set_ylabel('m$_y$', fontsize=12)
-    ax.set_zlabel('m$_z$', fontsize=12)
-
-    ax.xaxis.set_rotate_label(False)
-    ax.yaxis.set_rotate_label(False)
-    ax.zaxis.set_rotate_label(False)
-    fig.savefig(f"{output_file}_contour.png")
-
-
-def test_3d_plot(mx_data, my_data, mz_data, spin_site):
-    x1 = mx_data[:, spin_site]
-    y1 = my_data[:, spin_site]
-    z1 = mz_data[:, spin_site]
-
-    x2 = mx_data[:, spin_site + 1]
-    y2 = my_data[:, spin_site + 1]
-    z2 = mz_data[:, spin_site + 1]
-    # time = mx_data[:, 0]
-
-    fig = plt.figure(figsize=(4, 4))
-    ax = fig.add_subplot(111, projection='3d')
-
-    ax.plot3D(x1, y1, z1, markersize=1, color='grey', ls='--', alpha=0.8, label='site1', zorder=1.2)
-    ax.plot3D(x2, y2, z2, markersize=1, color='black', alpha=0.8, label='site2', zorder=1.1)
-
-    # ax.invert_xaxis()
-    ax.set(xlabel='x', ylabel='y', zlabel='z', zlim=[-1, 1])
-    ax.legend()
-
-    fig.tight_layout()
-    fig.savefig(f"/Users/cameronmceleney/CLionProjects/Data/2022-10-12/Outputs/threeDplot.png")
-    plt.show()
-
-def create_time_variation(self, spin_site, colour_precursors=False, annotate_precursors=False,
-                          basic_annotations=False, add_zoomed_region=False, add_info_box=False,
-                          add_coloured_regions=False, interactive_plot=False):
+        :return: Method updates `self._fig` and `self.axis` within the class.
         """
-        LEGACY METHOD FROM PAPERFIGURES. WILL NOT RUN IN THIS MODULE. Plots the magnetisation of a site against time.
 
-        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+        if axes is not None:
+            self._axes = axes
 
-        :param interactive_plot: Allow plot to be interactive
-        :param basic_annotations: NEED DOCSTRING
-        :param annotate_precursors: Add arrows to denote precursors.
-        :param colour_precursors: Draw 1st, 3rd and 5th precursors as separate colours to main figure.
-        :param bool add_coloured_regions: Draw coloured boxes onto plot to show driving- and damping-regions.
-        :param bool add_info_box: Add text box to base of plot which lists key simulation parameters.
-        :param bool add_zoomed_region: Add inset to plot to focus upon precursors.
-        :param int spin_site: The number of the spin site to be plotted.
+        if self._fig is None:
+            figsize = (4.4, 2.2) if has_single_figure else (4.4, 4.4)
+            self._fig = plt.figure(figsize=figsize)
+            self._axes = self._fig.add_subplot(111)
+            if not has_single_figure:
+                plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Adjust for GIFs
+
+        # Adjust y-axis limit based on static_ylim and amplitude data
+        if static_ylim:
+            self._yaxis_lim = self._yaxis_lim_fix
+        else:
+            self._yaxis_lim = max(self.amplitude_data[row_index, :]) * (1.1 if self._fig is None else self._yaxis_lim)
+
+        self._axes.clear()
+        self._fig_kwargs["ylim"] = [-self._yaxis_lim, self._yaxis_lim]
+        self._axes.set_aspect("auto")
+
+        # Easier to have time-stamp as label than textbox.
+        self._axes.plot(np.arange(0, self._total_num_spins), self.amplitude_data[row_index, :], ls='-',
+                        lw=2 * 0.75, color='#64bb6a', label=f"Signal", zorder=1.1)
+
+        self._axes.set(**self._fig_kwargs)
+
+        # Keep tick manipulations in this block to ease debugging
+        self._tick_setter(self._axes, 1000, 200, 3, 4,
+                          yaxis_num_decimals=1.1, show_sci_notation=False)
+
+        # self._axes.text(0.66, 0.88, f"[DR] Sites: {self._driving_width}", va='center',
+        #                 ha='left', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
+        if publish_plot:
+            self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
+                            ha='center', transform=self._axes.transAxes, fontsize=6)
+            self._axes.text(0.88, 0.88, f"(c) {self.time_data[row_index]:2.3f} ns",
+                            va='center', ha='center', transform=self._axes.transAxes,
+                            fontsize=6)
+
+        if draw_regions_of_interest:
+            left, bottom, width, height = (
+                [0, (self._total_num_spins - self._num_damped_spins),
+                 (self._driving_region_lhs + self._num_damped_spins)],
+                self._axes.get_ylim()[0] * 2,
+                (self._num_damped_spins, self._driving_width),
+                4 * self._axes.get_ylim()[1])
+
+            rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height, lw=0,
+                                               alpha=0.5, facecolor="grey", edgecolor=None)
+
+            rectangle_rhs = mpatches.Rectangle((left[1], bottom), width[0], height, lw=0,
+                                               alpha=0.5, facecolor="grey", edgecolor=None)
+
+            rectangle_driving_region = mpatches.Rectangle((left[2], bottom), width[1], height, lw=0,
+                                                          alpha=0.75, facecolor="grey", edgecolor=None)
+
+            plt.gca().add_patch(rectangle_lhs)
+            plt.gca().add_patch(rectangle_rhs)
+            plt.gca().add_patch(rectangle_driving_region)
+
+        self._fig.tight_layout()
+
+    def plot_row_spatial(self, row_index: int = -1, should_annotate_parameters: bool = False,
+                         fixed_ylim: bool = False, interactive_plot: bool = False) -> None:
+        """
+        Plot a row of data to show spatial evolution.
+
+        A row corresponds to an instant in time, so this can be particularly useful for investigating the final state
+        of a system. Also, can be used to show the evolution of the whole system if multiple images are generated.
+
+        :param fixed_ylim:
+        :param interactive_plot:
+        :param row_index: Plot given row from dataset; most commonly plotted should be the default.
+        :param should_annotate_parameters: Add simulation parameters to plot. Useful when presenting work in meetings.
+
+        :return: Saves a .png to the nominated 'Outputs' directory.
+        """
+        self._draw_figure(row_index, draw_regions_of_interest=False, static_ylim=fixed_ylim)
+
+        self._plot_cleanup(self._axes)
+
+        if should_annotate_parameters:
+            if self._exchange_min == self._exchange_max:
+                exchange_string = f"Uniform Exc.: {self._exchange_min} (T)"
+            else:
+                exchange_string = f"J$_{{min}}$ = {self._exchange_min} (T) | J$_{{max}}$ = " \
+                                  f"{self._exchange_max} (T)"
+
+            parameters_textbody = (f"H$_{{0}}$ = {self._static_field} (T) | N = {self._chain_spins} | " + r"$\alpha$" +
+                                   f" = {self._gilbert_factor: 2.2e}\nH$_{{D1}}$ = {self._driving_field1: 2.2e} (T) | "
+                                   f"H$_{{D2}}$ = {self._driving_field2: 2.2e} (T) \n{exchange_string}")
+
+            parameters_text_props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
+            self._axes.text(0.05, 1.2, parameters_textbody, transform=self._axes.transAxes, fontsize=12,
+                            ha='center', va='center', bbox=parameters_text_props)
+
+        if interactive_plot:
+            # Initialize variables
+            num_clicks = 0
+            total_diff_wl = 0
+            last_wl = None
+
+            def reset_clicks():
+                nonlocal num_clicks, total_diff_wl, last_wl
+                num_clicks = 0
+                total_diff_wl = 0
+                last_wl = None
+                print("Click data has been reset.")
+
+            # For interactive plots
+            def mouse_event(event: Any):
+                nonlocal num_clicks, total_diff_wl, last_wl
+
+                if event.button == 3:  # Assuming right click is the reset trigger
+                    reset_clicks()
+                    return
+
+                # Increment clicks count
+                num_clicks += 1
+
+                # Calculate difference and average only from the second click
+                if last_wl is not None:
+                    diff_wl = abs(event.xdata - last_wl)
+                    total_diff_wl += diff_wl
+                    # Ensure at least one difference has been calculated before averaging
+                    if num_clicks > 1:
+                        avg_diff_wl = total_diff_wl / (num_clicks - 1)
+                        print(
+                            f'Click #{num_clicks}: x: {event.xdata:.1f}, Avg. \u03BB: {avg_diff_wl:.1f}, '
+                            f'Avg. k: {(2 * np.pi / avg_diff_wl):.3e} | y: {event.ydata:.3e}')
+                    else:
+                        print(f'Click #{num_clicks}: x: {event.xdata}, y: {event.ydata}')
+                else:
+                    print(f'Click #{num_clicks}: x: {event.xdata}, y: {event.ydata}')
+
+                # Update last_wl with the current xdata for the next click
+                last_wl = event.xdata
+
+            self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+            self._fig.tight_layout()
+            plt.show()
+
+        self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
+        plt.close(self._fig)
+
+    def _process_signal(self, ax: Optional[Union[plt.Axes, List[plt.Axes]]] = None, row_index: int = -1,
+                        signal_index: int = 1, scalar_map: mpl.cm.ScalarMappable = None,
+                        plot_scheme: PlotScheme = None,
+                        colour_scheme_settings: List[int | bool] = (1, False), negative_wavevector: bool = False):
+
+        signal_xlims = plot_scheme[f'signal{signal_index}_xlim']
+        signal_xlim_min, signal_xlim_max = signal_xlims[0], signal_xlims[1]
+        if signal_xlim_min == signal_xlim_max:
+            # Escape case
+            return
+
+        ########################################
+        if ax is None:
+            ax = [plt.gca()]
+        elif isinstance(ax, plt.Axes):
+            ax = [ax]
+        if plot_scheme is None:
+            exit("No plot scheme provided for signal processing.")
+
+        ########################################
+        # Access colour scheme for time evolution and plot
+        colour_scheme = colour_schemes[colour_scheme_settings[0]]
+        if colour_scheme_settings[1]:
+            signal_colour = colour_scheme['ax1_colour_matte']
+        else:
+            signal_colour = colour_scheme[f'signal{signal_index}_colour']
+
+        if scalar_map is None:
+            norm = mpl.colors.Normalize(vmin=0, vmax=1)  # Assuming you want to normalize from 0 to 1
+            cmap = 'hot'
+            scalar_map = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+        ########################################
+        # Internal constants
+        hz_pi_to_norm = 2 * np.pi  # Convert from 1/k to k
+
+        ########################################
+        # Take FFT of the signal
+        wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
+                                                        signal_xlim_min:signal_xlim_max],
+                                                        spatial_spacing=self._lattice_constant)
+        fourier_transform = abs(fourier_transform)
+        intensities_normalized = fourier_transform / np.max(fourier_transform)
+
+        ########################################
+        # Obtain frequencies: default is 'angular' when γ in [rad * s^-1 * T^-1]
+        # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
+        wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
+
+        # hz_pi_to_norm required for `frequencies` to be linear and not angular when γ in [rad * s^-1 * T^-1]
+        frequencies = ((self._gyro_mag_ratio / hz_pi_to_norm) *
+                       (self._exchange_max * (self._lattice_constant ** 2) * (wavevectors ** 2)
+                        + self._static_field
+                        + self._dmi_val_const * self._lattice_constant * wavevectors))
+
+        wavevectors *= -1 * self.hz_to_Ghz if negative_wavevector else self.hz_to_Ghz
+        frequencies *= self.hz_to_Ghz
+
+        ########################################
+        ax[0].plot(np.arange(signal_xlim_min, signal_xlim_max),
+                   self.amplitude_data[row_index, signal_xlim_min:signal_xlim_max],
+                   ls='-', lw=1.5, color=signal_colour, label=f"Segment {signal_index}",
+                   markerfacecolor='black', markeredgecolor='black', zorder=1.3)
+
+        ax[1].plot(wavevectors, fourier_transform,
+                   lw=1.5, color=signal_colour, marker='', markerfacecolor='black', markeredgecolor='black',
+                   label=f"Segment {signal_index}", zorder=1.2)
+
+        scatter_x = -wavevectors if negative_wavevector else wavevectors
+        ax[2].scatter(scatter_x, frequencies,
+                      c=scalar_map.to_rgba(intensities_normalized), s=12, marker='.',
+                      label=f"Segment {signal_index}", zorder=1.2)
+
+    def _plot_cleanup(self, axis=None):
+        if axis is None:
+            axis = [plt.gca()]
+        elif isinstance(axis, plt.Axes):
+            axis = [axis]
+
+        for ax in axis:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            ax.grid(visible=False, axis='both', which='both')
+
+            for tick_pos in [1, -2]:
+                tick_label_last = ax.get_xticklabels()[tick_pos]
+                tick_label_last.set_visible(False)
+
+                tick_label_last.set_visible(False)
+                xtick_position, ytick_position = tick_label_last.get_position()
+                tick_text = tick_label_last.get_text()
+                y_offset = 0.125 if ax == axis[2] else -0.045
+                if tick_pos == 1:
+                    ax.text(xtick_position, ytick_position + y_offset, str(tick_text), ha='left', va='top',
+                            fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
+                else:
+                    ax.text(xtick_position, ytick_position + y_offset, str(tick_text), ha='right', va='top',
+                            fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
+
+    def plot_row_spatial_ft(self, row_index: int = -1,
+                            fixed_ylim: bool = False, interactive_plot: bool = False) -> None:
+        """
+        Plot a row of data to show spatial evolution.
+
+        A row corresponds to an instant in time, so this can be particularly useful for investigating the final state
+        of a system. Also, can be used to show the evolution of the whole system if multiple images are generated.
+
+        :param fixed_ylim:
+        :param interactive_plot:
+        :param row_index: Plot given row from dataset; most commonly plotted should be the default.
+
+        :return: Saves a .png to the nominated 'Outputs' directory.
+        """
+        self._fig = plt.figure(figsize=(4.5, 6))
+        num_rows, num_cols = 3, 3
+        ax_subplots = []
+
+        for i in range(0, 3):
+            ax_subplots.append(plt.subplot2grid((num_rows, num_cols), (i, 0), rowspan=1,
+                                                colspan=num_cols, fig=self._fig))
+
+        self._fig.subplots_adjust(wspace=1, hspace=0.4, bottom=0.2)
+
+        ########################################
+        # Nested Dict to enable many cases (different plots and papers)
+        plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
+            0: {
+                'signal_xlim': [0, int(self._total_num_spins)],  # Example value, replace 100 with self._total_num_spins
+                'ax2_xlim': [0.0, 1.0],
+                'ax2_ylim': [1e-4, 1e-1],
+                'ax3_xlim': [-0.5, 0.5],
+                'ax3_ylim': [0, 30],
+                'signal1_xlim': [int(self._num_damped_spins + 1), int(self._driving_region_lhs + self._num_damped_spins - 1)],
+                'signal2_xlim': [int(self._driving_region_rhs + self._num_damped_spins + 1), int(self._total_num_spins - self._num_damped_spins - 1)],
+                'signal3_xlim': [0, 0],
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax3_label': '(c)',
+                'ax1_line_height': 3.15e-3
+            }
+        }
+
+        ########################################
+        # Accessing the selected colour scheme and create a colourbar
+        select_plot_scheme = plot_schemes[0]
+
+        # Create a ScalarMappable for the color mapping
+        norm = mpl.colors.Normalize(vmin=0, vmax=1)  # Assuming you want to normalize from 0 to 1
+        cmap = 'magma_r'
+        sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+        # Adding a colourbar to ax3 using the ScalarMappable
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax_subplots[2])
+        cax3 = divider.append_axes("bottom", size="7.5%", pad=0.0)
+
+        # Set the ticks at the top and bottom using normalized values
+        ax3_cbar = self._fig.colorbar(sm, ax=ax_subplots[2], cax=cax3, location='bottom', orientation='horizontal',
+                                      shrink=1.0)
+        ax3_cbar.set_label('Normalised Intensity', loc='center', labelpad=-7.5, fontsize=self._fontsizes["smaller"])
+        ax3_cbar.ax.tick_params(axis='x', top=False, bottom=True, pad=2, labelsize=self._fontsizes["smaller"])
+        ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.03], labels=[str(norm.vmin), str(norm.vmax)])
+
+        ########################################
+        # ax_subplots[1] is handled in the _draw_figure method
+        ax_subplots[0].set(yscale='linear')
+        ax_subplots[1].set(xlabel=f"Wavevector, $k$ (nm"r"$^{-1}$)", ylabel=f"Intensity (a.u.)", yscale='log',
+                           xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'])
+        ax_subplots[2].set(ylabel=f"Frequency, $f$ (GHz)", yscale='linear',
+                           xlim=select_plot_scheme['ax3_xlim'], ylim=select_plot_scheme['ax3_ylim'])
+        ax_subplots[2].tick_params(pad=2, labeltop=True, labelbottom=False, labelsize=self._fontsizes["smaller"])
+        ax_subplots[2].invert_yaxis()
+
+        self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
+                          4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
+
+        self._tick_setter(ax_subplots[2], x_major=select_plot_scheme['ax3_xlim'][1] / 2,
+                          x_minor=select_plot_scheme['ax3_xlim'][1] / 4,
+                          y_major=select_plot_scheme['ax3_ylim'][1] / 2, y_minor=select_plot_scheme['ax3_ylim'][1] / 4,
+                          yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
+        ########################################
+        # Process each signal
+        self._draw_figure(row_index, axes=ax_subplots[0], draw_regions_of_interest=False, static_ylim=fixed_ylim)
+
+        self._process_signal(ax_subplots, row_index, 1, sm, select_plot_scheme, [2, False], True)
+        self._process_signal(ax_subplots, row_index, 2, sm, select_plot_scheme, [2, False])
+        self._process_signal(ax_subplots, row_index, 3, sm, select_plot_scheme, [2, False])
+
+        ########################################
+        # Post-processing actions
+        ax_subplots[0].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
+                              facecolor=None, edgecolor=None)
+        ax_subplots[1].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
+                              facecolor=None, edgecolor=None)
+        # ax3.legend(ncol=1, loc='upper center', fontsize=self._fontsizes["small"], frameon=False, fancybox=True,
+        #           facecolor=None, edgecolor=None)
+        plt.tight_layout(w_pad=0.2, h_pad=0.25)
+        self._plot_cleanup(ax_subplots)
+
+        ########################################
+        # All additional functionality should be after here
+        if interactive_plot:
+            figure_manager = FigureManager(self._fig, ax_subplots, self._fig.get_size_inches()[0],
+                                           self._fig.get_size_inches()[1], self._fig.dpi, self._driving_freq)
+            figure_manager.connect_events()
+            figure_manager.wait_for_close()
+        else:
+            self._fig.savefig(f"{self.output_filepath}_row{row_index}_ft.png", bbox_inches="tight")
+
+        plt.close(self._fig)
+
+    def _plot_paper_gif(self, row_index: int, has_static_ylim: bool = False) -> plt.Figure:
+        """
+        Private method to save a given row of a data as a frame suitable for use with the git library.
+
+        Requires decorator so use method as an inner class instead of creating child class.
+
+        :param row_index: The row to be plotted.
+
+        :return: Method indirectly updates `self._fig` and `self.axis` by calling self._draw_figure().
+        """
+        self._draw_figure(row_index, False, draw_regions_of_interest=False, publish_plot=False,
+                          static_ylim=has_static_ylim)
+
+        return self._fig
+
+    def create_gif(self, number_of_frames: float = 0.01,
+                   frames_per_second: float = 10, has_static_ylim: bool = False) -> None:
+        frame_filenames = []
+
+        for index in range(0, int(self._num_data_points + 1), int(self._num_data_points * number_of_frames)):
+            frame = self._plot_paper_gif(index, has_static_ylim=has_static_ylim)
+            frame_filename = f"{self.output_filepath}_{index}.png"
+            frame.savefig(frame_filename)
+            frame_filenames.append(frame_filename)
+            plt.close(frame)  # Close the figure to free memory
+
+        with imio.get_writer(f"{self.output_filepath}.gif", mode='I', fps=frames_per_second, loop=0) as writer:
+            for filename in frame_filenames:
+                image = imio.v3.imread(filename)
+                writer.append_data(image)
+
+        # Clean up by removing the individual frame files
+        for filename in frame_filenames:
+            os.remove(filename)
+
+    def plot_site_temporal(self, site_index: int, wavepacket_fft: bool = False,
+                           visualise_wavepackets: bool = False, annotate_precursors_fft: bool = False,
+                           annotate_signal: bool = False, wavepacket_inset: bool = False,
+                           add_key_params: bool = False, add_signal_backgrounds: bool = False,
+                           publication_details: bool = False, interactive_plot: bool = False) -> None:
+        """
+        Two pane figure where upper pane shows the time evolution of the magnetisation of a site, and the lower pane
+        shows the FFT of the precursors, shockwave, equilibrium region, and wavepacket(s) (optional).
+
+        One should ensure that the site being plotted is not inside either of the driving- or damping-regions. Example
+        data at 2023-03-06/rk2_mx_T1118 .
+
+        Throughout this method, wavepacket1 will always refer to the wavepacket in the
+        precursor region CLOSEST to the shockwave edge, and increasing numbers refers to further away (and closer to the
+        signal start point). The variables say 'equil` while the plot labels say 'steady state' - this is make the
+        variables easier to read. Can update plot annotations if 'Equilibrium' is a better fix.
+
+        :param site_index: Number of site being plotted.
+        :param wavepacket_fft: Take FFT of each wavepacket and plot.
+        :param visualise_wavepackets: Redraw each wavepacket with high-contrast colours on time evolution pane.
+        :param annotate_precursors_fft: Add arrows/labels to denote wavepackets (P1 wavepacket closest to shock-edge).
+        :param annotate_signal: Draw regions (with labels) onto time evolution showing precursor/shock/equil regions.
+        :param wavepacket_inset: On time evolution pane, zoom in on precursor region to show the wavepackets as inset.
+        :param add_key_params: Add text box between panes which lists key simulation parameters.
+        :param add_signal_backgrounds: Shade behind signal regions to improve clarity; backup to `annotate_signals`. 
+        :param publication_details: Add figure reference label and scientific notation to y-axis. Needs edited each run
+        :param interactive_plot: If `True` mouse-clicks to print x/y coords to terminal, else saves image.
 
         :return: Saves a .png image to the designated output folder.
         """
+        #
 
-        if self.fig is None:
-            self.fig = plt.figure(figsize=(4.5, 3.375))
+        # Setup figure environment
+        if self._fig is None:
+            self._fig = plt.figure(figsize=(4.5, 3.375))
+
         num_rows = 2
         num_cols = 3
+
         ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
-                               colspan=num_cols, fig=self.fig)
+                               colspan=num_cols, fig=self._fig)
         ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
-                               rowspan=num_rows, colspan=num_cols, fig=self.fig)
+                               rowspan=num_rows, colspan=num_cols, fig=self._fig)
+
+        self._fig.subplots_adjust(wspace=1, hspace=0.35)
 
         ax1.xaxis.labelpad = -1
         ax2.xaxis.labelpad = -1
 
-        ########################################
+        # ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
+        # ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
 
-        ax1_xlim_lower, ax1_xlim_upper = 0.0, 5
-        ax1_xlim_range = ax1_xlim_upper - ax1_xlim_lower
-        xlim_min, xlim_max = 0, self.max_time  # ns
-
-        ax1_yaxis_base, ax1_yaxis_exponent = 3, '-3'
-        ax1_yaxis_order = float('1e' + ax1_yaxis_exponent)
-
-        lower1, upper1 = 0, 2.6
-        lower2, upper2 = upper1, 3.76
-        lower3, upper3 = upper2, ax1_xlim_upper
-
-        ax1_inset_lower = 0.7
-
-        lower1_blob, upper1_blob = 1.75, upper1  # 0.481, 0.502
-        lower2_blob, upper2_blob = 1.3, 1.7  # 0.461, 0.48
-        lower3_blob, upper3_blob = 1.05, 1.275  # 0.442, 0.4605
-
-        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$ (10$^{-3}$)",
-                xlim=[ax1_xlim_lower, ax1_xlim_upper],
-                ylim=[-ax1_yaxis_base * ax1_yaxis_order * 1.4, ax1_yaxis_base * ax1_yaxis_order])
-
-        ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)",
-                xlim=[0, 99.999], ylim=[1e-1, 1e3], yscale='log')
-
-        self._tick_setter(ax1, ax1_xlim_range * 0.5, ax1_xlim_range * 0.125, 3, 4, xaxis_num_decimals=1)
-        self._tick_setter(ax2, 20, 5, 6, None, is_fft_plot=True)
-
-        line_height = -3.15 * ax1_yaxis_order
+        # line_height = -3.15 * ax1_yaxis_order  # Assists formatting when drawing precursor lines on plots
 
         ########################################
+        # Set colour scheme
 
+        # Accessing the selected colour scheme
+        select_colour_scheme = 2
+        is_colour_matte = False
+        selected_scheme = colour_schemes[select_colour_scheme]
+
+        ########################################
+        # All times in nanoseconds (ns)
+        plot_schemes = {  # D:\Data\2023-04-19\Outputs
+            0: {  # mceleney2023dispersive Fig. 1b-c [2022-08-29/T1337_site3000]
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, 5.0],
+                'ax1_ylim': [-4.0625e-3, 3.125e-3],
+                'ax1_inset_xlim': [0.7, 2.6],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0, 99.9999],
+                'ax2_ylim': [1e-1, 1e3],
+                'precursor_xlim': (0, 2.6),  # 12:3356
+                'signal_onset_xlim': (2.6, 3.79),  # 3445:5079
+                'equilib_xlim': (3.8, 5.0),  # 5079::
+                'ax1_label': '(b)',
+                'ax2_label': '(c)',
+                'ax1_line_height': 3.15e-3
+            },
+            1: {  # Jiahui T0941/T1107_site3
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, 1.50 - 0.00001],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_inset_xlim': [0.01, 0.02],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0001, 599.9999],
+                'ax2_ylim': [1e-2, 1e1],
+                'precursor_xlim': (0.0, 0.99),  # 0.0, 0.75
+                'signal_onset_xlim': (0.0, 0.01),  # 0.75, 1.23
+                'equilib_xlim': (0.99, 1.5),  # 1.23, 1.5
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
+            },
+            2: {  # Jiahui T0941/T1107_site1
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, 1.50 - 0.00001],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_inset_xlim': [0.01, 0.02],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0001, 119.9999],
+                'ax2_ylim': [1e-3, 1e1],  # A            B            C            D           E
+                'precursor_xlim': (0.0, 0.42),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
+                'signal_onset_xlim': (0.42, 0.65),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'equilib_xlim': (0.65, 1.5),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
+            },
+            3: {  # Test for me
+                'signal_xlim': (0.0, self._max_time),
+                'ax1_xlim': [0.0, self._max_time - 0.00001],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_inset_xlim': [0.01, 0.02],
+                'ax1_inset_ylim': [-2e-4, 2e-4],
+                'ax1_inset_width': 1.95,
+                'ax1_inset_height': 0.775,
+                'ax1_inset_bbox': [0.08, 0.975],
+                'ax2_xlim': [0.0001, 99.9999],
+                'ax2_ylim': [1e-2, 1e1],  # A            B            C            D           E
+                'precursor_xlim': (0.3, 1.2),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
+                'signal_onset_xlim': (0.0, 0.3),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'equilib_xlim': (0.00, 0.00),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
+            }
+        }
+
+        select_plot_scheme = plot_schemes[3]
+        signal_xlim_min, signal_xlim_max = select_plot_scheme['signal_xlim']
+        ax1_xlim_lower, ax1_xlim_upper = select_plot_scheme['ax1_xlim']
+
+        precursors_xlim_min_raw, precursors_xlim_max_raw = select_plot_scheme['precursor_xlim']
+        shock_xlim_min_raw, shock_xlim_max_raw = select_plot_scheme['signal_onset_xlim']
+        equil_xlim_min_raw, equil_xlim_max_raw = select_plot_scheme['equilib_xlim']
+
+        # TODO Need to find all the values and turn this section into a dictionary
+        wavepacket_schemes = {
+            0: {  # mceleney2023dispersive Fig. 1b-c [2022-08-29/T1337_site3000]
+                'wp1_xlim': (1.75, precursors_xlim_max_raw),
+                'wp2_xlim': (1.3, 1.7),
+                'wp3_xlim': (1.05, 1.275)
+            },
+            1: {  # mceleney2023dispersive Fig. 3a-b [2022-08-08/T1400_site3000]
+                'wp1_xlim': (0.481, 0.502),
+                'wp2_xlim': (0.461, 0.480),
+                'wp3_xlim': (0.442, 0.4605)
+            },
+            2: {  # mceleney2023dispersive Fig. 3a-b [2022-08-08/T1400_site3000]
+                'wp1_xlim': (0.01, 0.02),
+                'wp2_xlim': (0.02, 0.03),
+                'wp3_xlim': (0.03, 0.04)
+            }
+            # ... add more wavepacket schemes as needed
+        }
+        select_wp_vals = wavepacket_schemes[2]
+        wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = select_wp_vals['wp1_xlim']
+        wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = select_wp_vals['wp2_xlim']
+        wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = select_wp_vals['wp3_xlim']
+
+        # If element [0-2] are changed, must also update calls for `converted_values` below
+        data_names = ['Signal 1', 'Signal 2', 'Signal 3', 'wavepacket1', 'wavepacket2', 'wavepacket3']
+        wavepacket_labels = ['P1', 'P2', 'P3']  # Maybe make into a dict also having x/y coords contained here
+        raw_values = {
+            'Signal 1': (precursors_xlim_min_raw, precursors_xlim_max_raw),
+            'Signal 2': (shock_xlim_min_raw, shock_xlim_max_raw),
+            'Signal 3': (equil_xlim_min_raw, equil_xlim_max_raw),
+            'wavepacket1': (wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw),
+            'wavepacket2': (wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw),
+            'wavepacket3': (wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw)
+        }
+
+        ########################################
+
+        ax1.set(xlabel=f"Time (ns)", ylabel=r"$\mathrm{m_x}$", xlim=select_plot_scheme['ax1_xlim'],
+                ylim=select_plot_scheme['ax1_ylim'])  # "$($10^{-4}$)"
+
+        ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)", yscale='log',
+                xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'], )
+
+        self._tick_setter(ax1, 0.5, 0.25, 3, 4, xaxis_num_decimals=1.1,
+                          show_sci_notation=True)
+        ax2_xlim_round = round(select_plot_scheme['ax2_xlim'][1], 0)
+        self._tick_setter(ax2, int(ax2_xlim_round / 5), int(ax2_xlim_round / 10), 3, None,
+                          xaxis_num_decimals=1.2, is_fft_plot=True)
+
+        ########################################
         if ax1_xlim_lower > ax1_xlim_upper:
             exit(0)
 
         def convert_norm(val, a=0, b=1):
-            # return int(self.data_points * (2 * ax1_xlim_lower + ( a * (xlim_signal - ax1_xlim_lower) /
-            # xlim_max )))  # original
-            return int(self.data_points * ((b - a) * ((val - xlim_min) / (xlim_max - xlim_min)) + a))
+            # Magic. Don't touch! Normalises precursor region so that both wavepackets and feature can be defined using
+            # their own x-axis limits.
+            return int(self._num_data_points * ((b - a) * ((val - signal_xlim_min)
+                                                           / (signal_xlim_max - signal_xlim_min)) + a))
 
-        lower1_signal, upper1_signal = convert_norm(lower1), convert_norm(upper1)
-        lower2_signal, upper2_signal = convert_norm(lower2), convert_norm(upper2)
-        lower3_signal, upper3_signal = convert_norm(lower3), convert_norm(upper3)
+        converted_values = {name: (convert_norm(raw_values[name][0]), convert_norm(raw_values[name][1])) for name in
+                            data_names}
 
-        lower1_precursor, upper1_precursor = convert_norm(lower1_blob), convert_norm(upper1_blob)
-        lower2_precursor, upper2_precursor = convert_norm(lower2_blob), convert_norm(upper2_blob)
-        lower3_precursor, upper3_precursor = convert_norm(lower3_blob), convert_norm(upper3_blob)
+        precursors_xlim_min, precursors_xlim_max = converted_values['Signal 1']
+        shock_xlim_min, shock_xlim_max = converted_values['Signal 2']
+        equil_xlim_min, equil_xlim_max = converted_values['Signal 3']
+        wavepacket1_xlim_min, wavepacket1_xlim_max = converted_values['wavepacket1']
+        wavepacket2_xlim_min, wavepacket2_xlim_max = converted_values['wavepacket2']
+        wavepacket3_xlim_min, wavepacket3_xlim_max = converted_values['wavepacket3']
 
-        ax1.plot(self.time_data[:],
-                 self.amplitude_data[:, spin_site], ls='-', lw=0.75,
-                 color='#37782c', alpha=0.5,
+        ########################################
+        # Access colour scheme for time evolution and plot
+        if is_colour_matte:
+            ax1_colour_matte = precursor_colour = shock_colour = equil_colour = selected_scheme['ax1_colour_matte']
+        else:
+            ax1_colour_matte = selected_scheme['ax1_colour_matte']
+            precursor_colour = selected_scheme['precursor_colour']
+            shock_colour = selected_scheme['shock_colour']
+            equil_colour = selected_scheme['equil_colour']
+
+        ax1.plot(self.time_data[:], self.amplitude_data[:, site_index],
+                 ls='-', lw=0.75, color=f'{ax1_colour_matte}', alpha=0.5,
                  markerfacecolor='black', markeredgecolor='black', zorder=1.01)
-        ax1.plot(self.time_data[lower1_signal:upper1_signal],
-                 self.amplitude_data[lower1_signal:upper1_signal, spin_site], ls='-', lw=0.75,
-                 color='#37782c', label=f"{self.sites_array[spin_site]}",
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-        ax1.plot(self.time_data[lower2_signal:upper2_signal],
-                 self.amplitude_data[lower2_signal:upper2_signal, spin_site], ls='-', lw=0.75,
-                 color='#64bb6a', label=f"{self.sites_array[spin_site]}",
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.1)
-        ax1.plot(self.time_data[lower3_signal:upper3_signal],
-                 self.amplitude_data[lower3_signal:upper3_signal, spin_site], ls='-', lw=0.75,
-                 color='#9fd983', label=f"{self.sites_array[spin_site]}",
-                 markerfacecolor='black', markeredgecolor='black', zorder=1.1)
+        if not precursors_xlim_min == precursors_xlim_max:
+            ax1.plot(self.time_data[precursors_xlim_min:precursors_xlim_max],
+                     self.amplitude_data[precursors_xlim_min:precursors_xlim_max, site_index],
+                     ls='-', lw=0.75, color=f'{precursor_colour}', label=f"{self.sites_array[site_index]}",
+                     markerfacecolor='black', markeredgecolor='black', zorder=1.1)
+        if not shock_xlim_min == shock_xlim_max:
+            ax1.plot(self.time_data[shock_xlim_min:shock_xlim_max],
+                     self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index],
+                     ls='-', lw=0.75, color=f'{shock_colour}', label=f"{self.sites_array[site_index]}",
+                     markerfacecolor='black', markeredgecolor='black', zorder=1.1)
+        if not equil_xlim_min == equil_xlim_max:
+            ax1.plot(self.time_data[equil_xlim_min:equil_xlim_max],
+                     self.amplitude_data[equil_xlim_min:equil_xlim_max, site_index],
+                     ls='-', lw=0.75, color=f'{equil_colour}', label=f"{self.sites_array[site_index]}",
+                     markerfacecolor='black', markeredgecolor='black', zorder=1.1)
 
-        if colour_precursors:
-            ax1.plot(self.time_data[lower1_precursor:upper1_precursor],
-                     self.amplitude_data[lower1_precursor:upper1_precursor, spin_site], marker='',
-                     lw=0.75, color='purple',
-                     markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
-            ax1.plot(self.time_data[lower2_precursor:upper2_precursor],
-                     self.amplitude_data[lower2_precursor:upper2_precursor, spin_site], marker='',
-                     lw=0.75, color='red',
-                     markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-            ax1.plot(self.time_data[lower3_precursor:upper3_precursor],
-                     self.amplitude_data[lower3_precursor:upper3_precursor, spin_site], marker='',
-                     lw=0.75, color='blue',
-                     markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
+        ########################################
+        # Access colour scheme again for FFT of time evolution
+        # ax2_colour_matte = selected_scheme['ax2_colour_matte']
+        precursor_colour = selected_scheme['precursor_colour']
+        shock_colour = selected_scheme['shock_colour']
+        equil_colour = selected_scheme['equil_colour']
 
-        if basic_annotations:
-            text_height = line_height - ax1_yaxis_base * 0.25 * ax1_yaxis_order
-            axes_props1 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#37782c", 'lw': 1.0}
-            axes_props2 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#64bb6a", 'lw': 1.0}
-            axes_props3 = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": "#9fd983", 'lw': 1.0}
+        if not precursors_xlim_min == precursors_xlim_max:
+            frequencies_precursors, fourier_transform_precursors = (
+                self._fft_data(self.amplitude_data[precursors_xlim_min:precursors_xlim_max, site_index]))
+            ax2.plot(frequencies_precursors, abs(fourier_transform_precursors),
+                     lw=1, color=f"{precursor_colour}", marker='', markerfacecolor='black', markeredgecolor='black',
+                     label=data_names[0], zorder=1.5)
+        if not shock_xlim_min == shock_xlim_max:
+            frequencies_dsw, fourier_transform_dsw = (
+                self._fft_data(self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index]))
+            ax2.plot(frequencies_dsw, abs(fourier_transform_dsw),
+                     lw=1, color=f'{shock_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
+                     label=data_names[1], zorder=1.2)
+        if not equil_xlim_min == equil_xlim_max:
+            frequencies_eq, fourier_transform_eq = (
+                self._fft_data(self.amplitude_data[equil_xlim_min:convert_norm(signal_xlim_max), site_index]))
+            ax2.plot(frequencies_eq, abs(fourier_transform_eq),
+                     lw=1, color=f'{equil_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
+                     label=data_names[2], zorder=1.1)
 
-            ax1.text(0.95, 0.9, f"(b)",
-                     va='center', ha='center', fontsize=self.smaller_size, transform=ax1.transAxes)
+        # for i, j, k in zip(abs(fourier_transform_precursors), abs(fourier_transform_dsw),
+        #                    abs(fourier_transform_eq)):
+        #     if i < 1:
+        #         print(f'Small value PRE found: {i}')
+        #     if j < 1:
+        #         print(f'Small value DSW found: {j}')
+        #     if k < 1:
+        #         print(f'Small value EQ found: {k}')
 
-            ax2.text(0.05, 0.9, f"(c)",
-                     va='center', ha='center', fontsize=self.smaller_size,
-                     transform=ax2.transAxes)
+        ax2.legend(ncol=1, loc='upper right', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
+                   facecolor=None, edgecolor=None, bbox_to_anchor=[0.99, 0.975], bbox_transform=ax2.transAxes)
 
-            pre_text_lhs, pre_text_rhs = lower1, upper1
-            shock_text_lhs, shock_text_rhs = lower2, upper2
-            equil_text_lhs, equil_text_rhs = lower3, upper3
+        ########################################
+        if wavepacket_fft:
+            wavepacket1_freqs, wavepacket1_fft = self._fft_data(
+                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index])
+            wavepacket2_freqs, wavepacket2_fft = self._fft_data(
+                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index])
+            wavepacket3_freqs, wavepacket3_fft = self._fft_data(
+                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index])
 
-            ax1.annotate('', xy=(pre_text_lhs, line_height), xytext=(pre_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props1, fontsize=self.tiny_size)
-            ax1.annotate('', xy=(shock_text_lhs, line_height), xytext=(shock_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props2, fontsize=self.tiny_size)
-            ax1.annotate('', xy=(equil_text_lhs, line_height), xytext=(equil_text_rhs, line_height),
-                         va='center', ha='center', arrowprops=axes_props3, fontsize=self.tiny_size)
-            ax1.text((pre_text_lhs + pre_text_rhs) / 2, text_height, 'Precursors', ha='center', va='bottom',
-                     fontsize=self.tiny_size)
-            ax1.text((shock_text_lhs + shock_text_rhs) / 2, text_height, 'Shockwave', ha='center', va='bottom',
-                     fontsize=self.tiny_size)
-            ax1.text((equil_text_lhs + equil_text_rhs) / 2, text_height, 'Equilibrium', ha='center', va='bottom',
-                     fontsize=self.tiny_size)
+            ax2.plot(wavepacket1_freqs, abs(wavepacket1_fft), marker='', lw=1, color=f'{precursor_colour}',
+                     markerfacecolor='black', markeredgecolor='black', ls=':', zorder=1.9)
+            ax2.plot(wavepacket2_freqs, abs(wavepacket2_fft), marker='', lw=1, color=f'{shock_colour}',
+                     markerfacecolor='black', markeredgecolor='black', ls='--', zorder=1.9)
+            ax2.plot(wavepacket3_freqs, abs(wavepacket3_fft), marker='', lw=1, color=f'{equil_colour}',
+                     markerfacecolor='black', markeredgecolor='black', ls='-.', zorder=1.9)
 
-        # Use these for paper publication figures
-        # ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
-        #         verticalalignment='center',
-        #         horizontalalignment='center', transform=ax1.transAxes, fontsize=self.smaller_size)
-        # ax1.text(0.04, 0.1, f"(a) 15 GHz", verticalalignment='center', horizontalalignment='left',
-        #               transform=ax1.transAxes, fontsize=6)
+        if annotate_precursors_fft:
+            arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
 
-        # Add zoomed in region if needed.
-        if add_zoomed_region:
+            ax2.annotate(wavepacket_labels[0], xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
+                         arrowprops=arrow_ax2_props, fontsize=self._fontsizes["smaller"])
+            ax2.annotate(wavepacket_labels[1], xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
+                         arrowprops=arrow_ax2_props, fontsize=self._fontsizes["smaller"])
+            ax2.annotate(wavepacket_labels[2], xy=(78.29, 1.25e0), xytext=(83.9, 7.5), va='center', ha='center',
+                         arrowprops=arrow_ax2_props, fontsize=self._fontsizes["smaller"])
+
+        if visualise_wavepackets:
+            ax1.plot(self.time_data[wavepacket1_xlim_min:wavepacket1_xlim_max],
+                     self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index],
+                     lw=0.75, color=colour_schemes[0]["wavepacket1"], marker='', markerfacecolor='black',
+                     markeredgecolor='black',
+                     label="Shockwave", zorder=1.2)
+            ax1.plot(self.time_data[wavepacket2_xlim_min:wavepacket2_xlim_max],
+                     self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index],
+                     lw=0.75, color=colour_schemes[0]["wavepacket2"], marker='', markerfacecolor='black',
+                     markeredgecolor='black',
+                     label="Steady State", zorder=1.2)
+            ax1.plot(self.time_data[wavepacket3_xlim_min:wavepacket3_xlim_max],
+                     self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index],
+                     lw=0.75, color=colour_schemes[0]["wavepacket3"], marker='', markerfacecolor='black',
+                     markeredgecolor='black',
+                     label="Steady State", zorder=1.2)
+
+        if annotate_signal:
+            # Leave these alone!
+            label_height = select_plot_scheme['ax1_line_height'] - 3 * 0.25 * -3
+            precursor_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{precursor_colour}",
+                                     'lw': 1.0}
+            shock_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{shock_colour}", 'lw': 1.0}
+            equil_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{equil_colour}", 'lw': 1.0}
+
+            precursor_label_lhs, precursor_label_rhs = precursors_xlim_min_raw, precursors_xlim_max_raw
+            shock_label_lhs, shock_label_rhs = shock_xlim_min_raw, shock_xlim_max_raw
+            equil_label_lhs, equil_label_rhs = equil_xlim_min_raw, equil_xlim_max_raw
+
+            ax1.annotate('', xy=(precursor_label_lhs, select_plot_scheme['ax1_line_height']),
+                         xytext=(precursor_label_rhs, select_plot_scheme['ax1_line_height']),
+                         va='center', ha='center', arrowprops=precursor_label_props, fontsize=self._fontsizes["tiny"])
+            ax1.annotate('', xy=(shock_label_lhs, select_plot_scheme['ax1_line_height']),
+                         xytext=(shock_label_rhs, select_plot_scheme['ax1_line_height']),
+                         va='center', ha='center', arrowprops=shock_label_props, fontsize=self._fontsizes["tiny"])
+            ax1.annotate('', xy=(equil_label_lhs, select_plot_scheme['ax1_line_height']),
+                         xytext=(equil_label_rhs, select_plot_scheme['ax1_line_height']),
+                         va='center', ha='center', arrowprops=equil_label_props, fontsize=self._fontsizes["tiny"])
+
+            ax1.text((precursor_label_lhs + precursor_label_rhs) / 2, label_height, data_names[0], ha='center',
+                     va='bottom',
+                     fontsize=self._fontsizes["tiny"])
+            ax1.text((shock_label_lhs + shock_label_rhs) / 2, label_height, data_names[1], ha='center', va='bottom',
+                     fontsize=self._fontsizes["tiny"])
+            ax1.text((equil_label_lhs + equil_label_rhs) / 2, label_height, data_names[2], ha='center', va='bottom',
+                     fontsize=self._fontsizes["tiny"])
+
+        if wavepacket_inset:
+            # Add zoomed in region if needed.
+
             # Select datasets to use
-            x = self.time_data
-            y = self.amplitude_data[:, spin_site]
-
+            time_dataset = self.time_data
+            amplitude_dataset = self.amplitude_data[:, site_index]
             # Impose inset onto plot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for T and 0.25 for B
-            ax1_inset = inset_axes(ax1, width=2.0, height=0.5, loc="upper left",
-                                   bbox_to_anchor=[0.01, 1.14], bbox_transform=ax1.transAxes)
-            ax1_inset.plot(x, y, lw=0.75, color='#37782c', zorder=1.1)
+            ax1_inset = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax1,
+                                                                         width=select_plot_scheme['ax1_inset_width'],
+                                                                         height=select_plot_scheme['ax1_inset_height'],
+                                                                         loc="lower left",
+                                                                         bbox_to_anchor=select_plot_scheme[
+                                                                             'ax1_inset_bbox'],
+                                                                         bbox_transform=ax1.transAxes)
+            ax1_inset.plot(time_dataset, amplitude_dataset, lw=0.75, color=f'{ax1_colour_matte}', zorder=1.1)
 
-            if colour_precursors:
-                ax1_inset.plot(x[lower1_precursor:upper1_precursor],
-                               y[lower1_precursor:upper1_precursor], marker='',
-                               lw=0.75, color='purple',
+            if visualise_wavepackets:
+                ax1_inset.plot(time_dataset[wavepacket1_xlim_min:wavepacket1_xlim_max],
+                               amplitude_dataset[wavepacket1_xlim_min:wavepacket1_xlim_max], marker='',
+                               lw=0.75, color=colour_schemes[0]["wavepacket1"],
                                markerfacecolor='black', markeredgecolor='black', label="Shockwave", zorder=1.2)
-                ax1_inset.plot(self.time_data[lower2_precursor:upper2_precursor],
-                               self.amplitude_data[lower2_precursor:upper2_precursor, spin_site], marker='',
-                               lw=0.75, color='red',
+                ax1_inset.plot(self.time_data[wavepacket2_xlim_min:wavepacket2_xlim_max],
+                               self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index], marker='',
+                               lw=0.75, color=colour_schemes[0]["wavepacket2"],
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
-                ax1_inset.plot(self.time_data[lower3_precursor:upper3_precursor],
-                               self.amplitude_data[lower3_precursor:upper3_precursor, spin_site], marker='',
-                               lw=0.75, color='blue',
+                ax1_inset.plot(self.time_data[wavepacket3_xlim_min:wavepacket3_xlim_max],
+                               self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index], marker='',
+                               lw=0.75, color=colour_schemes[0]["wavepacket3"],
                                markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1.2)
 
             # Select data (of original) to show in inset through changing axis limits
-            ylim_in = 2 * ax1_yaxis_order * 1e-1  # float(input("Enter ylim: "))
-            ax1_inset.set_xlim(ax1_inset_lower, upper1)
-            ax1_inset.set_ylim(-ylim_in, ylim_in)
+            # ylim_in = 2 * ax1_yaxis_order * 1e-1
+            ax1_inset.set(xlim=select_plot_scheme['ax1_inset_xlim'], ylim=select_plot_scheme['ax1_inset_ylim'], )
 
-            arrow_ax1_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=60', "color": "black",
-                               'lw': 0.8}
-            arrow_ax1_props2 = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=120',
-                                "color": "black", 'lw': 0.8}
+            arrow_lower_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=40',
+                                 "color": "black",
+                                 'lw': 0.8}
+            arrow_upper_props = {"arrowstyle": '-|>', "connectionstyle": 'angle3, angleA=0, angleB=140',
+                                 "color": "black", 'lw': 0.8}
 
-            ax1_inset.annotate('P1', xy=(1.9, -8e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
-            ax1_inset.annotate('P2', xy=(1.5, 7e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props2, fontsize=self.tiny_size)
-            ax1_inset.annotate('P3', xy=(1.2, -2e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
-                               arrowprops=arrow_ax1_props, fontsize=self.tiny_size)
+            ax1_inset.annotate(wavepacket_labels[0], xy=(1.85, -6e-5), xytext=(1.5, -1.3e-4), va='center', ha='center',
+                               arrowprops=arrow_lower_props, fontsize=self._fontsizes["tiny"])
+            ax1_inset.annotate(wavepacket_labels[1], xy=(1.45, 6e-5), xytext=(1.1, 1.3e-4), va='center', ha='center',
+                               arrowprops=arrow_upper_props, fontsize=self._fontsizes["tiny"])
+            ax1_inset.annotate(wavepacket_labels[2], xy=(1.15, -3e-5), xytext=(0.8, -1.3e-4), va='center', ha='center',
+                               arrowprops=arrow_lower_props, fontsize=self._fontsizes["tiny"])
 
-            # Remove tick labels
+            # Override rcParams for inset
             ax1_inset.set_xticks([])
             ax1_inset.set_yticks([])
             ax1_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3'
 
+            rect = mpl.patches.Rectangle((0.7, -6e-4), 1.91, 1.2e-3, lw=1, edgecolor='black',
+                                         facecolor='#f9f2e9')
+            ax1.add_patch(rect)
+
+            # Legacy Code. Kept for future reuse
             # mark_inset(ax1, ax1_inset,loc1=1, loc2=3, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, zorder=1.05)
-
             # Add box to indicate the region which is being zoomed into on the main figure
-            ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
-                                    zorder=1)
+            # ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75,
+            #                        zorder=1)
 
-        if add_info_box:
-            if self.exchange_min == self.exchange_max:
-                exchangeString = f"Uniform Exc. ({self.exchange_min} [T])"
+        if add_key_params:
+            if self._exchange_min == self._exchange_max:
+                exchange_string = f"Uniform Exc. ({self._exchange_min} [T])"
             else:
-                exchangeString = f"J$_{{min}}$ = {self.exchange_min} [T] | J$_{{max}}$ = " \
-                                 f"{self.exchange_max} [T]"
-            text_string = ((f"H$_{{0}}$ = {self.static_field} [T] | H$_{{D1}}$ = {self.driving_field1: 2.2e} [T] | "
-                            f"H$_{{D2}}$ = {self.driving_field2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
-                            f"{exchangeString} | N = {self.chain_spins} | ") + r"$\alpha$" +
-                           f" = {self.gilbert_factor: 2.2e}")
+                exchange_string = f"J$_{{min}}$ = {self._exchange_min} [T] | J$_{{max}}$ = " \
+                                  f"{self._exchange_max} [T]"
+            info_box_full_text = (
+                    (f"H$_{{0}}$ = {self._static_field} [T] | H$_{{D1}}$ = {self._driving_field1: 2.2e} [T] | "
+                     f"H$_{{D2}}$ = {self._driving_field2: 2.2e}[T] \nf = {self._driving_freq} [GHz] | "
+                     f"{exchange_string} | N = {self._chain_spins} | ") + r"$\alpha$" +
+                    f" = {self._gilbert_factor: 2.2e}")
 
-            props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
+            info_box_props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
 
-            # place a text box in upper left in axes coords
-            ax1.text(0.35, -0.22, text_string, transform=ax1.transAxes, fontsize=6,
-                     verticalalignment='top', bbox=props, ha='center', va='center')
-            ax1.text(0.85, -0.22, "Time [ns]", fontsize=12, ha='center', va='center',
+            # Move xlabel on ax1 to make space for info box
+            ax1.set(xlabel='')
+            ax1.text(0.35, -0.24, info_box_full_text, transform=ax1.transAxes, fontsize=6,
+                     verticalalignment='top', bbox=info_box_props, ha='center', va='center')
+            ax1.text(0.85, -0.2, "Time [ns]", fontsize=12, ha='center', va='center',
                      transform=ax1.transAxes)
 
-        if add_coloured_regions:
-            rectLHS = mpatches.Rectangle((0, -1 * self.amplitude_data[:, spin_site].max()), 5.75,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.05,
-                                         facecolor="grey", edgecolor=None, lw=0)
-            rectMID = mpatches.Rectangle((5.751, -1 * self.amplitude_data[:, spin_site].max()), 3.249,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.25,
-                                         facecolor="grey", edgecolor=None, lw=0)
-            rectRHS = mpatches.Rectangle((9.0, -1 * self.amplitude_data[:, spin_site].max()), 6,
-                                         2 * self.amplitude_data[:, spin_site].max() + 0.375e-2, alpha=0.5,
-                                         facecolor="grey", edgecolor=None, lw=0)
+        if add_signal_backgrounds:
+            extend_height = 0.375e-2  # Makes shaded region extend past the top/bottom of each region
+            precursor_background = mpatches.Rectangle((0, -1 * self.amplitude_data[:, site_index].max()),
+                                                      (precursors_xlim_max_raw - precursors_xlim_min_raw),
+                                                      2 * self.amplitude_data[:, site_index].max() + extend_height,
+                                                      alpha=0.3,
+                                                      facecolor=colour_schemes[0]["wavepacket4"], edgecolor=None,
+                                                      lw=0)
+            shock_background = mpatches.Rectangle((shock_xlim_min_raw, -1 * self.amplitude_data[:, site_index].max()),
+                                                  (shock_xlim_max_raw - shock_xlim_min_raw),
+                                                  2 * self.amplitude_data[:, site_index].max() + extend_height,
+                                                  alpha=0.15,
+                                                  facecolor=colour_schemes[0]["wavepacket5"], edgecolor=None, lw=0)
+            equil_background = mpatches.Rectangle((equil_xlim_min_raw, -1 * self.amplitude_data[:, site_index].max()),
+                                                  (equil_xlim_max_raw - equil_xlim_min_raw),
+                                                  2 * self.amplitude_data[:, site_index].max() + extend_height,
+                                                  alpha=0.3,
+                                                  facecolor=colour_schemes[0]["wavepacket6"], edgecolor=None, lw=0)
 
-            ax1.add_patch(rectLHS)
-            ax1.add_patch(rectMID)
-            ax1.add_patch(rectRHS)
+            ax1.add_patch(precursor_background)
+            ax1.add_patch(shock_background)
+            ax1.add_patch(equil_background)
 
+        if publication_details:
+            # Add scientific notation (annotated) above y-axis
+            # ax1.text(-0.03, 1.02, r'$\times \mathcal{10}^{{\mathcal{' + str(int(ax1_yaxis_exponent)) + r'}}}$',
+            #          va='center', ha='center', transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+
+            # Add figure reference lettering
+            ax1.text(0.95, 0.9, f"{select_plot_scheme['ax1_label']}", va='center', ha='center',
+                     fontsize=self._fontsizes["smaller"],
+                     transform=ax1.transAxes)
+            ax2.text(0.05, 0.9, f"{select_plot_scheme['ax2_label']}", va='center', ha='center',
+                     fontsize=self._fontsizes["smaller"],
+                     transform=ax2.transAxes)
+
+        for ax in self._fig.axes:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
+            ax.set_axisbelow(False)  # Must be last manipulation of subplots
+
+        if interactive_plot:
+            # For interactive plots
+            def mouse_event(event: Any):
+                print(f'x: {event.xdata} and y: {event.ydata}')
+
+            self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+            plt.show()
+
+        self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
+
+    def plot_heaviside_and_dispersions(self, dispersion_relations: bool = True, use_dual_signal_inset: bool = False,
+                                       show_group_velocity_cases: bool = False, dispersion_inset: bool = False,
+                                       use_demag: bool = False, compare_dis: bool = False,
+                                       publication_details: bool = False, interactive_plot: bool = False) -> None:
+        """
+        Two pane figure where upper pane shows the FFT of Quasi-Heaviside Step Function(s), and the lower pane
+        shows dispersion relations of our datasets.
+
+        Filler text. TODO
+        
+        :param compare_dis: 
+        :param use_demag: 
+        :param dispersion_inset: Show inset in lower pane which compared Dk^2 dispersion relations
+        :param dispersion_relations: Plot lower pane of fig if true
+        :param use_dual_signal_inset: Show signals for quasi-Heaviside in separate insets
+        :param show_group_velocity_cases: Annotate to show information on type of dispersion (normal/anomalous)
+        :param publication_details: Add figure reference lettering
+        :param interactive_plot: If `True` mouse-clicks to print x/y coords to terminal, else saves image.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+
+        if self._fig is None:
+            self._fig = plt.figure(figsize=(4.5, 3.375))
+        self._fig.subplots_adjust(wspace=1, hspace=0.35)
+
+        num_rows, num_cols = 2, 3
+
+        if dispersion_relations:
+            ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
+                                   colspan=num_cols, fig=self._fig)
+        else:
+            ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows),
+                                   colspan=num_cols, fig=self._fig)
+
+        SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
+        DURATION = int(40)  # Nanoseconds
+        FREQUENCY = int(8)  # GHz
+
+        def generate_sine_wave(freq, sample_rate, duration, delay_start=0.0, only_delay=False):
+
+            if only_delay:
+                num_samples = int(sample_rate * (duration - delay_start))
+                sample_rate = int(num_samples / (duration - delay_start))
+
+                t = np.linspace(delay_start, duration, num_samples, endpoint=False)
+                y = np.sin((2 * np.pi * freq) * t)
+
+                return t, y, sample_rate, num_samples
+
+            else:
+                delay = int(sample_rate * delay_start)
+                num_samples = int(sample_rate * duration)
+
+                t = np.linspace(0, duration, num_samples, endpoint=False)
+                y_1 = np.zeros(delay)
+                y_2 = np.sin((2 * np.pi * freq) * t[delay:])
+                y_con = np.concatenate((y_1, y_2))
+
+                return t, y_con, sample_rate, num_samples
+
+        # Generate a 15 GHz sine wave that lasts for 5 seconds
+        (time_instant, signal_instant,
+         sample_rate_instant, num_samples_instant) = generate_sine_wave(FREQUENCY, SAMPLE_RATE, DURATION,
+                                                                        0.0, False)
+        (time_delay, signal_delay,
+         sample_rate_delay, num_samples_delay) = generate_sine_wave(FREQUENCY, SAMPLE_RATE, DURATION,
+                                                                    1.0, False)
+
+        time_instant_fft = sp.fftpack.rfftfreq(num_samples_instant, 1 / sample_rate_instant)
+        signal_instant_fft = sp.fftpack.rfft(signal_instant)
+
+        time_delay_fft = sp.fftpack.rfftfreq(num_samples_delay, 1 / sample_rate_delay)
+        signal_delay_fft = sp.fftpack.rfft(signal_delay)
+
+        ax1.plot(time_delay_fft, np.abs(signal_delay_fft), marker='', lw=2.0, color='#ffb55a',
+                 markerfacecolor='black', markeredgecolor='black', label="1", zorder=1.2)
+        ax1.plot(time_instant_fft, np.abs(signal_instant_fft), marker='', lw=1.5, ls='--', color='#64bb6a',
+                 markerfacecolor='black', markeredgecolor='black', label="0", zorder=1.3)
+
+        ax1.set(xlim=(0.001, 15.999), ylim=(1e0, 1e4), xlabel="Frequency (GHz)", ylabel="Amplitude\n(arb. units)",
+                yscale='log')
+
+        ax1.xaxis.labelpad, ax1.yaxis.labelpad = -2.0, 0
+        self._tick_setter(ax1, 4, 1, 4, 4, is_fft_plot=True)
+
+        ########################################
+        if use_dual_signal_inset and dispersion_relations:
+            ax1_inset_delayed = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax1, width=1.3, height=0.36,
+                                                                                 loc="upper right",
+                                                                                 bbox_to_anchor=[0.995, 0.805],
+                                                                                 bbox_transform=ax1.transAxes)
+
+            ax1_inset_instant = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax1, width=1.3, height=0.36,
+                                                                                 loc="upper right",
+                                                                                 bbox_to_anchor=[0.995, 1.185],
+                                                                                 bbox_transform=ax1.transAxes)
+
+            ax1_inset_delayed.plot(time_delay, signal_delay, lw=1, color='#ffb55a', zorder=1.2)
+            ax1_inset_instant.plot(time_instant, signal_instant, lw=1., ls='-', color='#64bb6a', zorder=1.1)
+
+            for ax in [ax1_inset_delayed, ax1_inset_instant]:
+                ax.set(xlim=[0, 2], ylim=[-1, 1])
+                ax.tick_params(axis="both", which="both", labelsize=self._fontsizes["mini"],
+                               bottom=True, top=True, left=True, right=True, zorder=1.99)
+
+                self._tick_setter(ax, 1.0, 0.5, 1, 0.5, yaxis_multi_loc=True,
+                                  is_fft_plot=False, yaxis_num_decimals=1.1, yscale_type='p')
+
+                if ax == ax1_inset_delayed:
+                    ax.set_xlabel('Time (ns)', fontsize=self._fontsizes["tiny"])
+                    ax.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=self._fontsizes["tiny"], rotation=90,
+                                  labelpad=20)
+                    ax.yaxis.tick_left()
+                    ax.yaxis.set_label_position("left")
+
+                    ax.yaxis.set_label_coords(-.2, 1.15)
+                    ax.xaxis.labelpad = -1
+
+                if ax == ax1_inset_instant:
+                    ax.tick_params(axis='x', which='both', labelbottom=False)
+
+        elif not use_dual_signal_inset and False:
+            if dispersion_relations:
+                ax1_inset = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax1, width=1.3, height=0.72,
+                                                                             loc="upper right",
+                                                                             bbox_to_anchor=[0.995, 1.175],
+                                                                             bbox_transform=ax1.transAxes)
+
+            else:
+                ax1_inset = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax1, width=1.3, height=0.72,
+                                                                             loc="upper right",
+                                                                             bbox_to_anchor=[0.995, 0.98],
+                                                                             bbox_transform=ax1.transAxes)
+
+            ax1_inset.plot(time_instant, signal_instant, lw=0.5, color='#64bb6a', zorder=1.1)
+            ax1_inset.plot(time_delay, signal_delay, lw=0.5, ls='-.', color='#ffb55a', zorder=1.2)
+
+            ax1_inset.set(xlim=[0, 2], ylim=[-1, 1])
+            ax1_inset.set_xlabel('Time (ns)', fontsize=self._fontsizes["tiny"])
+            ax1_inset.yaxis.tick_left()
+            ax1_inset.yaxis.set_label_position("left")
+            ax1_inset.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=self._fontsizes["tiny"], rotation=90,
+                                 labelpad=20)
+            ax1_inset.tick_params(axis='both', labelsize=self._fontsizes["mini"])
+
+            ax1_inset.patch.set_color("#f9f2e9")
+            ax1_inset.yaxis.labelpad = 0
+            ax1_inset.xaxis.labelpad = -0.5
+
+            self._tick_setter(ax1_inset, 1.0, 0.25, 3, 2, is_fft_plot=False,
+                              yaxis_num_decimals=1.0, yscale_type='p')
+        ########################################
+        if dispersion_relations:
+            # Key values and computations that are common to both systems
+            hz_2_GHz, hz_2_THz = 1e-9, 1e-12
+            mu0 = 1.256e-6  # m kg s^-2 A^-2
+
+            # Key values and compute wavenumber plus frequency for Moon
+            external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
+            gyromag_ratio_moon = 28.01e9  # 28.8e9
+            lattice_constant_moon = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
+            system_len_moon = 8e-6  # metres
+            sat_mag_moon = 800e3  # A/m
+            exc_stiff_moon = 1.3e-11  # J/m
+            demag_mag_moon = sat_mag_moon
+            dmi_vals_moon = [0, 1.5e-3, 1.5e-3]  # J/m^2
+            p_vals_moon = [0, -1, 1]
+
+            # Key values and computations of values for our system
+            external_field, exchange_field = 0.1, 4.16  # 0.1, 132.5  # [T]
+            gyromag_ratio = 28.01e9  # 28.8e9
+            lattice_constant = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
+            system_len = 8e-6  # metres
+            dmi_val_const = 1.94
+            dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
+
+            max_len = round(system_len / lattice_constant)
+            num_spins_array = np.arange(-max_len, max_len, 1)
+            wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
+
+            freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
+                                          + external_field)
+            ########################################
+            # Plot dispersion relations
+            ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
+                                   rowspan=num_rows, colspan=num_cols, fig=self._fig)
+
+            ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', lw=1., ls='-',
+                     label=f'Our System')
+            ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (
+                    external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * hz_2_THz,
+                     color='red', lw=1., alpha=0.4, ls='--', label=f'Dk2 dataset')
+
+            # These!!
+            # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+            #             s=0.5, c='red', label='paper')
+            # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
+
+            ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', ylim=[0, 15.4])
+            self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
+                              xaxis_num_decimals=.1, yaxis_num_decimals=2.1, yscale_type='p')
+
+            ax2.margins(0)
+            ax2.xaxis.labelpad = -2
+
+            if compare_dis:
+                self._fig.suptitle('Comparison of my derivation with Moon\'s')
+
+                if not use_demag:
+                    demag_mag_moon = 0
+
+                ax1.clear()
+                for dmi_val in dmi_vals:
+                    """ Don't delete yet! Need to check the maths                    
+                    freq_array = gyromag_ratio * (4 * (exc_stiff / sat_mag) / lattice_constant**2
+                                                 * (1 - np.cos(wave_number_array * lattice_constant))
+                                                 + external_field
+                                                 + (dmi_val/sat_mag) * wave_number_array)
+                    freq_array = gyromag_ratio * (2 * (exc_stiff / sat_mag) * wave_number_array**2
+                                                  + external_field
+                                                  + (2 * dmi_val/sat_mag) * wave_number_array)
+                    ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                            label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
+
+                    These!!
+                    ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+                                s=0.5, c='red', label='paper')
+                    ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, 
+                             color='red', ls='--', label=f'Kittel')
+                    """
+                    freq_array = gyromag_ratio * (2 * exchange_field * lattice_constant ** 2 * wave_number_array ** 2
+                                                  + external_field
+                                                  + dmi_val * lattice_constant * wave_number_array)
+
+                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz,
+                             lw=1., ls='-', label=f'D = {dmi_val}')
+                    ax1.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)',
+                            xlim=[-0.25, 0.25], ylim=[0, 40])
+                    self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                      xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+                    ax1.margins(0)
+                    ax1.xaxis.labelpad = -2
+                    ax1.legend(title='Mine\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                               fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+
+                ax2.clear()
+                for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
+                    max_len_moon = round(system_len_moon / lattice_constant_moon)
+                    num_spins_array_moon = np.arange(-max_len_moon, max_len_moon, 1)
+                    wave_number_array_moon = (num_spins_array_moon * np.pi) / (
+                            (len(num_spins_array_moon) - 1) * lattice_constant_moon)
+
+                    h0 = external_field_moon / mu0
+                    j_star = ((2 * exc_stiff_moon) / (mu0 * sat_mag_moon))
+                    h0_plus_jk = h0 + j_star * wave_number_array_moon ** 2
+                    d_star = ((2 * dmi_val) / (mu0 * sat_mag_moon))
+
+                    freq_array_moon = gyromag_ratio_moon * mu0 * (np.sqrt(h0_plus_jk * (h0_plus_jk + demag_mag_moon))
+                                                                  + p_val * d_star * wave_number_array_moon)
+
+                    ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz,
+                             lw=1., ls='-', label=f'D = {p_val * dmi_val}')
+                    """ Don't delete yet! Need to check the maths                   
+                    ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                            label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
+
+                    These!!
+                    ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12,
+                                s=0.5, c='red', label='paper')
+                    ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, 
+                             color='red', ls='--', label=f'Kittel')
+                    """
+
+                    ax2.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[0, 20])
+                    self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                      xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                    ax2.margins(0)
+                    ax2.xaxis.labelpad = -2
+
+                    ax2.legend(title='Theirs\n'r'$(J/m^2$)', title_fontsize=self._fontsizes["smaller"],
+                               fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+
+            if show_group_velocity_cases:
+                # Change xaxis limit to show in terms of lattice constant
+                ax2.text(0.997, -0.13, r"$\mathrm{\dfrac{\pi}{a}}$",
+                         verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes,
+                         fontsize=self._fontsizes["smaller"])
+
+                ########################################
+                # Horizon lines and labels for each region (paper's notation)
+                ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.31
+                ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
+
+                ax2.text(0.02, 0.88, r"$\mathcal{III}$", verticalalignment='center', horizontalalignment='left',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+                ax2.text(0.02, 0.5, r"$\mathcal{II}$", verticalalignment='center', horizontalalignment='left',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+                ax2.text(0.02, 0.12, r"$\mathcal{I}$", verticalalignment='center', horizontalalignment='left',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+
+                # Use arrow to show rate of change of group velocity (normal (+ve)/no (nil)/anomalous (-ve) dispersion
+                ax2.text(0.91, 0.82, f"Decreasing", verticalalignment='center', horizontalalignment='center',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
+                ax2.text(0.60, 0.425, f"Constant", verticalalignment='center', horizontalalignment='center',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
+                ax2.text(0.41, 0.12, f"Increasing", verticalalignment='center', horizontalalignment='center',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
+
+                ########################################
+                # Annotate group velocity derivative rate of change
+                arrow_props_normal_disp = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.075", "color": "black"}
+                arrow_props_no_disp = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
+                arrow_props_anom_disp = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.075", "color": "black"}
+
+                ax2.annotate('', xy=(1.665, 2.961), xytext=(1.147, 1.027), va='center', ha='center',
+                             arrowprops=arrow_props_normal_disp, fontsize=self._fontsizes["tiny"],
+                             transform=ax2.transAxes)
+                ax2.annotate('', xy=(3.058, 9.406), xytext=(2.154, 5.098), va='center', ha='center',
+                             arrowprops=arrow_props_no_disp, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
+                ax2.annotate('', xy=(4.155, 13.213), xytext=(3.553, 11.342), va='center', ha='center',
+                             arrowprops=arrow_props_anom_disp, fontsize=self._fontsizes["tiny"],
+                             transform=ax2.transAxes)
+
+            if dispersion_inset:
+                # Key Parameters
+                # j_to_meV = 6.24150934190e21
+                D_b = 5.3e-17  # exchange field created by exchange energy of spin wave
+                a1, a2 = lattice_constant, np.sqrt(D_b / 132.5)
+
+                # Wave number calculation
+                num_spins_array1 = np.arange(0, 5000, 1)
+                num_spins_array2 = np.arange(0, 15811, 1)
+                wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
+                wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
+
+                ########################################
+                # Construct inset and plot dispersion relation(s) for D*k^2 cases for both datasets
+                ax2_inset_disp_rels = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax2, width=1.25, height=0.5,
+                                                                                       loc="lower right",
+                                                                                       bbox_to_anchor=[0.9875, 0.02],
+                                                                                       bbox_transform=ax2.transAxes)
+
+                ax2_inset_disp_rels.plot(wave_number_array1 * hz_2_GHz,
+                                         (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5,
+                                         ls='--', color='purple', label='$a=0.2$ nm', zorder=1.3)
+                ax2_inset_disp_rels.plot(wave_number_array2 * hz_2_GHz,
+                                         (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_THz, lw=1.5, ls='-',
+                                         label='$a=0.63$ nm', zorder=1.2)
+
+                ########################################
+                # Set figure formatting
+                if not show_group_velocity_cases:
+                    ax2_inset_disp_rels.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=self._fontsizes["tiny"])
+                    ax2_inset_disp_rels.set_ylabel('Freq (THz)', fontsize=self._fontsizes["tiny"], rotation=90,
+                                                   labelpad=20)
+
+                ax2_inset_disp_rels.set(xlim=[0, 2], ylim=[0, 10])
+                ax2_inset_disp_rels.xaxis.tick_top()
+                ax2_inset_disp_rels.xaxis.set_label_position("top")
+                ax2_inset_disp_rels.yaxis.set_label_position("left")
+                ax2_inset_disp_rels.tick_params(axis='both', labelsize=self._fontsizes["tiny"])
+                ax2.margins(0)
+
+                ax2_inset_disp_rels.patch.set_color("#f9f2e9")
+                ax2_inset_disp_rels.xaxis.labelpad, ax2_inset_disp_rels.yaxis.labelpad = 2.5, 5
+
+                self._tick_setter(ax2_inset_disp_rels, 1, 0.5, 3, 3,
+                                  xaxis_num_decimals=0, yaxis_num_decimals=1.0,
+                                  is_fft_plot=False, yscale_type='p')
+
+                ax2_inset_disp_rels.legend(fontsize=self._fontsizes["mini"], frameon=False)
+
+            ########################################
+            if publication_details:
+                ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
+                         transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+
+                ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+                         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+
+        for ax in self._fig.axes:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            ax.set_facecolor("white")
+            ax.set_axisbelow(False)
+
+        if interactive_plot:
+            # For interactive plots
+            def mouse_event(event: Any):
+                if event.xdata is not None and event.ydata is not None:
+                    print(f'x: {event.xdata:f} and y: {event.ydata:f}')
+
+            self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+
+            cursor = mplcursors.cursor(hover=True)
+            cursor.connect("add", lambda sel: sel.annotation.set_text(
+                f'x={sel.target[0]:.4f}, y={sel.target[1]:.4f}'))
+
+            # Hide the arrow in the callback
+            @cursor.connect("add")
+            def on_add(sel):
+                sel.annotation.get_bbox_patch().set(fc="white")  # Change background color
+                sel.annotation.arrow_patch.set_alpha(0)  # Make the arrow invisible
+
+            self._fig.tight_layout()  # has to be here
+            plt.show()
+
+        else:
+            self._fig.savefig(f"{self.output_filepath}_dispersion_tv2.png", bbox_inches="tight")
+
+    def plot_fft(self, spin_site, add_zoomed_region=False):
+        """
+        Plot the magnitudes of the magnetic moment of a spin site against time, as well as the FFTs, over four subplots.
+
+        :param add_zoomed_region: Add inset to plot for showing Heaviside function.
+        :param int spin_site: The spin site being plotted.
+
+        :return: A figure containing four sub-plots.
+        """
+        # Find maximum time in (ns) to the nearest whole (ns), then find how large shaded region should be.
+
+        plot_set_params = {0: {"xlabel": "Time (ns)", "ylabel": "m$_x$ / M$_S$"},
+                           1: {"xlabel": "Frequency (GHz)", "ylabel": "Amplitude (a.u.)",
+                               "xlim": (0, 60), "ylim": (1e-4, 1e1)},
+                           2: {"xlabel": "Frequency (GHz)"}}
+
+        # Signal that varies in time #37782c
+
+        # FFT stuff
+
+        lower1_wave, upper1_wave = 12, 3345
+        lower2_wave, upper2_wave = 3345, 5079
+        lower3_wave, upper3_wave = 5079, 10000
+        lower1_blob, upper1_blob = 2930, 3320
+        lower2_blob, upper2_blob = 2350, 2570
+        lower3_blob, upper3_blob = 1980, 2130
+        frequencies_blob1, fourier_transform_blob1 = self._fft_data(
+            self.amplitude_data[lower1_blob:upper1_blob, spin_site])
+        frequencies_blob2, fourier_transform_blob2 = self._fft_data(
+            self.amplitude_data[lower2_blob:upper2_blob, spin_site])
+        frequencies_blob3, fourier_transform_blob3 = self._fft_data(
+            self.amplitude_data[lower3_blob:upper3_blob, spin_site])
         frequencies_precursors, fourier_transform_precursors = self._fft_data(
-            self.amplitude_data[lower1_signal:upper1_signal, spin_site])
+            self.amplitude_data[lower1_wave:upper1_wave, spin_site])
         frequencies_dsw, fourier_transform_dsw = self._fft_data(
-            self.amplitude_data[lower2_signal:upper2_signal, spin_site])
+            self.amplitude_data[lower2_wave:upper2_wave, spin_site])
         frequencies_eq, fourier_transform_eq = self._fft_data(
-            self.amplitude_data[lower3_signal:convert_norm(xlim_max), spin_site])
+            self.amplitude_data[lower3_wave:upper3_wave, spin_site])
 
+        # FFT for blobs
+        fig = plt.figure()
+        # ax2 = plt.subplot2grid((4, 8), (0, 0), rowspan=4, colspan=8)
+        ax2 = fig.add_subplot(111)
+        ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', ls=':')
+        ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', ls='--')
+        ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
+                 markerfacecolor='black', markeredgecolor='black', ls='-.')
         ax2.plot(frequencies_precursors, abs(fourier_transform_precursors), marker='', lw=1, color='#37782c',
                  markerfacecolor='black', markeredgecolor='black', label="Precursors", zorder=5)
         ax2.plot(frequencies_dsw, abs(fourier_transform_dsw), marker='', lw=1, color='#64bb6a',
@@ -787,314 +1482,787 @@ def create_time_variation(self, spin_site, colour_precursors=False, annotate_pre
         ax2.plot(frequencies_eq, abs(fourier_transform_eq), marker='', lw=1, color='#9fd983',
                  markerfacecolor='black', markeredgecolor='black', label="Steady State", zorder=1)
 
-        if annotate_precursors:
-            frequencies_blob1, fourier_transform_blob1 = self._fft_data(
-                self.amplitude_data[lower1_precursor:upper1_precursor, spin_site])
-            frequencies_blob2, fourier_transform_blob2 = self._fft_data(
-                self.amplitude_data[lower2_precursor:upper2_precursor, spin_site])
-            frequencies_blob3, fourier_transform_blob3 = self._fft_data(
-                self.amplitude_data[lower3_precursor:upper3_precursor, spin_site])
+        ax2.set(**plot_set_params[1], yscale='log')
+        arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+        ax2.annotate('P1', xy=(24.22, 0.029), xytext=(26.31, 0.231), va='center', ha='center',
+                     arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P2', xy=(36.48, 0.0096), xytext=(39.91, 0.13), va='center', ha='center',
+                     arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.annotate('P3', xy=(52.00, 0.0045), xytext=(56.25, 0.075), va='center', ha='center',
+                     arrowprops=arrow_ax2_props, fontsize=8)
+        ax2.legend(ncol=1, fontsize=6, frameon=False, fancybox=True, facecolor=None, edgecolor=None,
+                   bbox_to_anchor=[0.7, 0.65])
+        self._tick_setter(ax2, 20, 5, 3, 4, is_fft_plot=True)
 
-            ax2.plot(frequencies_blob1, abs(fourier_transform_blob1), marker='', lw=1, color='#37782c',
-                     markerfacecolor='black', markeredgecolor='black', ls=':')
-            ax2.plot(frequencies_blob2, abs(fourier_transform_blob2), marker='', lw=1, color='#37782c',
-                     markerfacecolor='black', markeredgecolor='black', ls='--')
-            ax2.plot(frequencies_blob3, abs(fourier_transform_blob3), marker='', lw=1, color='#37782c',
-                     markerfacecolor='black', markeredgecolor='black', ls='-.')
+        for ax in [ax2]:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=6)
 
-            arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
-            ax2.annotate('P1', xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-            ax2.annotate('P2', xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
-            ax2.annotate('P3', xy=(78.29, 1.25e0), xytext=(83.9, 5.5), va='center', ha='center',
-                         arrowprops=arrow_ax2_props, fontsize=self.smaller_size)
+        # Add zoomed in region if needed.
+        if add_zoomed_region:
+            # Select datasets to use
+            x = self.time_data[:]
+            y = self.amplitude_data[:, spin_site]
 
-        ax2.legend(ncol=1, loc='upper right', fontsize=self.tiny_size, frameon=False, fancybox=True, facecolor=None,
-                   edgecolor=None,
-                   bbox_to_anchor=[0.975, 0.95], bbox_transform=ax2.transAxes)
+            # Impose inset onto plot. Treat as a separate subplot. Use 0.24 for LHS and 0.8 for RHS. 0.7 for TR and
+            ax2_inset = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax2, width=2.4, height=0.625, loc="lower left",
+                                                                         bbox_to_anchor=[0.14, 0.625],
+                                                                         bbox_transform=ax2.figure.transFigure)
+            ax2_inset.plot(x, y, lw=0.75, color='#37782c')
 
-        for ax in [ax1, ax2]:
-            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
+            # Select data (of original) to show in inset through changing axis limits
+            ax2_inset.set_xlim(1.25, 2.5)
+            ax2_inset.set_ylim(-0.2e-3, 0.2e-3)
+
+            # Remove tick labels
+            ax2_inset.set_xticks([])
+            ax2_inset.set_yticks([])
+            ax2_inset.patch.set_color("#f9f2e9")  # #f0a3a9 is equivalent to color 'red' and alpha '0.3' fbe3e5
+            # ax2_inset.patch.set_alpha(0.3)
+            # ax2_inset.set(facecolor='red', alpha=0.3)
+            # mark_inset(self._axes, ax2_inset,loc1=1, loc2=2, facecolor="red", edgecolor=None, alpha=0.3)
+
+            # Add box to indicate the region which is being zoomed into on the main figure
+            ax2.indicate_inset_zoom(ax2_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
+            arrow_inset_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
+            ax2_inset.annotate('P1', xy=(2.228, -1.5e-4), xytext=(1.954, -1.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+            ax2_inset.annotate('P2', xy=(1.8, -8.48e-5), xytext=(1.407, -1.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+            ax2_inset.annotate('P3', xy=(1.65, 6e-5), xytext=(1.407, 1.5e-4), va='center', ha='center',
+                               arrowprops=arrow_inset_props, fontsize=6)
+
+        ax2.set_axisbelow(False)
+        fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
+
+        early_exit = True
+        if early_exit:
+            exit(0)
+
+        ax = plt.subplot2grid((4, 8), (2, 0), rowspan=2, colspan=8)
+        SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
+        DURATION = int(15)  # Nanoseconds
+
+        def generate_sine_wave(freq, sample_rate, duration, delay_num):
+            delay = int(sample_rate * delay_num)
+            t = np.linspace(0, duration, sample_rate * duration, endpoint=False)
+            y_1 = np.zeros(delay)
+            y_2 = np.sin((2 * np.pi * freq) * t[delay:])
+            y_con = np.concatenate((y_1, y_2))
+            return t, y_con
+
+        # Generate a 15 GHz sine wave that lasts for 5 seconds
+        x1, y1 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 1)
+        x2, y2 = generate_sine_wave(15, SAMPLE_RATE, DURATION, 0)
+        from scipy.fft import rfft, rfftfreq
+        # Number of samples in normalized_tone
+        n1 = int(SAMPLE_RATE * DURATION)
+        n2 = int(SAMPLE_RATE * DURATION)
+
+        y1f = rfft(y1)
+        y2f = rfft(y2)
+        x1f = rfftfreq(n1, 1 / SAMPLE_RATE)
+        x2f = rfftfreq(n2, 1 / SAMPLE_RATE)
+
+        ax.plot(x1f, np.abs(y1f), marker='', lw=1.0, color='#ffb55a', markerfacecolor='black', markeredgecolor='black',
+                label="1", zorder=1.2)
+        ax.plot(x2f, np.abs(y2f), marker='', lw=1.0, ls='-', color='#64bb6a', markerfacecolor='black',
+                markeredgecolor='black',
+                label="0", zorder=1.3)
+
+        ax.set(xlim=(5, 25), ylim=(1e0, 1e4),
+               xlabel="Frequency (GHz)", yscale='log')
+        ax.tick_params(top="on", right="on", which="both")
+
+        ax.set_ylabel("Amplitude (arb. units)\n", x=-10, y=1)
+
+        ax.text(0.04, 0.88, f"(b)",
+                verticalalignment='center', horizontalalignment='left', transform=ax.transAxes, fontsize=8)
+        ax2.text(0.04, 0.88, f"(a)",
+                 verticalalignment='center', horizontalalignment='left', transform=ax2.transAxes, fontsize=8)
+
+        ax2_inset = mpl_toolkits.axes_grid1.inset_locator.inset_axes(ax, width=1.8, height=0.7, loc="upper right",
+                                                                     bbox_to_anchor=[0.88, 0.47],
+                                                                     bbox_transform=ax.figure.transFigure)
+        ax2_inset.plot(x1, y1, lw=0.5, color='#ffb55a', zorder=1.2)
+        ax2_inset.plot(x2, y2, lw=0.5, ls='--', color='#64bb6a', zorder=1.1)
+        ax2_inset.yaxis.tick_right()
+        ax2_inset.set_xlabel('Time (ns)', fontsize=8)
+        ax2_inset.set(xlim=[0, 2])
+        ax2_inset.yaxis.set_label_position("right")
+        ax2_inset.set_ylabel('Amplitude (arb. units)', fontsize=8, rotation=-90, labelpad=10)
+        ax2_inset.tick_params(axis='both', labelsize=8)
+
+        ax2_inset.patch.set_color("#f9f2e9")
+
+        ax.xaxis.set(major_locator=ticker.MultipleLocator(5),
+                     minor_locator=ticker.MultipleLocator(1))
+        ax2_inset.xaxis.set(major_locator=ticker.MultipleLocator(1),
+                            minor_locator=ticker.MultipleLocator(0.2))
+        ax2_inset.xaxis.labelpad = -0.5
+
+        ax.set_axisbelow(False)
+        ax2_inset.set_axisbelow(False)
+
+        # ax.legend(title="$\Delta t$ (ns)", ncol=1, loc="upper left",
+        #          frameon=False, fancybox=False, facecolor='white', edgecolor='black',
+        #          fontsize=8, title_fontsize=10,
+        #          bbox_to_anchor=(0.14, 0.475), bbox_transform=ax.figure.transFigure
+        #          ).set_zorder(4)
+        fig.subplots_adjust(wspace=0.1, hspace=-0.3)
+        fig.tight_layout()
+        # def mouse_event(event):
+        #    print('x: {} and y: {}'.format(event.xdata, event.ydata))
+        #
+        # cid = fig.canvas.mpl_connect('button_press_event', mouse_event)
+        # plt.show()
+        fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
+
+    def _fft_data(self, amplitude_data, spatial_spacing=None):
+        """
+        Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
+
+        :param amplitude_data: Magnitudes of magnetic moments for a spin site
+
+        :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
+        (1st eigenvalue) [2], and driving frequency [3] for the system.
+        """
+
+        # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
+        if spatial_spacing is None:
+            sample_spacing = (self._max_time / (self._num_data_points - 1))
+            # Compute the FFT
+            n = amplitude_data.size
+            normalised_data = amplitude_data
+
+            fourier_transform = sp.fftpack.rfft(normalised_data)
+            frequencies = sp.fftpack.rfftfreq(n, sample_spacing)
+        else:
+            sample_spacing = spatial_spacing
+            # Compute the FFT
+            n = amplitude_data.size
+            normalised_data = amplitude_data
+
+            fourier_transform = sp.fftpack.rfft(normalised_data)
+            frequencies = sp.fftpack.rfftfreq(n, sample_spacing)
+
+        return frequencies, fourier_transform
+
+    def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
+                     xaxis_num_decimals=.1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False,
+                     show_sci_notation=False):
+
+        if ax is None:
+            ax = plt.gca()
+
+        if is_fft_plot:
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
+                         major_formatter=ticker.FormatStrFormatter(f"%{xaxis_num_decimals}f"),
+                         minor_locator=ticker.MultipleLocator(x_minor))
+            ax.yaxis.set(major_locator=ticker.LogLocator(base=10, numticks=y_major))
+            log_minor_locator = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.1, numticks=y_minor)
+            ax.yaxis.set_minor_locator(log_minor_locator)
+            ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
+            # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
+        else:
+            ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
+                         major_formatter=ticker.FormatStrFormatter(f"%{xaxis_num_decimals}f"),
+                         minor_locator=ticker.MultipleLocator(x_minor))
+            ax.yaxis.set(major_locator=ticker.MaxNLocator(nbins=y_major, prune='lower'),
+                         major_formatter=ticker.FormatStrFormatter(f"%{yaxis_num_decimals}f"),
+                         minor_locator=ticker.AutoMinorLocator(y_minor))
+
+            if yaxis_multi_loc:
+                ax.yaxis.set(major_locator=ticker.MultipleLocator(y_major),
+                             major_formatter=ticker.FormatStrFormatter(f"%{yaxis_num_decimals}f"),
+                             minor_locator=ticker.MultipleLocator(y_minor))
+
+            class ScalarFormatterClass(ticker.ScalarFormatter):
+                def _set_format(self):
+                    self.format = f"%{yaxis_num_decimals}f"
+
+            yScalarFormatter = ScalarFormatterClass(useMathText=True)
+            yScalarFormatter.set_powerlimits((0, 0))
+            if format_xaxis:
+                ax.xaxis.set_major_formatter(yScalarFormatter)
+            ax.yaxis.set_major_formatter(yScalarFormatter)
+
+            if yscale_type == 'sci':
+                ax.ticklabel_format(axis='y', style='sci')
+            elif yscale_type == 'plain':
+                ax.ticklabel_format(axis='y', style='plain')
+
+            # ax.yaxis.labelpad = -3
+            if show_sci_notation:
+                ax.yaxis.get_offset_text().set_visible(True)
+                ax.yaxis.get_offset_text().set_fontsize(8)
+                t = ax.yaxis.get_offset_text()
+                t.set_x(-0.045)
+            else:
+                ax.yaxis.get_offset_text().set_visible(False)
+
+        return ax
+
+    def ricardo_paper(self, interactive_plot=False):
+        """
+        Plot the magnetisation of a site against time.
+
+        One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+
+        ########################################
+        for val in [4, 5, 6]:
+            # filename = f"D:/Data/2023-03-08/Simulation_Data/Ricardo Data/dataFig{val}.csv"
+            filename = (f'/Users/cameronmceleney/CLionProjects/Data/2023-03-08/Simulation_Data/'
+                        f'Ricardo Data/dataFig{val}.csv')
+            dataset = np.loadtxt(filename, skiprows=1, delimiter=',', dtype='float')
+
+            fig = plt.figure(figsize=(3.375, 3.375 / 2))
+            ax = fig.add_subplot(111)
+
+            xaxis_data = dataset[:, 0]
+            yaxis_data1 = dataset[:, 1]
+
+            yaxis_data2 = None
+            colour1, colour2 = None, None
+            label1, label2 = None, None
+            leg_loc, leg_pos = None, None
+
+            ax_lw = 2.25
+            ax_s = 10
+
+            if val == 4:
+                ax.set(xlabel=r"Time Increment", ylabel=r"$\Delta d_{cores}$ (nm)",
+                       xlim=[0, 7999.9], ylim=[-0.001, 60])
+
+                ax.yaxis.labelpad = 0
+
+                # ax.text(0.925, 0.1, '(a)', va='center', ha='center',
+                #         transform=ax.transAxes, fontsize=self._fontsizes["smaller"])
+
+                self._tick_setter(ax, 2e3, 1e3, 4, 2,
+                                  xaxis_num_decimals=0, yaxis_num_decimals=0, yscale_type='p')
+                colour1 = '#EA653A'  # orange
+
+            if val in [5, 6]:
+                yaxis_data2 = dataset[:, 2]
+
+                ax_s = 24
+
+                colour1 = '#3A9846'  # green
+                colour2 = '#5584B9'  # blue
+
+                label1, label2 = 'Bloch', 'Néel'
+
+            ax.plot(xaxis_data, yaxis_data1, ls='-', lw=ax_lw, color=colour1, alpha=0.5,
+                    zorder=1.01)
+            ax.scatter(xaxis_data, yaxis_data1, color=colour1, marker='o', s=ax_s, fc=colour1, ec='None',
+                       label=label1, zorder=1.01)
+
+            if val in [5, 6]:
+                if val == 5:
+                    leg_loc = "upper right"
+                    leg_pos = (0.96, 0.95)
+
+                    ax.set(xlabel=r"Angular Frequency (1)", ylabel="Avg. Velocity (10$^{-3}$)",
+                           xlim=[0.095, 0.355])
+
+                    # ax.text(0.075, 0.1, '(b)', va='center', ha='center', transform=ax.transAxes,
+                    #         fontsize=self._fontsizes["smaller"])
+
+                    self._tick_setter(ax, 0.1, 0.05, 3, 2,
+                                      xaxis_num_decimals=1, yaxis_num_decimals=0, yscale_type='')
+
+                    # ax.text(-0.02, 1.05, r'$\times \mathcal{10}^{{\mathcal{' + str(int(-3)) + r'}}}$',
+                    #        va='center',
+                    #        ha='center', transform=ax.transAxes, fontsize=self._fontsizes["smaller"])
+
+                if val == 6:
+                    leg_loc = "upper left"
+                    leg_pos = (0.02, 0.95)
+
+                    ax.set(xlabel=r"Pumping Field (1)", ylabel="Avg. Velocity (10$^{-3}$)",
+                           xlim=[0.1425, 0.3075], ylim=[0.00185, 0.0081])
+
+                    self._tick_setter(ax, 0.1, 0.025, 4, 2,
+                                      xaxis_num_decimals=1, yaxis_num_decimals=0, yscale_type='')
+                    # ax.text(0.925, 0.1, '(c)', va='center', ha='center', transform=ax.transAxes,
+                    #         fontsize=self._fontsizes["smaller"])
+
+                    # ax.text(-0.02, 1.05, r'$\times \mathcal{10}^{{\mathcal{' + str(int(-3)) + r'}}}$',
+                    #        va='center',
+                    #        ha='right', transform=ax.transAxes, fontsize=self._fontsizes["smaller"])
+
+                ax.plot(xaxis_data, yaxis_data2, ls='-', lw=ax_lw, color=colour2, alpha=0.5,
+                        zorder=1.01)
+                ax.scatter(xaxis_data, yaxis_data2, color=colour2, marker='o', s=ax_s, fc=colour2, ec='None',
+                           label=label2, zorder=1.01)
+
+                ax.legend(ncol=1, loc=leg_loc, handletextpad=-0.25,
+                          frameon=False, fancybox=False, facecolor='None', edgecolor='black',
+                          fontsize=self._fontsizes["tiny"], bbox_to_anchor=leg_pos,
+                          bbox_transform=ax.transAxes).set_zorder(4)
+
+            for axis in [ax]:
+                # ax.set_facecolor('#f4f4f5')
+                ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.9999)
+
+                axis.set_axisbelow(False)
+                axis.set_facecolor('white')
+
+            if interactive_plot:
+                # For interactive plots
+                def mouse_event(event: Any):
+                    print(f'x: {event.xdata} and y: {event.ydata}')
+
+                self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+                self._fig.tight_layout()  # has to be here
+                plt.show()
+            else:
+                fig.savefig(f"{self.output_filepath}_data{val}.png", bbox_inches="tight")
+
+    def find_degenerate_modes(self, use_demag: bool = False, publication_details: bool = False,
+                              find_modes: bool = False, interactive_plot: bool = False) -> None:
+        """
+        Two pane figure where upper pane shows the FFT of Quasi-Heaviside Step Function(s), and the lower pane
+        shows dispersion relations of our datasets.
+
+        Filler text. TODO
+
+        :param find_modes:
+        :param use_demag:
+        :param publication_details: Add figure reference lettering
+        :param interactive_plot: If `True` mouse-clicks to print x/y coords to terminal, else saves image.
+
+        :return: Saves a .png image to the designated output folder.
+        """
+        if self._fig is None:
+            self._fig = plt.figure(figsize=(8, 6))  # (figsize=(4.5, 3.375))
+        self._fig.subplots_adjust(wspace=1, hspace=0.35)
+
+        num_rows, num_cols = 1, 3
+
+        def round_to_sig_figs(x, sig_figs):
+            if x == 0:
+                return 0
+            else:
+                return round(x, sig_figs - int(math.floor(math.log10(abs(x)))) - 1)
+
+        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 1),
+                               colspan=num_cols, fig=self._fig)
+        #ax2 = plt.subplot2grid((num_rows, num_cols), (0, 0),
+        #                       rowspan=num_rows, colspan=num_cols, fig=self._fig)
+        ########################################
+        # Key values and computations that are common to both systems
+        hz_2_GHz, hz_2_THz, m_2_nm = 1e-9, 1e-12, 1e9
+        # mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
+
+        # Key values and compute wavenumber plus frequency for Moon
+        external_field_moon = 0.3  # exchange_field = [8.125, 32.5]  # [T]
+        gyromag_ratio_moon = 28.0e9  # 28.8e9
+        lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
+        system_len_moon = 4e-6  # metres 4e-6
+        sat_mag_moon = 800e3  # A/m
+        exc_stiff_moon = 0.2 * 1.3e-11  # J/m
+        demag_mag_moon = sat_mag_moon
+        dmi_val_const_moon = 0.75e-3  # 1.0e-3
+        dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
+        p_vals_moon = [0, -1, 1]
+
+        # Key values and computations of values for our system
+        external_field = external_field_moon
+        exchange_field = (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)
+        gyromag_ratio = gyromag_ratio_moon
+        lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
+        system_len = system_len_moon  # metres
+        dmi_val_const = (2 * dmi_val_const_moon) / (sat_mag_moon * lattice_constant_moon)  # 1.9416259130841862  # 2.5
+        dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
+
+        dec.getcontext().prec = 30
+
+        ########################################
+
+        if not use_demag:
+            demag_mag_moon = 0
+
+        if find_modes:
+
+            # System length setup
+            max_len = round(system_len / lattice_constant)
+            half_max_length = int(max_len / 2)
+            n_lower, n_upper = 0, half_max_length
+
+            num_spins_array = np.arange(-half_max_length, half_max_length + 1, 1)
+            total_sys_pairs = (max_len - 1) * lattice_constant
+
+            # Output controls
+            should_print_only_matches = True
+            should_print_only_half_ints = True
+            should_highlight_all_matches = True
+            should_highlight_half_ints = True
+            use_original_wavenumbers = True
+
+            if should_print_only_half_ints:
+                should_print_only_matches = False
+
+            # Precision of output
+            wv_rnd = 6
+            fq_rnd = 3  # kz resolution for rounding
+
+            # Error tolerances
+            wv_tol = 10 ** -(wv_rnd - 1)
+            freq_atol = 3 * 10 ** -(fq_rnd - 1)
+            half_int_atol = 1e-1
+
+            # Calculate all wavevectors in system
+            wave_number_array = (2 * num_spins_array * np.pi) / total_sys_pairs
+
+            # Calculate all frequencies in system assuming that there is no demagnetisation
+            freq_array = gyromag_ratio * (
+                    round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
+                    + external_field
+                    + dmi_val_const * lattice_constant * wave_number_array)
+
+            print(
+                f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} | "
+                f"Exchange field [T]: {exchange_field} | External field [T]: {external_field} | "
+                f"Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9} | System length [um]: {system_len * 1e6}")
+            print(
+                f'wv_rnd: {wv_rnd} | fq_rnd: {fq_rnd} | wv_tol: {wv_tol} | freq_atol: {freq_atol} | '
+                f'half_int_atol: {half_int_atol}')
+            # Calculate all wavelengths
+            wavelengths_array = np.zeros_like(wave_number_array, dtype=float)
+
+            # Set wavelength to infinity where wave number is zero
+            zero_wave_indices = wave_number_array == 0
+            wavelengths_array[zero_wave_indices] = np.inf
+
+            # Perform division where wave number is non-zero and convert to [nm]
+            non_zero_wave_indices = ~zero_wave_indices
+            wavelengths_array[non_zero_wave_indices] = ((2 * np.pi) / wave_number_array[
+                non_zero_wave_indices]) * lattice_constant_moon
+
+            # Convert wave numbers to [1/nm] with rounding
+            wave_number_array = np.round(wave_number_array * 1e-9, wv_rnd)
+            wavevectors_from_n = wave_number_array[half_max_length + n_lower:half_max_length + n_upper + 1]
+
+            # Convert frequencies to [GHz] with rounding
+            freq_array = abs(np.round(freq_array * hz_2_GHz, fq_rnd))  # all in GHz now
+            # Initialize containers
+            frequency_container = []
+            positive_wave_numbers = wave_number_array[wave_number_array >= 0]
+
+            # l1 = wavelengths_array[2001:2040]
+            # l2 = np.flip(wavelengths_array[1813:1852])
+            # print(l1)
+            # print(l2)
+            # print(l1/l2 % 1)
+            # f1 = freq_array[2001:2040]
+            # f2 = np.flip(freq_array[1813:1852])
+            # print(abs(f1))
+            # print(abs(f2))
+            # exit(0)
+
+            def is_wavelength_half(n1, n2, atol=1e-2, convert_to_wavelength=False):
+                results = []
+                scaling_factors = []
+
+                if isinstance(n1, list):
+                    temp = n1
+                    n1 = n2
+                    n2 = temp
+
+                if n1 == 0 or np.isinf(n1):
+                    return results, scaling_factors
+                else:
+                    if convert_to_wavelength:
+                        # Convert from wavenumber [m] to wavelength [nm]
+                        wavelength1 = abs(((2 * np.pi) / n1) * m_2_nm)
+                    else:
+                        wavelength1 = abs(n1)
+
+                # Determine larger and smaller numbers
+                for i in n2:
+                    if i == 0 or np.isinf(i):
+                        results.append(None)
+                        continue
+                    else:
+                        if convert_to_wavelength:
+                            wavelength2 = abs((2 * np.pi) / i)
+                        else:
+                            wavelength2 = abs(i)
+                    larger, smaller = max(wavelength1, wavelength2), min(wavelength1, wavelength2)
+                    half_smaller = smaller / 2
+
+                    # Calculate modulus
+                    modulus = larger % smaller
+
+                    # Calculate scaling
+                    scaling_factors.append(larger / smaller % 1)
+
+                    # Calculate tolerance range
+                    tolerance = half_smaller * atol
+                    lower_bound = half_smaller - tolerance
+                    upper_bound = half_smaller + tolerance
+
+                    # Check if modulus is within the tolerance range
+                    if lower_bound <= modulus <= upper_bound:
+                        results.append(True)
+                    else:
+                        results.append(False)
+
+                return results, scaling_factors
+
+            for wavevector_n in wavevectors_from_n:
+                if use_original_wavenumbers:
+                    # Will always exactly match so no need to test
+                    closest_match_wavevector = wavevector_n
+                else:
+                    closest_match_wavevector = min(positive_wave_numbers, key=lambda x: abs(x - wavevector_n))
+
+                # Step 2: Find the index of the closest match in wave_number_array
+                closest_match_index = np.where(np.isclose(wave_number_array, closest_match_wavevector, atol=wv_tol))[0]
+
+                # Step 3, 4, 5: For each match, find frequency and check for other occurrences
+                for match_index in closest_match_index:
+                    # For each match, find the corresponding frequency
+                    match_frequency = freq_array[match_index]
+                    if match_frequency < external_field * gyromag_ratio * hz_2_GHz:
+                        continue
+                    match_wavelength = wavelengths_array[match_index]
+
+                    # Find all other occurrences of this frequency, and then their indices
+                    matched_freq_indices = np.where(np.isclose(freq_array, match_frequency, atol=freq_atol))[0]
+                    other_occurrences_indices = [i for i in matched_freq_indices if i != match_index]
+                    other_occurrences_frequencies = freq_array[other_occurrences_indices]  # mainly for debugging
+
+                    # Find the corresponding wavevectors for the other occurrences of the given frequency
+                    other_occurrences_wavevectors = wave_number_array[other_occurrences_indices]
+
+                    # Calculate all wavelengths
+                    if use_original_wavenumbers:
+                        other_occurrences_wavelengths = wavelengths_array[other_occurrences_indices]
+                    else:
+                        # Set wavelength to infinity where wave number is zero
+                        other_occurrences_wavelengths = np.zeros_like(other_occurrences_wavevectors, dtype=float)
+                        other_zero_wave_indices = other_occurrences_wavevectors == 0
+                        other_occurrences_wavelengths[other_zero_wave_indices] = np.inf
+                        # Perform division where wave number is non-zero
+                        other_non_zero_wave_indices = ~other_zero_wave_indices
+                        other_occurrences_wavelengths[other_non_zero_wave_indices] = ((2 * np.pi) /
+                                                                                      other_occurrences_wavevectors[
+                                                                                          other_non_zero_wave_indices])
+
+                    # Check if we have any matches
+                    (other_occurrences_half_ints,
+                     other_occurrences_scaling) = is_wavelength_half(match_wavelength, other_occurrences_wavelengths,
+                                                                     atol=half_int_atol)
+                    # Debugging
+                    # if other_occurrences_indices:
+                    #    print(f"Freq: {match_frequency} at {match_index} for {match_wavelength} | "
+                    #          f"Matches: {freq_array[other_occurrences_indices]} at {other_occurrences_indices} "
+                    #          f"for {other_occurrences_wavelengths} ")
+                    #    print(wavevector_n, closest_match, other_occurrences_wavevectors,
+                    #          match_index, other_occurrences_indices,
+                    #          match_frequency, freq_array[other_occurrences_indices],
+                    #          match_wavelength, other_occurrences_wavelengths)
+
+                    # Recording the information
+                    frequency_container.append({
+                        'match_index': match_index,
+                        'user_wavevector': wavevector_n,
+                        'closest_wavevector': closest_match_wavevector,
+                        'match_frequency': match_frequency,
+                        'match_wavelength': match_wavelength,
+
+                        'other_occurrences_indices': other_occurrences_indices,
+                        'other_occurrences_wavevectors': other_occurrences_wavevectors,
+                        'other_occurrences_frequencies': other_occurrences_frequencies,
+                        'other_occurrences_wavelengths': abs(other_occurrences_wavelengths),
+                        'other_occurrences_half_ints': other_occurrences_half_ints,
+                        'other_occurrences_scaling': other_occurrences_scaling
+                    })
+
+            # Step 6: Sort the container by frequency and then by wavevector
+            frequency_container.sort(key=lambda x: (x['match_frequency'], x['closest_wavevector']))
+
+            # for entry in frequency_container:
+            #     print((entry['match_frequency'], entry['other_occurrences_frequencies']))
+            # exit(0)
+
+            select_colour_scheme = colour_schemes[3]
+
+            line_counter = 0
+            for entry in frequency_container:
+                # Note that I can't run simulations for wavelengths smaller than 1nm so there's no point being
+                # more precise than this
+                match_index = entry['match_index']
+                match_frequency = entry['match_frequency']
+                match_wavevector = entry['closest_wavevector']
+                match_wavelength = entry['match_wavelength']
+
+                if should_print_only_half_ints and not any(entry['other_occurrences_half_ints']):
+                    continue
+
+                color = select_colour_scheme['ENDC']
+                if entry['other_occurrences_indices']:
+                    # Current case has a match. Rarest case first
+                    if should_highlight_half_ints and any(entry['other_occurrences_half_ints']):
+                        color = select_colour_scheme['PURPLE']
+
+                    elif should_highlight_all_matches:
+                        color = select_colour_scheme['BLUE']
+                if entry['other_occurrences_indices'] or not should_print_only_matches:
+                    # Print the match information
+                    print(f"{color}"
+                          f"\u03C9/2\u03C0: {match_frequency:.{fq_rnd}f} [GHz] | "
+                          f"kn: {match_wavevector:.{wv_rnd}f} [1/nm] | "
+                          f"in: {match_index}, "
+                          f"λn: {match_wavelength:.{2}f} [nm]"
+                          f"\t", end="")
+
+                    # Iterate over other occurrences should the exist
+                    if entry['other_occurrences_indices']:
+                        for enum_index, (
+                                other_index, other_wavevector, other_wavelength, other_scaling,
+                                other_half_int) in enumerate(
+                            zip(entry['other_occurrences_indices'],
+                                entry['other_occurrences_wavevectors'],
+                                entry['other_occurrences_wavelengths'],
+                                entry['other_occurrences_scaling'],
+                                entry['other_occurrences_half_ints'])):
+
+                            if should_highlight_half_ints and other_half_int:
+                                color = select_colour_scheme['PURPLE']
+                            elif should_highlight_all_matches:
+                                color = select_colour_scheme['BLUE']
+
+                            print(
+                                f"{color}| i{enum_index + 1}: {other_index}, "
+                                f"\u03BB{enum_index + 1}: {other_wavelength:.{2}f} [nm], "
+                                f"k{enum_index + 1}: {other_wavevector:.{wv_rnd}f} [1/nm],"
+                                f"\t\u03BE{enum_index + 1}: {other_scaling:.3f}"
+                                f" ", end="")
+
+                    print("|", end="\n")
+                    line_counter += 1
+
+                # Check if 10 lines have been printed
+                if line_counter >= 10:
+                    print("------------------------------------------------")
+                    line_counter = 0
+
+            print("--------------------------------------------------------------------------------")
+            exit(0)
+
+        else:
+            print(f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} |"
+                  f" Exchange field [T]: {exchange_field} | External field [T]: {external_field} |"
+                  f" Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9} | System length [um]: {system_len * 1e6} |"
+                  f" Sites: {round(system_len / lattice_constant)}")
+
+            # Plot dispersion relations
+            self._fig.suptitle('Dispersion Relation')
+            for dmi_val in dmi_vals:
+                max_len = round(system_len / lattice_constant)
+                num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
+                wave_number_array = (2 * num_spins_array * np.pi) / system_len
+                # old: wave_number_array = (2*num_spins_array*np.pi)/ ((len(num_spins_array) - 1) * lattice_constant)
+
+                freq_array = gyromag_ratio * (
+                        round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
+                        + external_field
+                        + (dmi_val * lattice_constant * wave_number_array))
+                # + (((2 * dmi_val) / (sat_mag_moon)) * wave_number_array))
+
+                ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
+                         label=f'D = {dmi_val}', marker='o', markersize=1.5)
+
+                ax1.set(xlabel="Wavevector (nm$^{-1}$)",
+                        ylabel='Frequency (GHz)', xlim=[-0.75, 0.75], ylim=[0, 60])
+                self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                  xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                ax1.margins(0)
+                ax1.xaxis.labelpad = -2
+                ax1.legend(title=f'Mine - D [T]\n(H_ex = {exchange_field:2.3f}[T])',
+                           title_fontsize=self._fontsizes["smaller"],
+                           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+
+                # file_name = 'D:/Data/2024-02-14/disp_data1.csv'
+#
+                # # Writing to the file
+                # with open(file_name, 'w', newline='') as csvfile:
+                #     writer = csv.writer(csvfile)
+#
+                #     # Iterate over the arrays and write
+                #     for i in range(len(wave_number_array)):
+                #         writer.writerow([wave_number_array[i] * hz_2_GHz, freq_array[i] * hz_2_GHz])
+
+            """
+            for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
+                max_len_moon = round(system_len_moon / lattice_constant_moon)
+                num_spins_array_moon = np.arange(-int(max_len_moon / 2), int(max_len_moon / 2) + 1, 1)
+                wave_number_array_moon = (2 * num_spins_array_moon * np.pi) / (
+                        (len(num_spins_array_moon) - 1) * lattice_constant_moon)
+
+                # Remove all mu0 on denominator due to precision error when included
+                h0 = external_field_moon
+                j_star = (2 * exc_stiff_moon) / sat_mag_moon
+                h0_plus_jk = h0 + j_star * (wave_number_array_moon ** 2)
+
+                d_star = (2 * dmi_val) / sat_mag_moon
+
+                # Removed mu0 multiplying whole expression to be consistent with other removals of mu0
+                freq_array_moon = gyromag_ratio_moon * (np.sqrt(h0_plus_jk * (h0_plus_jk + demag_mag_moon))
+                                                        + p_val * d_star * wave_number_array_moon)
+
+                ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=0, ls='-',
+                         label=f'D = {p_val * dmi_val:.3e}', marker='o', markersize=1.5)
+                ax2.set(xlabel="Wavevector (nm$^{-1}$)",
+                        ylabel='Frequency (GHz)', xlim=[-0.5, 0.5], ylim=[0, 60])
+                self._tick_setter(ax2, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                                  xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+
+                ax2.margins(0)
+                ax2.xaxis.labelpad = -2
+
+                ax2.legend(title='Theirs - D [J/m2]', title_fontsize=self._fontsizes["smaller"],
+                           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+            """
+        ########################################
+        if publication_details:
+            ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
+                     transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
+
+            #ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+            #         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
+
+        for ax in self._fig.axes:
+            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            ax.set_facecolor("white")
             ax.set_axisbelow(False)
-
-        self.fig.subplots_adjust(wspace=1, hspace=0.35)
 
         if interactive_plot:
             # For interactive plots
             def mouse_event(event: Any):
-                print(f'x: {event.xdata} and y: {event.ydata}')
+                if event.xdata is not None and event.ydata is not None:
+                    print(f'k: {event.xdata:f} (\u03BB: {2 * np.pi / event.xdata:f}) and f: {event.ydata:f}')
 
-            self.fig.canvas.mpl_connect('button_press_event', mouse_event)
-            self.fig.tight_layout()  # has to be here
+            self._fig.canvas.mpl_connect('button_press_event', mouse_event)
+
+            cursor = mplcursors.cursor(hover=True)
+            cursor.connect("add", lambda sel: sel.annotation.set_text(
+                f'x={sel.target[0]:.4f}, y={sel.target[1]:.4f}'))
+
+            # Hide the arrow in the callback
+            @cursor.connect("add")
+            def on_add(sel):
+                sel.annotation.get_bbox_patch().set(fc="white")  # Change background color
+                sel.annotation.arrow_patch.set_alpha(0)  # Make the arrow invisible
+
+            self._fig.tight_layout()  # has to be here
+            self._fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
             plt.show()
-        else:
-            self.fig.savefig(f"{self.output_filepath}_site{spin_site}_tv0.png", bbox_inches="tight")
-
-
-def create_time_variation3(self, interactive_plot=False, use_inset_1=True, use_lower_plot=False):
-    """
-    LEGACY METHOD FROM PAPERFIGURES. WILL NOT RUN IN THIS MODULE. Plot the Heaviside Fn and Disp Reln.
-
-    One should ensure that the site being plotted is not inside either of the driving- or damping-regions.
-
-    :return: Saves a .png image to the designated output folder.
-    """
-
-    if self._fig is None:
-        self._fig = plt.figure(figsize=(4.5, 3.375))
-
-    num_rows = 2
-    num_cols = 3
-    if use_lower_plot:
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 2),
-                               colspan=num_cols, fig=self._fig)
-    else:
-        ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows),
-                               colspan=num_cols, fig=self._fig)
-
-    SAMPLE_RATE = int(5e2)  # Number of samples per nanosecond
-
-    DURATION = int(2)  # Nanoseconds
-    FREQUENCY = int(8)  # GHz
-
-    # Number of samples in normalized_tone
-
-    # def generate_sine_wave(freq, sample_rate, duration, delay_start=0, only_delay=False):
-    #     delay = int(sample_rate * delay_start)
-    #     t = np.linspace(0, duration, sample_rate * duration, endpoint=False)
-    #     y_1 = np.zeros(delay)
-    #     y_2 = np.sin((2 * np.pi * freq) * t[delay:])
-    #     y_con = np.concatenate((y_1, y_2))
-    #
-    #     if only_delay:
-    #         start = delay
-    #         sample_rate = int(sample_rate * delay_start)
-    #         end = int(sample_rate * duration)
-    #         return t[start:end], y_con[start:end]
-    #
-    #     return t, y_con
-
-    def generate_sine_wave(freq, sample_rate, duration, delay_start=0.0, only_delay=False):
-
-        if only_delay:
-            num_samples = int(sample_rate * (duration - delay_start))
-            sample_rate = int(num_samples / (duration - delay_start))
-
-            t = np.linspace(delay_start, duration, num_samples, endpoint=False)
-            y = np.sin((2 * np.pi * freq) * t)
-
-            return t, y, sample_rate, num_samples
-
-        else:
-            delay = int(sample_rate * delay_start)
-            num_samples = int(sample_rate * duration)
-
-            t = np.linspace(0, duration, num_samples, endpoint=False)
-            y_1 = np.zeros(delay)
-            y_2 = np.sin((2 * np.pi * freq) * t[delay:])
-            y_con = np.concatenate((y_1, y_2))
-
-            return t, y_con, sample_rate, num_samples
-
-    # Generate a 15 GHz sine wave that lasts for 5 seconds
-    time_instant, signal_instant, sample_rate_instant, num_samples_instant = generate_sine_wave(FREQUENCY,
-                                                                                                SAMPLE_RATE,
-                                                                                                DURATION, 0, False)
-    time_delay, signal_delay, sample_rate_delay, num_samples_delay = generate_sine_wave(FREQUENCY, SAMPLE_RATE,
-                                                                                        DURATION, 1.0, False)
-    time_delay2, signal_delay2, sample_rate_delay2, num_samples_delay2 = generate_sine_wave(FREQUENCY, SAMPLE_RATE,
-                                                                                            DURATION, 1.0, True)
-
-    time_instant_fft, signal_instant_fft = rfftfreq(num_samples_instant, 1 / sample_rate_instant), rfft(
-        signal_instant)
-    time_delay_fft, signal_delay_fft = rfftfreq(num_samples_delay, 1 / sample_rate_delay), rfft(signal_delay)
-    time_delay_fft2, signal_delay_fft2 = rfftfreq(num_samples_delay2, 1 / sample_rate_delay2), rfft(signal_delay2)
-
-    ax1.plot(time_delay_fft, np.abs(signal_delay_fft), marker='', lw=2.0, color='#ffb55a', markerfacecolor='black',
-             markeredgecolor='black', label="1", zorder=1.2)
-    ax1.plot(time_instant_fft, np.abs(signal_instant_fft), marker='', lw=1.5, ls='--', color='#64bb6a',
-             markerfacecolor='black', markeredgecolor='black', label="0", zorder=1.3)
-    ax1.plot(time_delay_fft2, np.abs(signal_delay_fft2), marker='', lw=2.0, ls='-.', color='red',
-             markerfacecolor='black',
-             markeredgecolor='black', label="1", zorder=1.2)
-
-    # ax1.set(xlim=(5.001, 24.999), ylim=(1e-13, 1e4),
-    #        xlabel="Frequency (GHz)", ylabel="Amplitude\n(arb. units)", yscale='log')
-
-    ax1.set(xlim=(0.001, 15.999), ylim=(1e0, 1e4),
-            xlabel="Frequency (GHz)", ylabel="Amplitude\n(arb. units)", yscale='log')
-
-    # ax1.plot(x1, y1, lw=2, color='#0289F7', zorder=1.2)
-    # ax1.plot(x2, y2, lw=2, ls='-', color='#64bb6a', zorder=1.1)
-    # ax1.set(xlim=(0, 2), ylim=(-1, 1),
-    #         xlabel="Time (ns)", ylabel="Amplitude\n(arb. units)")
-    # self._tick_setter(ax1, 1.0, 0.25, 3, 2, is_fft_plot=False, yaxis_num_decimals=1, yscale_type='p')
-
-    ax1.xaxis.labelpad = -2
-    ax1.yaxis.labelpad = -0
-    self._tick_setter(ax1, 5, 1, 4, 4, is_fft_plot=True)
-
-    ########################################
-    if use_inset_1:
-        if use_lower_plot:
-            ax1_inset = inset_axes(ax1, width=1.3, height=0.72, loc="upper right", bbox_to_anchor=[0.995, 1.175],
-                                   bbox_transform=ax1.transAxes)
-        else:
-            ax1_inset = inset_axes(ax1, width=1.3, height=0.72, loc="upper right", bbox_to_anchor=[0.995, 0.98],
-                                   bbox_transform=ax1.transAxes)
-
-        ax1_inset.plot(time_instant, signal_instant, lw=0.5, color='#64bb6a', zorder=1.1)
-        ax1_inset.plot(time_delay, signal_delay, lw=0.5, ls='-.', color='#ffb55a', zorder=1.2)
-        ax1_inset.plot(time_delay2, signal_delay2, lw=0.5, ls='--', color='red', zorder=1.3)
-
-        ax1_inset.set(xlim=[0, 2], ylim=[-1, 1])
-        ax1_inset.set_xlabel('Time (ns)', fontsize=self._fontsizes["tiny"])
-        ax1_inset.yaxis.tick_left()
-        ax1_inset.yaxis.set_label_position("left")
-        ax1_inset.set_ylabel('Amplitude  \n(arb. units)  ', fontsize=self._fontsizes["tiny"], rotation=90,
-                             labelpad=20)
-        ax1_inset.tick_params(axis='both', labelsize=self._fontsizes["mini"])
-
-        ax1_inset.patch.set_color("#f9f2e9")
-        ax1_inset.yaxis.labelpad = 0
-        ax1_inset.xaxis.labelpad = -0.5
-
-        self._tick_setter(ax1_inset, 1.0, 0.25, 3, 2, is_fft_plot=False,
-                          yaxis_num_decimals=0.1, yscale_type='p')
-
-    ########################################
-
-    if use_lower_plot:
-        ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
-                               rowspan=num_rows, colspan=num_cols, fig=self._fig)
-
-        # ax2.scatter(np.arange(1, len(freqs) + 1, 1), freqs, s=0.5)
-        external_field, exchange_field = 0.1, 132.5
-        gyromag_ratio = 28.8e9 * 2 * np.pi
-        lattice_constant = np.sqrt(5.3e-17 / exchange_field)
-        system_len = 10e-5  # metres
-        max_len = round(system_len / lattice_constant)
-        num_spins_array = np.arange(0, max_len, 1)
-        wave_number_array = (num_spins_array * np.pi) / ((len(num_spins_array) - 1) * lattice_constant)
-        freq_array = gyromag_ratio * (2 * exchange_field * (1 - np.cos(wave_number_array * lattice_constant))
-                                      + external_field)
-
-        hz_2_THz = 1e-12
-        hz_2_GHz = 1e-9
-
-        ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', ls='-', label=f'Dataset 1')
-        ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (
-                external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * hz_2_THz,
-                 color='red', alpha=0.4, ls='-', label=f'Dataset 1')
-
-        # These!!
-        # ax2.scatter(np.arccos(1 - ((freqs2 / gamma - h_0) / (2 * h_ex))) / a, freqs2 / 1e12, s=0.5,
-        # c='red', label='paper')
-        # ax2.plot(k, gamma * (2 * h_ex * (1 - np.cos(k * a)) + h_0) / 1e12, color='red', ls='--', label=f'Kittel')
-
-        ax2.set(xlabel="Wavenumber (nm$^{-1}$)", ylabel='Frequency (THz)', xlim=[0, 2], ylim=[0, 5])  # [0, 15.4]
-        self._tick_setter(ax2, 2, 0.5, 3, 2, is_fft_plot=False,
-                          xaxis_num_decimals=1, yaxis_num_decimals=0.0, yscale_type='p')
-
-        # ax2.axhline(y=3.8, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9) # xmax=0.31
-        # ax2.axhline(y=10.5, xmax=1.0, ls='--', lw=1, color='grey', zorder=0.9)  # xmax=0.68
-        ax2.margins(0)
-        ax2.xaxis.labelpad = -2
-
-        # ax2.text(0.997, -0.13, r"$\mathrm{\dfrac{\pi}{a}}$",
-        #          verticalalignment='center', horizontalalignment='center', transform=ax2.transAxes,
-        #          fontsize=self._fontsizes["smaller"])
-
-        # ax2.text(0.02, 0.88, r"$\mathcal{III}$", verticalalignment='center', horizontalalignment='left',
-        #          transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
-        # ax2.text(0.02, 0.5, r"$\mathcal{II}$", verticalalignment='center', horizontalalignment='left',
-        #          transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
-        # ax2.text(0.02, 0.12, r"$\mathcal{I}$", verticalalignment='center', horizontalalignment='left',
-        #          transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
-        #
-        # ax2.text(0.91, 0.82, f"Decreasing", verticalalignment='center', horizontalalignment='center',
-        #          transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
-        # ax2.text(0.60, 0.425, f"Linear", verticalalignment='center', horizontalalignment='center',
-        #          transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
-        # ax2.text(0.41, 0.12, f"Increasing", verticalalignment='center', horizontalalignment='center',
-        #          transform=ax2.transAxes, fontsize=self._fontsizes["tiny"])
-
-        # arrow_ax2_props1 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.075", "color": "black"}
-        # arrow_ax2_props2 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=0.0", "color": "black"}
-        # arrow_ax2_props3 = {"arrowstyle": '-|>', "connectionstyle": "arc3,rad=-0.075", "color": "black"}
-        # ax2.annotate('', xy=(1.665, 2.961), xytext=(1.147, 1.027), va='center', ha='center',
-        #              arrowprops=arrow_ax2_props1, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
-        # ax2.annotate('', xy=(3.058, 9.406), xytext=(2.154, 5.098), va='center', ha='center',
-        #              arrowprops=arrow_ax2_props2, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
-        # ax2.annotate('', xy=(4.155, 13.213), xytext=(3.553, 11.342), va='center', ha='center',
-        #              arrowprops=arrow_ax2_props3, fontsize=self._fontsizes["tiny"], transform=ax2.transAxes)
-
-        ########################################
-        use_lower_subplot = False
-        if use_lower_subplot:
-            ax2_inset = inset_axes(ax2, width=1.9, height=0.8, loc="lower right", bbox_to_anchor=[0.99, 0.02],
-                                   bbox_transform=ax2.transAxes)
-            D_b = 5.3e-17
-            a1 = lattice_constant
-            a2 = np.sqrt(D_b / 132.5)
-
-            # j_to_meV = 6.24150934190e21
-            num_spins_array1 = np.arange(0, 5000, 1)
-            num_spins_array2 = np.arange(0, 15811, 1)
-            wave_number_array1 = (num_spins_array1 * np.pi) / ((len(num_spins_array1) - 1) * a1)
-            wave_number_array2 = (num_spins_array2 * np.pi) / ((len(num_spins_array2) - 1) * a2)
-
-            ax2_inset.plot(wave_number_array1 * hz_2_GHz,
-                           (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5, ls='--',
-                           color='purple',
-                           label='$a=0.2$ nm',
-                           zorder=1.3)
-            ax2_inset.plot(wave_number_array2 * hz_2_GHz,
-                           (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_THz, lw=1.5, ls='-',
-                           label='$a=0.63$ nm',
-                           zorder=1.2)
-
-            ax2_inset.set_xlabel('Wavenumber (nm$^{-1}$)', fontsize=self._fontsizes["tiny"])
-            ax2_inset.set_xlim(0, 2)
-            ax2_inset.set_ylim(0, 10)
-            ax2_inset.xaxis.tick_top()
-            ax2_inset.xaxis.set_label_position("top")
-            ax2_inset.yaxis.set_label_position("left")
-            ax2_inset.set_ylabel('Frequency\n(THz)', fontsize=self._fontsizes["tiny"], rotation=90, labelpad=20)
-            ax2_inset.tick_params(axis='both', labelsize=self._fontsizes["tiny"])
-            ax2.margins(0)
-
-            ax2_inset.patch.set_color("#f9f2e9")
-            ax2_inset.yaxis.labelpad = 5
-            ax2_inset.xaxis.labelpad = 2.5
-
-            # self._tick_setter(ax2_inset, 2.5, 0.5, 3, 2, is_fft_plot=False)
-            ax2_inset.ticklabel_format(axis='y', style='plain')
-            ax2_inset.legend(fontsize=self._fontsizes["tiny"], frameon=False)
-
-        ########################################
-
-        # ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
-        #          transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
-
-        # ax2.text(0.975, 0.12, f"(b)",
-        #         verticalalignment='center', horizontalalignment='right', transform=ax2.transAxes,
-        #         fontsize=self._fontsizes["smaller"])
-
-    for ax in [ax1]:
-        ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
-        ax.set_axisbelow(False)
-
-    self._fig.subplots_adjust(wspace=1, hspace=0.35)
-
-    if interactive_plot:
-        # For interactive plots
-        def mouse_event(event: Any):
-            print(f'x: {event.xdata} and y: {event.ydata}')
-
-        self._fig.canvas.mpl_connect('button_press_event', mouse_event)
-        self._fig.tight_layout()  # has to be here
-        plt.show()
-    else:
-        self._fig.savefig(f"{self.output_filepath}_dispersion_tv3.png", bbox_inches="tight")
