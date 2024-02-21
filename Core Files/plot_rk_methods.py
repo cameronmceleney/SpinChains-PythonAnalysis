@@ -31,6 +31,7 @@ from typing import TypedDict, Any, Dict, List, Optional, Union
 
 
 # Specific functions from my modules
+from attribute_defintions import AttributeMappings, VariablesContainer
 from figure_manager import FigureManager, colour_schemes
 
 """
@@ -48,8 +49,31 @@ from figure_manager import FigureManager, colour_schemes
 """
 
 
+
+
+class AttributeMeta(type):
+    def __new__(mcs, name, bases, attrs):
+
+        if '__annotations__' not in attrs:
+            attrs['__annotations__'] = {}
+
+        for attr, (attr_type, _) in AttributeMappings.key_data.items():
+            attrs['__annotations__'][attr] = attr_type
+            attrs[attr] = None  # Set default value to None
+
+        for attr, (attr_type, _) in AttributeMappings.sim_flags.items():
+            attrs['__annotations__'][attr] = attr_type
+            attrs[attr] = None  # Set default value to None
+
+        return super().__new__(mcs, name, bases, attrs)
+
+    def __init__(self, name, bases, attrs):
+        # perform any additional initialization here...
+        super().__init__(name, bases, attrs)
+
+
 # -------------------------------------- Plot paper figures -------------------------------------
-class PaperFigures:
+class PaperFigures(VariablesContainer):
     """
     Generates a single subplot that can either be a PNG or GIF.
 
@@ -73,90 +97,37 @@ class PaperFigures:
         ax3_label: str
         ax1_line_height: float
 
-    def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
 
+    def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
+        #super().__init__()
         # Data and paths read-in from data_analysis.py
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
-        print(key_data)
-        print(sim_flags)
+        myVar = VariablesContainer
+        examine = myVar._variables
+        print(examine)
 
-        self.key_data_attribute_mappings = {
-            'staticBiasField': 'staticZeemanStrength',
-            'dynamicBiasField': 'oscillatingZeemanStrength1',
-            'dynamicBiasFieldScaleFactor': 'shockwaveScaling',
-            'secondDynamicBiasField': 'oscillatingZeemanStrength2',
-            'drivingFreq': 'drivingFreq',
-            'drivingRegionStartSite': 'drivingRegionLhs',
-            'drivingRegionEndSite': 'drivingRegionRhs',
-            'drivingRegionWidth': 'drivingRegionWidth',
-            'maxSimTime': 'maxSimTime',
-            'minExchangeVal': 'exchangeEnergyMin',
-            'maxExchangeVal': 'exchangeEnergyMax',
-            'maxIterations': 'iterationEnd',
-            'numDatapoints': 'numberOfDataPoints',
-            'numSpinsInChain': 'numSpinsInChain',
-            'numDampedSpinsPerSide': 'numSpinsInABC',
-            'numTotalSpins': 'systemTotalSpins',
-            'Stepsize': 'stepsize',
-            'gilbertDampingFactor': 'gilbertDamping',
-            'gyroRatio': 'gyroMagConst',
-            'shockwaveGradientTime': 'shockwaveGradientTime',
-            'shockwaveApplicationTime': 'shockwaveApplicationTime',
-            'abcDampingLower': 'gilbertABCOuter',
-            'abcDampingUpper': 'gilbertABCInner',
-            'dmiConstant': 'dmiConstant',
-            'saturationMagnetisation': 'satMag',
-            'exchangeStiffness': 'exchangeStiffness',
-            'anisotropyShapeField': 'anisotropyField'
-        }
-        self.sim_flags_attribute_mappings = {
-            'usingMagdynamics': 'shouldUseLLG',
-            'usingShockwave': 'hasShockwave',
-            'driveFromLhs': 'shouldDriveLHS',
-            'numericalMethodUsed': 'numericalMethod',
-            'hasStaticDrive': 'isOscillatingZeemanStatic',
-            'hasDipolar': 'hasDipolar',
-            'hasDmi': 'hasDMI',
-            'hasStt': 'hasSTT',
-            'hasZeeman': 'hasStaticZeeman',
-            'hasDemagIntense': 'hasDemagIntense',
-            'hasDemagFft': 'hasDemagFFT',
-            'hasShapeAnisotropy': 'hasShapeAnisotropy'
-        }
-
-        print(sim_flags)
 
         for key, value in key_data.items():
-            attr_name = key_data.get(key)
             setattr(self, key, value)
 
-        print(self.numSpinsInChain)
+        print(self.staticZeemanStrength)
         exit(0)
-        # Initialize all attributes to default values
-        for attr_name in self.key_data_attribute_mappings.values():
-            setattr(self, attr_name, None)
 
-        for key, value in key_data.items():
-            attr_name = self.key_data_attribute_mappings.get(key)
-            if attr_name:
-                setattr(self, attr_name, value)
-
-        # Initialize all attributes to default values
-        for attr_name in self.sim_flags_attribute_mappings.values():
-            setattr(self, attr_name, None)
+        # typed_var_dict = VariablesContainer._typed_variables
+        # print(typed_var_dict)  # Shows all TypedVariable instances
+        # print(VariablesContainer._typed_variables['staticZeemanStrength'].metadata)  # Access a specific TypedVariable instance
 
         for key, value in sim_flags.items():
-            attr_name = self.sim_flags_attribute_mappings.get(key)
-            if attr_name:
-                setattr(self, attr_name, value)
+            setattr(self, key, value)
 
-        print(self.key_data_attribute_mappings['hasDipolar'])
+        #print(PaperFigures.__getattribute__(self, 'staticZeemanStrength'))
+
         exit(0)
-
+        """
         # Individual attributes from key_data that are needed for the class
         self._nm_method = sim_flags['numericalMethodUsed']
         self._static_field = key_data['staticBiasField']
@@ -181,7 +152,7 @@ class PaperFigures:
         # These parameters still need to be added to the C++ output files
         self._lattice_constant = 1e-9
         self._dmi_val_const = 1.25
-
+        """
         # Attributes for plots
         self._fig = None
         self._axes = None
@@ -211,7 +182,6 @@ class PaperFigures:
 
         :return: Method updates `self._fig` and `self.axis` within the class.
         """
-
         if axes is not None:
             self._axes = axes
 
@@ -488,8 +458,10 @@ class PaperFigures:
                 'ax2_ylim': [1e-4, 1e-1],
                 'ax3_xlim': [-0.5, 0.5],
                 'ax3_ylim': [0, 30],
-                'signal1_xlim': [int(self._num_damped_spins + 1), int(self._driving_region_lhs + self._num_damped_spins - 1)],
-                'signal2_xlim': [int(self._driving_region_rhs + self._num_damped_spins + 1), int(self._total_num_spins - self._num_damped_spins - 1)],
+                'signal1_xlim': [int(self._num_damped_spins + 1),
+                                 int(self._driving_region_lhs + self._num_damped_spins - 1)],
+                'signal2_xlim': [int(self._driving_region_rhs + self._num_damped_spins + 1),
+                                 int(self._total_num_spins - self._num_damped_spins - 1)],
                 'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
@@ -1928,7 +1900,7 @@ class PaperFigures:
 
         ax1 = plt.subplot2grid((num_rows, num_cols), (0, 0), rowspan=int(num_rows / 1),
                                colspan=num_cols, fig=self._fig)
-        #ax2 = plt.subplot2grid((num_rows, num_cols), (0, 0),
+        # ax2 = plt.subplot2grid((num_rows, num_cols), (0, 0),
         #                       rowspan=num_rows, colspan=num_cols, fig=self._fig)
         ########################################
         # Key values and computations that are common to both systems
@@ -2268,14 +2240,14 @@ class PaperFigures:
                            fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
                 # file_name = 'D:/Data/2024-02-14/disp_data1.csv'
-#
-                # # Writing to the file
-                # with open(file_name, 'w', newline='') as csvfile:
-                #     writer = csv.writer(csvfile)
-#
-                #     # Iterate over the arrays and write
-                #     for i in range(len(wave_number_array)):
-                #         writer.writerow([wave_number_array[i] * hz_2_GHz, freq_array[i] * hz_2_GHz])
+            #
+            # # Writing to the file
+            # with open(file_name, 'w', newline='') as csvfile:
+            #     writer = csv.writer(csvfile)
+            #
+            #     # Iterate over the arrays and write
+            #     for i in range(len(wave_number_array)):
+            #         writer.writerow([wave_number_array[i] * hz_2_GHz, freq_array[i] * hz_2_GHz])
 
             """
             for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
@@ -2313,7 +2285,7 @@ class PaperFigures:
             ax1.text(0.025, 0.88, f"(a)", verticalalignment='center', horizontalalignment='left',
                      transform=ax1.transAxes, fontsize=self._fontsizes["smaller"])
 
-            #ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
+            # ax2.text(0.975, 0.12, f"(b)", verticalalignment='center', horizontalalignment='right',
             #         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
 
         for ax in self._fig.axes:
