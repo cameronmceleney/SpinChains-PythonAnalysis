@@ -5,6 +5,8 @@
 import csv
 import errno
 import logging as log
+from typing import Any
+
 import numpy as np
 import shutil
 import os
@@ -20,6 +22,7 @@ import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
 import plot_rk_methods_legacy as plt_rk_legacy
 
 # Specific functions from my modules
+from attribute_defintions import AttributeMappings
 from figure_manager import rc_params_update
 
 """
@@ -427,7 +430,7 @@ class PlotImportedData:
             return np.loadtxt(input_data_path, delimiter=",", skiprows=11)
 
     @staticmethod
-    def custom_string_mappings(data_name, keep_units=False):
+    def custom_string_mappings(data_name: Any, keep_units=False):
         """Handles the mapping of data names to their corresponding strings as per these rules."""
 
         def _abbreviations(string, target, replacement):
@@ -514,7 +517,7 @@ class PlotImportedData:
         return data_name
 
     @staticmethod
-    def _custom_cast_mappings(data_value):
+    def _custom_cast_mappings(data_value: Any):
         data_value = data_value.strip()
         if '.' in data_value or 'e' in data_value.lower():
             return float(data_value)
@@ -524,8 +527,8 @@ class PlotImportedData:
     def import_headers_from_file(self):
         log.info("Importing file headers...")
 
-        sim_flags = {}
-        key_params = {}
+        sim_flags = AttributeMappings.dict_with_none(AttributeMappings.sim_flags)
+        key_params = AttributeMappings.dict_with_none(AttributeMappings.key_data)
 
         with open(self.input_data_path) as file_header_data:
             csv_reader = csv.reader(file_header_data)
@@ -547,6 +550,38 @@ class PlotImportedData:
             next(csv_reader)  # 10th. Blank.
             simulated_sites = next(csv_reader)  # 11th line. Titular value (site number) for each simulated site.
 
+        # Iterate over each title in the CSV
+        for title, value in zip(key_sim_param_titles, key_sim_param_values):
+            for desired_var_name, (_, possible_spellings) in AttributeMappings.key_data.items():
+                mapped_title = self.custom_string_mappings(title)
+                if mapped_title in possible_spellings:
+                    key_params[desired_var_name] = self._custom_cast_mappings(value)
+                    break
+
+        if data_flags_values:
+            for title, value in zip(data_flags_titles, data_flags_values):
+                for desired_var_name, (_, possible_spellings) in AttributeMappings.sim_flags.items():
+                    if title in possible_spellings:
+                        if len(value) > 1:
+                            mapped_value = self.custom_string_mappings(value, False)
+                        else:
+                            mapped_value = bool(value)
+                        sim_flags[desired_var_name] = mapped_value
+                        break
+        else:
+            for i, entry in enumerate(data_flags_titles):
+                if i % 2 == 0:
+                    title, value = data_flags_titles[i], data_flags_titles[i+1]
+                    for desired_var_name, (_, possible_spellings) in AttributeMappings.sim_flags.items():
+                        if title in possible_spellings:
+                            if len(value) > 1:
+                                sim_flags[desired_var_name] = self.custom_string_mappings(value, False)
+                            else:
+                                sim_flags[desired_var_name] = bool(int(value))
+                            break
+                else:
+                    continue
+        """
         for i, val in enumerate(data_flags_titles):
             if i % 2 == 0:
                 mapped_title = self.custom_string_mappings(data_flags_titles[i], False)
@@ -562,9 +597,9 @@ class PlotImportedData:
             mapped_title = self.custom_string_mappings(title)
             mapped_value = self._custom_cast_mappings(value)
             key_params[mapped_title] = mapped_value
-
+        """
         # Cleanup
-        if 'numericalMethodUsed' not in sim_flags.keys():
+        if sim_flags['numericalMethodUsed'] is None:
             sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
 
         if "Time [s]" in simulated_sites:
