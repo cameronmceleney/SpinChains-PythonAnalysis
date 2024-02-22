@@ -6,7 +6,7 @@
 import operator
 
 # Specific functions from packages
-from typing import Dict, List, Optional, Tuple, Type, Any, TypeVar, Generic, Callable
+from typing import Dict, List, Tuple, Type, Any, TypeVar, Generic, Callable
 
 # My full modules
 
@@ -23,55 +23,117 @@ PROGRAM_NAME = "attribute_definitions.py"
 """
 Created on 2024-02-21 by cameronmceleney
 """
-T = TypeVar('T')  # Generic type variable for SimulationParameter
+T = TypeVar('T')  # Generic type variable for SimulationVariable
 
 
-class SimulationParameter(Generic[T]):
+class SimulationVariable(Generic[T]):
     def __init__(self, name: str, var_type: Type[T], value: T = None, metadata: List[str] = None):
+        """
+        This class is used to define a parameter for a simulation. It is used to enforce type checking and
+        provide metadata for the parameter.
+
+        :param name:
+        :param var_type:
+        :param value:
+        :param metadata:
+        """
         self.name: str = name
         self.value_dtype: Type[T] = var_type
         self.value: T = value
         self.default: T = None
         self.metadata: List[str] = metadata if metadata is not None else []
 
-    def __get__(self, instance: Any, owner: Type) -> 'TypedVariableInstance':
+    def __get__(self, instance: Any, owner: Type) -> Any:
+        """
+        This method is called when the attribute is accessed from an instance or class.
+
+        :param instance:
+        :param owner:
+        :return: either SimulationVariableInstance[T] or SimulationVariable[T]
+        """
         if instance is None:
             return self
-        return TypedVariableInstance(self, instance)
+        return SimulationVariableInstance(self, instance)
 
     def __set__(self, instance: Any, value: T):
+        """
+        This method is called when the attribute is set on an instance.
+
+        :param instance:
+        :param value:
+        :return:
+        """
         if not self.validate_type(value):
             raise TypeError(f"Expected type {self.value_dtype.__name__}, got {type(value).__name__}")
         instance.__dict__[self.name] = value
 
     def validate_type(self, value: Any) -> bool:
+        """
+        This method is used to directly validate the type of the value being set.
+
+        :param value:
+        :return:
+        """
         if self.value_dtype in (int, float) and isinstance(value, (int, float)):
             return True  # Allow int for float types or vice versa
         return isinstance(value, self.value_dtype)
 
     def add_metadata(self, new_metadata: str):
+        """
+        This method is used to add metadata to the parameter.
+        :param new_metadata:
+        :return:
+        """
         if new_metadata not in self.metadata:
             self.metadata.append(new_metadata)
 
-    def update_metadata(self, new_metadata: List[str]):
+    def update_metadata(self, new_metadata: List[str]) -> None:
+        """
+        Enables updating metadata during the code (rare case).
+
+        :param new_metadata:
+        :return:
+        """
         self.metadata = new_metadata
 
 
-class SimulationParameterInstance:
-    def __init__(self, typed_variable: SimulationParameter[T], instance: Any):
-        self._typed_variable: SimulationParameter[T] = typed_variable
+class SimulationVariableInstance(Generic[T]):
+    """
+    This class is used to provide a callable instance of a SimulationVariable. It is used to enforce type checking and
+    provide metadata for the parameter.
+
+    :return:
+    """
+
+    def __init__(self, typed_variable: SimulationVariable[T], instance: Any):
+        """
+
+        :param typed_variable:
+        :param instance:
+        """
+        self._typed_variable: SimulationVariable[T] = typed_variable
         self._instance: Any = instance
 
     def __call__(self) -> T:
+        """
+        This method is called when the instance is called like a function.
+
+        :return:
+        """
         return self._instance.__dict__.get(self._typed_variable.name, self._typed_variable.default)
 
     def get_metadata(self) -> List[str]:
+        """
+        This method is used to retrieve the metadata associated with the SimulationVariable.
+
+        :return:
+        """
         return self._typed_variable.metadata
 
     def get_name(self) -> str:
         return self._typed_variable.name
 
-    def get_type(self) -> Type[T]:
+    def get_dtype(self) -> Type[T]:
         return self._typed_variable.value_dtype
 
     def __getattr__(self, item: str) -> Callable:
@@ -97,25 +159,37 @@ class SimulationParameterInstance:
 
 class SimulationParameterMeta(type):
     def __new__(cls, name: str, bases: tuple, attrs: dict):
-        typed_variables = {}
+        _typed_variables = {}
         _variables = {}
+        container_type = attrs.get('container_type', None)
 
         for base in bases:
+            # Direct access is necessary for functionality, but I dislike the compile complaining about it
             if hasattr(base, '_typed_variables'):
-                typed_variables.update(base._typed_variables)
+                # _typed_variables.update(base._typed_variables)  # Direct access
+                base_typed_variables = getattr(base, '_typed_variables', {})
+                _typed_variables.update(base_typed_variables)
             if hasattr(base, '_variables'):
-                _variables.update(base._variables)
+                # _variables.update(base._variables)  # Direct access
+                base_variables = getattr(base, '_variables', {})
+                _variables.update(base_variables)
 
         for k, v in attrs.items():
-            if isinstance(v, SimulationParameter):
-                typed_variables[k] = v
+            if isinstance(v, SimulationVariable):
+                _typed_variables[k] = v
                 _variables[k] = (v.name, v.value_dtype, v.default, v.metadata)
 
-        attrs['_typed_variables'] = typed_variables
+        attrs['_typed_variables'] = _typed_variables
         attrs['_variables'] = _variables
 
+        # Automatically generate key_params or sim_flags based on container type
+        if container_type == 'parameters':
+            attrs['key_params'] = {k: v for k, v in _variables.items() if v[3] and 'keyParam' in v[3]}
+        elif container_type == 'flags':
+            attrs['sim_flags'] = {k: v for k, v in _variables.items() if v[3] and 'simFlag' in v[3]}
+
         annotations = attrs.get('__annotations__', {})
-        for var_name, typed_var in typed_variables.items():
+        for var_name, typed_var in _typed_variables.items():
             annotations[var_name] = typed_var.value_dtype
         attrs['__annotations__'] = annotations
 
@@ -130,58 +204,104 @@ class SimulationParameterMeta(type):
 
 
 class SimulationParametersContainer(metaclass=SimulationParameterMeta):
-    # Define variables here as class attributes
-    staticZeemanStrength = SimulationParameter('staticZeemanStrength', float, None,
-                                               ['staticBiasField', 'Static Bias Field'])
-    oscillatingZeemanStrength1 = SimulationParameter('oscillatingZeemanStrength1', float, None,
-                                                     ['dynamicBiasField', 'Dynamic Bias Field'])
-    shockwaveScaling = SimulationParameter('shockwaveScaling', float, None,
+    container_type = 'parameters'
+
+    bias_zeeman_static = SimulationVariable('staticZeemanStrength', float, None,
+                                            ['staticBiasField', 'Static Bias Field'])
+    bias_zeeman_oscillating_1 = SimulationVariable('oscillatingZeemanStrength1', float, None,
+                                                   ['dynamicBiasField', 'Dynamic Bias Field'])
+    shockwave_scaling = SimulationVariable('shockwaveScaling', float, None,
                                            ['dynamicBiasFieldScaleFactor', 'Dynamic Bias Field Scale Factor'])
-    oscillatingZeemanStrength2 = SimulationParameter('oscillatingZeemanStrength2', float, None,
-                                                     ['secondDynamicBiasField', 'Second Dynamic Bias Field'])
-    drivingFreq = SimulationParameter('drivingFreq', float, None, ['drivingFreq', 'drivingFrequency'])
-    drivingRegionLhs = SimulationParameter('drivingRegionLhs', int, None,
-                                           ['drivingRegionStartSite', 'Driving Region Start Site'])
-    drivingRegionRhs = SimulationParameter('drivingRegionRhs', int, None,
-                                           ['drivingRegionEndSite', 'Driving Region End Site'])
-    drivingRegionWidth = SimulationParameter('drivingRegionWidth', int, None,
-                                             ['drivingRegionWidth', 'Driving Region Width'])
-    maxSimTime = SimulationParameter('maxSimTime', float, None, ['maxSimTime', 'Max. Sim. Time'])
-    heisenbergExchangeMin = SimulationParameter('heisenbergExchangeMin', float, None,
-                                                ['minExchangeVal', 'Min. Exchange Val'])
-    heisenbergExchangeMax = SimulationParameter('heisenbergExchangeMax', float, None,
-                                                ['maxExchangeVal', 'Max. Exchange Val'])
-    iterationEnd = SimulationParameter('iterationEnd', float, None, ['maxIterations', 'Max. Iterations'])
-    numberOfDataPoints = SimulationParameter('numberOfDataPoints', float, None, ['numDatapoints', 'No. DataPoints'])
-    numSpinsInChain = SimulationParameter('numSpinsInChain', int, None, ['numSpinsInChain', 'No. Spins in Chain'])
-    numSpinsInABC = SimulationParameter('numSpinsInABC', int, None,
-                                        ['numDampedSpinsPerSide', 'No. Damped Spins (per side)'])
-    systemTotalSpins = SimulationParameter('systemTotalSpins', int, None, ['numTotalSpins', 'No. Total Spins'])
-    stepsize = SimulationParameter('stepsize', float, None, ['Stepsize'])
-    gilbertDamping = SimulationParameter('gilbertDamping', float, None,
-                                         ['gilbertDampingFactor', 'Gilbert Damping Factor'])
-    gyroMagConst = SimulationParameter('gyroMagConst', float, None, ['gyroRatio', 'Gyromagnetic Ratio'])
-    shockwaveGradientTime = SimulationParameter('shockwaveGradientTime', float, None,
-                                                ['shockwaveGradientTime', 'Shockwave Gradient Time'])
-    shockwaveApplicationTime = SimulationParameter('shockwaveApplicationTime', float, None,
-                                                   ['shockwaveApplicationTime', 'Shockwave Application Time'])
-    gilbertABCOuter = SimulationParameter('gilbertABCOuter', float, None, ['abcDampingLower', 'ABC Damping (lower)'])
-    gilbertABCInner = SimulationParameter('gilbertABCInner', float, None, ['abcDampingUpper', 'ABC Damping (upper)'])
-    dmiConstant = SimulationParameter('dmiConstant', float, None, ['dmiConstant', 'DMI Constant'])
-    satMag = SimulationParameter('satMag', float, None, ['saturationMagnetisation', 'Saturation Magnetisation'])
-    exchangeStiffness = SimulationParameter('exchangeStiffness', float, None,
+    bias_zeeman_oscillating_2 = SimulationVariable('oscillatingZeemanStrength2', float, None,
+                                                   ['secondDynamicBiasField', 'Second Dynamic Bias Field'])
+
+    driving_freq = SimulationVariable('drivingFreq', float, None, ['drivingFreq', 'drivingFrequency'])
+    driving_region_lhs = SimulationVariable('drivingRegionLhs', int, None,
+                                            ['drivingRegionStartSite', 'Driving Region Start Site'])
+    driving_region_rhs = SimulationVariable('drivingRegionRhs', int, None,
+                                            ['drivingRegionEndSite', 'Driving Region End Site'])
+    driving_region_width = SimulationVariable('drivingRegionWidth', int, None,
+                                              ['drivingRegionWidth', 'Driving Region Width'])
+
+    sim_time_max = SimulationVariable('maxSimTime', float, None, ['maxSimTime', 'Max. Sim. Time'])
+    exchange_heisenberg_min = SimulationVariable('heisenbergExchangeMin', float, None,
+                                                 ['minExchangeVal', 'Min. Exchange Val'])
+    exchange_heisenberg_max = SimulationVariable('heisenbergExchangeMax', float, None,
+                                                 ['maxExchangeVal', 'Max. Exchange Val'])
+    iteration_total = SimulationVariable('iterationEnd', float, None, ['maxIterations', 'Max. Iterations'])
+
+    num_dp_per_site = SimulationVariable('numberOfDataPoints', float, None,
+                                         ['numDatapoints', 'No. DataPoints', 'numDataPointsPerSite'])
+    num_sites_chain = SimulationVariable('numSpinsInChain', int, None, ['numSpinsInChain', 'No. Spins in Chain'])
+    num_sites_abc = SimulationVariable('numSpinsInABC', int, None,
+                                       ['numDampedSpinsPerSide', 'No. Damped Spins (per side)'])
+    num_sites_total = SimulationVariable('systemTotalSpins', int, None, ['numTotalSpins', 'No. Total Spins'])
+
+    stepsize = SimulationVariable('stepsize', float, None, ['Stepsize'])
+    gilbert_chain = SimulationVariable('gilbertDampingFactor', float, None,
+                                       ['gilbertDampingFactor', 'Gilbert Damping Factor'])
+    gyro_mag = SimulationVariable('gyroMagConst', float, None, ['gyroRatio', 'Gyromagnetic Ratio'])
+    shockwave_time_gradient = SimulationVariable('shockwaveGradientTime', float, None,
+                                                 ['shockwaveGradientTime', 'Shockwave Gradient Time'])
+
+    shockwave_time_application = SimulationVariable('shockwaveApplicationTime', float, None,
+                                                    ['shockwaveApplicationTime', 'Shockwave Application Time'])
+    gilbert_abc_outer = SimulationVariable('gilbertABCOuter', float, None, ['abcDampingLower', 'ABC Damping (lower)'])
+    gilbert_abc_inner = SimulationVariable('gilbertABCInner', float, None, ['abcDampingUpper', 'ABC Damping (upper)'])
+    exchange_dmi_constant = SimulationVariable('dmiConstant', float, None, ['dmiConstant', 'DMI Constant'])
+
+    sat_mag = SimulationVariable('satMag', float, None, ['saturationMagnetisation', 'Saturation Magnetisation'])
+    exchange_stiffness = SimulationVariable('exchangeStiffness', float, None,
                                             ['exchangeStiffness', 'Exchange Stiffness'])
-    anisotropyField = SimulationParameter('anisotropyField', float, None,
+    anisotropy_field = SimulationVariable('anisotropyField', float, None,
                                           ['anisotropyShapeField', 'Anisotropy (Shape) Field'])
-    latticeConstant = SimulationParameter('latticeConstant', float, None, ['latticeConstant', 'Lattice Constant'])
+    lattice_constant = SimulationVariable('latticeConstant', float, None, ['latticeConstant', 'Lattice Constant'])
 
     @classmethod
     def get_metadata(cls, name):
         var = getattr(cls, name, None)
-        if var and isinstance(var, SimulationParameter):
+        if var and isinstance(var, SimulationVariable):
             return var.metadata
         raise AttributeError(f"{name} not found")
 
+
+class SimulationFlagsContainer(metaclass=SimulationParameterMeta):
+    container_type = 'flags'
+
+    numerical_method = SimulationVariable('numericalMethodUsed', str, None,
+                                          ['numericalMethod', 'numericalMethodUsed', 'Numerical Method Used'])
+
+    has_llg = SimulationVariable('hasLLG', bool, None,
+                                 ['shouldUseLLG', 'shouldUseLlg', 'hasLLG', 'hasLlg'])
+    has_sllg = SimulationVariable('hasSLLG', bool, None, ['shouldUseSLLG', 'shouldUseSllg'])
+
+    has_shockwave = SimulationVariable('hasShockwave', bool, None, ['hasShockwave'])
+    has_dipolar = SimulationVariable('hasDipolar', bool, None, ['hasDipolar'])
+    has_dmi = SimulationVariable('hasDMI', bool, None, ['hasDMI', 'hasDmi'])
+    has_stt = SimulationVariable('hasSTT', bool, None, ['hasSTT', 'hasStt'])
+    has_bias_zeeman_static = SimulationVariable('hasStaticZeeman', bool, None, ['hasStaticZeeman'])
+    has_demag_1d_thin_film = SimulationVariable('hasDemag1DThinFilm', bool, None, ['hasDemag1DThinFilm'])
+    has_demag_intense = SimulationVariable('hasDemagIntense', bool, None, ['hasDemagIntense'])
+    has_demag_fft = SimulationVariable('hasDemagFFT', bool, None, ['hasDemagFFT'])
+    has_anisotropy_shape = SimulationVariable('hasShapeAnisotropy', bool, None, ['hasShapeAnisotropy'])
+
+    has_multiple_layers = SimulationVariable('hasMultipleLayers', bool, None, ['hasMultipleLayers'])
+    has_single_exchange_region = SimulationVariable('hasSingleExchangeRegion', bool, None, ['hasSingleExchangeRegion'])
+
+    is_drive_discrete_sites = SimulationVariable('hasDrivenDiscreteSites', bool, None, ['shouldDriveDiscreteSites'])
+    is_drive_custom_position = SimulationVariable('hasCustomDrivePosition', bool, None, ['hasCustomDrivePosition'])
+    is_drive_layers_all = SimulationVariable('hasDrivenAllLayers', bool, None, ['shouldDriveAllLayers'])
+    is_drive_ends = SimulationVariable('hasDrivenBothSides', bool, None, ['shouldDriveBothSides'])
+    is_drive_centre = SimulationVariable('hasDrivenCentre', bool, None, ['shouldDriveCentre'])
+    is_drive_lhs = SimulationVariable('driveFromLhs', bool, None, ['shouldDriveLHS'])
+    is_drive_rhs = SimulationVariable('hasDrivenRHS', bool, None, ['shouldDriveRHS'])
+
+    @classmethod
+    def get_metadata(cls, name):
+        var = getattr(cls, name, None)
+        if var and isinstance(var, SimulationVariable):
+            return var.metadata
+        raise AttributeError(f"{name} not found")
 
 
 class TypedVariable:
@@ -258,8 +378,10 @@ class VariablesMeta(type):
         # Inherit _typed_variables and _variables from bases
         for base in bases:
             if hasattr(base, '_typed_variables'):
+                # noinspection PyProtectedMember
                 typed_variables.update(base._typed_variables)
             if hasattr(base, '_variables'):
+                # noinspection PyProtectedMember
                 _variables.update(base._variables)
 
         # Update with current class's TypedVariable instances
