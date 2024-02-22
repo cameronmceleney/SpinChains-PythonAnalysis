@@ -31,7 +31,7 @@ from typing import TypedDict, Any, Dict, List, Optional, Union
 
 
 # Specific functions from my modules
-from attribute_defintions import AttributeMappings, SimulationParametersContainer
+from attribute_defintions import AttributeMappings, SimulationParametersContainer, SimulationFlagsContainer
 from figure_manager import FigureManager, colour_schemes
 
 """
@@ -73,7 +73,7 @@ class AttributeMeta(type):
 
 
 # -------------------------------------- Plot paper figures -------------------------------------
-class PaperFigures(SimulationParametersContainer):
+class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
     """
     Generates a single subplot that can either be a PNG or GIF.
 
@@ -109,17 +109,24 @@ class PaperFigures(SimulationParametersContainer):
         #examine = myVar['name']
         #print(VariablesContainer._variables)
         # print(VariablesContainer['dmiConstant'])
-        print(f"Type: {self.staticZeemanStrength.get_type()}")
-        self.staticZeemanStrength = 10.5
-        print(f"Value: {self.staticZeemanStrength.get_metadata()}")
-        print(f'Other: {self.staticZeemanStrength.get_name }')
-        print(self.latticeConstant)
-        print(self._variables)
+        #print(f"Type: {self.staticZeemanStrength.get_type()}")
+        #self.staticZeemanStrength = 10.5
+        #print(f"Value: {self.staticZeemanStrength.get_metadata()}")
+        #print(f'Other: {self.staticZeemanStrength.get_name() }')
+        #print(self.lattice_constant.get_name())
+        #print(self._variables)
 
-        #for key, value in key_data.items():
-        #    setattr(self, key, value)
+        print(self.bias_zeeman_static)
+        print(self.is_drive_lhs)
+        for key, value in key_data.items():
+            setattr(self, key, value)
 
-        print(self.staticZeemanStrength)
+        for key, value in sim_flags.items():
+            setattr(self, key, value)
+
+        print(self.bias_zeeman_static)
+        print(self.is_drive_lhs)
+        #print(self.staticZeemanStrength)
         exit(0)
 
         # typed_var_dict = VariablesContainer._typed_variables

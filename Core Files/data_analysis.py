@@ -22,7 +22,7 @@ import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
 import plot_rk_methods_legacy as plt_rk_legacy
 
 # Specific functions from my modules
-from attribute_defintions import AttributeMappings
+from attribute_defintions import AttributeMappings, SimulationParametersContainer, SimulationFlagsContainer
 from figure_manager import rc_params_update
 
 """
@@ -399,7 +399,7 @@ class PlotImportedData:
              self.header_sim_flags] = self.import_headers_from_file_legacy()
         else:
             [self.header_data_params, self.header_data_sites,
-             self.header_sim_flags] = self.import_headers_from_file()
+             self.header_sim_flags] = self.import_simulation_header()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
@@ -524,6 +524,69 @@ class PlotImportedData:
         else:
             return int(data_value)
 
+    def import_simulation_header(self):
+        parameters = SimulationParametersContainer()
+        flags = SimulationFlagsContainer()
+
+        with open(self.input_data_path) as file_header_data:
+            csv_reader = csv.reader(file_header_data)
+            next(csv_reader)  # Skip the 0th line.
+            next(csv_reader)  # Skip the 1st line (always blank).
+
+            # Process simulation flags (2nd and 3rd lines)
+            data_flags_titles = next(csv_reader)
+            data_flags_values = next(csv_reader)
+            self._process_flags(flags, data_flags_titles, data_flags_values)
+
+            # Additional blank line handling for newer format
+            if data_flags_values and any(data_flags_values):
+                next(csv_reader)  # Skip the 4th line (blank) for newer format.
+
+            # Process simulation parameters (5th and 6th lines)
+            key_sim_param_titles = next(csv_reader)
+            key_sim_param_values = next(csv_reader)
+            self._process_parameters(parameters, key_sim_param_titles, key_sim_param_values)
+
+            # Skip lines until simulated sites (11th line)
+            for _ in range(4):
+                next(csv_reader)  # Skip lines 7th to 10th
+            simulated_sites = next(csv_reader)  # 11th line
+
+        # Optionally, process 'simulated_sites' as needed here
+
+        if flags.numerical_method is None:
+            flags.numerical_method = f"{self.fp.upper()} Method"
+
+        if "Time [s]" in simulated_sites:
+            simulated_sites.remove("Time [s]")
+
+        return parameters, flags
+
+    def _process_flags(self, flags_container, titles, values):
+        # Dynamically set flag values based on titles and values
+        for title, value in zip(titles, values):
+            self._set_variable_from_title(flags_container, title.strip(), value.strip(), True)
+
+    def _process_parameters(self, parameters_container, titles, values):
+        # Dynamically set parameter values based on titles and values
+        for title, value in zip(titles, values):
+            self._set_variable_from_title(parameters_container, title.strip(), value.strip(), False)
+
+    def _set_variable_from_title(self, container, title, value, is_flag):
+        # Attempt to find and set the corresponding variable in the container
+        for var_name, var_info in container._typed_variables.items():
+            if title in var_info.metadata:
+                cast_value = self._cast_value(value, var_info.value_dtype)
+                setattr(container, var_name, cast_value)
+                break
+
+    @staticmethod
+    def _cast_value(value, dtype):
+        # Convert the value to the specified data type, with special handling for booleans
+        if dtype is bool:
+            return value.lower() in ['true', '1', 'yes']
+        return dtype(value)
+
     def import_headers_from_file(self):
         log.info("Importing file headers...")
 
@@ -549,7 +612,7 @@ class PlotImportedData:
             next(csv_reader)  # 9th. Description of how to read tabular data
             next(csv_reader)  # 10th. Blank.
             simulated_sites = next(csv_reader)  # 11th line. Titular value (site number) for each simulated site.
-
+        print(sim_flags)
         # Iterate over each title in the CSV
         for title, value in zip(key_sim_param_titles, key_sim_param_values):
             for desired_var_name, (_, possible_spellings) in AttributeMappings.key_data.items():
@@ -581,6 +644,8 @@ class PlotImportedData:
                             break
                 else:
                     continue
+        print(sim_flags)
+
         """
         for i, val in enumerate(data_flags_titles):
             if i % 2 == 0:
