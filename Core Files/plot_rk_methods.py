@@ -31,7 +31,7 @@ from typing import TypedDict, Any, Dict, List, Optional, Union
 
 
 # Specific functions from my modules
-from attribute_defintions import AttributeMappings, VariablesContainer
+from attribute_defintions import AttributeMappings, SimulationParametersContainer
 from figure_manager import FigureManager, colour_schemes
 
 """
@@ -73,7 +73,7 @@ class AttributeMeta(type):
 
 
 # -------------------------------------- Plot paper figures -------------------------------------
-class PaperFigures(VariablesContainer):
+class PaperFigures(SimulationParametersContainer):
     """
     Generates a single subplot that can either be a PNG or GIF.
 
@@ -97,22 +97,27 @@ class PaperFigures(VariablesContainer):
         ax3_label: str
         ax1_line_height: float
 
-
     def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
-        #super().__init__()
+        super().__init__()
         # Data and paths read-in from data_analysis.py
         self.time_data = time_data
         self.amplitude_data = amplitude_data
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
-        myVar = VariablesContainer
-        examine = myVar._variables
-        print(examine)
+        #myVar = VariablesContainer.dmiConstant
+        #examine = myVar['name']
+        #print(VariablesContainer._variables)
+        # print(VariablesContainer['dmiConstant'])
+        print(f"Type: {self.staticZeemanStrength.get_type()}")
+        self.staticZeemanStrength = 10.5
+        print(f"Value: {self.staticZeemanStrength.get_metadata()}")
+        print(f'Other: {self.staticZeemanStrength.get_name }')
+        print(self.latticeConstant)
+        print(self._variables)
 
-
-        for key, value in key_data.items():
-            setattr(self, key, value)
+        #for key, value in key_data.items():
+        #    setattr(self, key, value)
 
         print(self.staticZeemanStrength)
         exit(0)

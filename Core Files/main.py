@@ -99,8 +99,8 @@ if __name__ == '__main__':
             generate_filenames()
         else:
             dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
-                                            file_prefix="24-02-20", file_component='mx', file_identifier="T")
-            dataset1.call_methods(override_method="pf", override_function="hd", override_site=100, early_exit=True)
+                                            file_prefix="24-02-22", file_component='mx', file_identifier="T")
+            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=100, early_exit=True)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()

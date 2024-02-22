@@ -3,10 +3,10 @@
 # -------------------------- Preprocessing Directives -------------------------
 
 # Full packages
-
+import operator
 
 # Specific functions from packages
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type, Any, TypeVar, Generic, Callable
 
 # My full modules
 
@@ -23,78 +23,272 @@ PROGRAM_NAME = "attribute_definitions.py"
 """
 Created on 2024-02-21 by cameronmceleney
 """
+T = TypeVar('T')  # Generic type variable for SimulationParameter
+
+
+class SimulationParameter(Generic[T]):
+    def __init__(self, name: str, var_type: Type[T], value: T = None, metadata: List[str] = None):
+        self.name: str = name
+        self.value_dtype: Type[T] = var_type
+        self.value: T = value
+        self.default: T = None
+        self.metadata: List[str] = metadata if metadata is not None else []
+
+    def __get__(self, instance: Any, owner: Type) -> 'TypedVariableInstance':
+        if instance is None:
+            return self
+        return TypedVariableInstance(self, instance)
+
+    def __set__(self, instance: Any, value: T):
+        if not self.validate_type(value):
+            raise TypeError(f"Expected type {self.value_dtype.__name__}, got {type(value).__name__}")
+        instance.__dict__[self.name] = value
+
+    def validate_type(self, value: Any) -> bool:
+        if self.value_dtype in (int, float) and isinstance(value, (int, float)):
+            return True  # Allow int for float types or vice versa
+        return isinstance(value, self.value_dtype)
+
+    def add_metadata(self, new_metadata: str):
+        if new_metadata not in self.metadata:
+            self.metadata.append(new_metadata)
+
+    def update_metadata(self, new_metadata: List[str]):
+        self.metadata = new_metadata
+
+
+class SimulationParameterInstance:
+    def __init__(self, typed_variable: SimulationParameter[T], instance: Any):
+        self._typed_variable: SimulationParameter[T] = typed_variable
+        self._instance: Any = instance
+
+    def __call__(self) -> T:
+        return self._instance.__dict__.get(self._typed_variable.name, self._typed_variable.default)
+
+    def get_metadata(self) -> List[str]:
+        return self._typed_variable.metadata
+
+    def get_name(self) -> str:
+        return self._typed_variable.name
+
+    def get_type(self) -> Type[T]:
+        return self._typed_variable.value_dtype
+
+    def __getattr__(self, item: str) -> Callable:
+        if hasattr(self._typed_variable, item):
+            return getattr(self._typed_variable, item)
+
+        value = self.__call__()
+        if hasattr(value, item):
+            return getattr(value, item)
+
+        if item in dir(operator) and callable(getattr(operator, item)):
+            def operation_wrapper(*args, **kwargs):
+                operation = getattr(operator, item)
+                return operation(self(), *args, **kwargs)
+
+            return operation_wrapper
+
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{item}'")
+
+    def __repr__(self) -> str:
+        return repr(self.__call__())
+
+
+class SimulationParameterMeta(type):
+    def __new__(cls, name: str, bases: tuple, attrs: dict):
+        typed_variables = {}
+        _variables = {}
+
+        for base in bases:
+            if hasattr(base, '_typed_variables'):
+                typed_variables.update(base._typed_variables)
+            if hasattr(base, '_variables'):
+                _variables.update(base._variables)
+
+        for k, v in attrs.items():
+            if isinstance(v, SimulationParameter):
+                typed_variables[k] = v
+                _variables[k] = (v.name, v.value_dtype, v.default, v.metadata)
+
+        attrs['_typed_variables'] = typed_variables
+        attrs['_variables'] = _variables
+
+        annotations = attrs.get('__annotations__', {})
+        for var_name, typed_var in typed_variables.items():
+            annotations[var_name] = typed_var.value_dtype
+        attrs['__annotations__'] = annotations
+
+        return super().__new__(cls, name, bases, attrs)
+
+    def __getitem__(cls, key: str):
+        if key in cls.__dict__.get('_variables', {}):
+            return cls.__dict__['_variables'][key]
+        elif key in cls.__dict__.get('_typed_variables', {}):
+            return cls.__dict__['_typed_variables'][key]
+        raise KeyError(f"{key} is not available in {cls.__name__}")
+
+
+class SimulationParametersContainer(metaclass=SimulationParameterMeta):
+    # Define variables here as class attributes
+    staticZeemanStrength = SimulationParameter('staticZeemanStrength', float, None,
+                                               ['staticBiasField', 'Static Bias Field'])
+    oscillatingZeemanStrength1 = SimulationParameter('oscillatingZeemanStrength1', float, None,
+                                                     ['dynamicBiasField', 'Dynamic Bias Field'])
+    shockwaveScaling = SimulationParameter('shockwaveScaling', float, None,
+                                           ['dynamicBiasFieldScaleFactor', 'Dynamic Bias Field Scale Factor'])
+    oscillatingZeemanStrength2 = SimulationParameter('oscillatingZeemanStrength2', float, None,
+                                                     ['secondDynamicBiasField', 'Second Dynamic Bias Field'])
+    drivingFreq = SimulationParameter('drivingFreq', float, None, ['drivingFreq', 'drivingFrequency'])
+    drivingRegionLhs = SimulationParameter('drivingRegionLhs', int, None,
+                                           ['drivingRegionStartSite', 'Driving Region Start Site'])
+    drivingRegionRhs = SimulationParameter('drivingRegionRhs', int, None,
+                                           ['drivingRegionEndSite', 'Driving Region End Site'])
+    drivingRegionWidth = SimulationParameter('drivingRegionWidth', int, None,
+                                             ['drivingRegionWidth', 'Driving Region Width'])
+    maxSimTime = SimulationParameter('maxSimTime', float, None, ['maxSimTime', 'Max. Sim. Time'])
+    heisenbergExchangeMin = SimulationParameter('heisenbergExchangeMin', float, None,
+                                                ['minExchangeVal', 'Min. Exchange Val'])
+    heisenbergExchangeMax = SimulationParameter('heisenbergExchangeMax', float, None,
+                                                ['maxExchangeVal', 'Max. Exchange Val'])
+    iterationEnd = SimulationParameter('iterationEnd', float, None, ['maxIterations', 'Max. Iterations'])
+    numberOfDataPoints = SimulationParameter('numberOfDataPoints', float, None, ['numDatapoints', 'No. DataPoints'])
+    numSpinsInChain = SimulationParameter('numSpinsInChain', int, None, ['numSpinsInChain', 'No. Spins in Chain'])
+    numSpinsInABC = SimulationParameter('numSpinsInABC', int, None,
+                                        ['numDampedSpinsPerSide', 'No. Damped Spins (per side)'])
+    systemTotalSpins = SimulationParameter('systemTotalSpins', int, None, ['numTotalSpins', 'No. Total Spins'])
+    stepsize = SimulationParameter('stepsize', float, None, ['Stepsize'])
+    gilbertDamping = SimulationParameter('gilbertDamping', float, None,
+                                         ['gilbertDampingFactor', 'Gilbert Damping Factor'])
+    gyroMagConst = SimulationParameter('gyroMagConst', float, None, ['gyroRatio', 'Gyromagnetic Ratio'])
+    shockwaveGradientTime = SimulationParameter('shockwaveGradientTime', float, None,
+                                                ['shockwaveGradientTime', 'Shockwave Gradient Time'])
+    shockwaveApplicationTime = SimulationParameter('shockwaveApplicationTime', float, None,
+                                                   ['shockwaveApplicationTime', 'Shockwave Application Time'])
+    gilbertABCOuter = SimulationParameter('gilbertABCOuter', float, None, ['abcDampingLower', 'ABC Damping (lower)'])
+    gilbertABCInner = SimulationParameter('gilbertABCInner', float, None, ['abcDampingUpper', 'ABC Damping (upper)'])
+    dmiConstant = SimulationParameter('dmiConstant', float, None, ['dmiConstant', 'DMI Constant'])
+    satMag = SimulationParameter('satMag', float, None, ['saturationMagnetisation', 'Saturation Magnetisation'])
+    exchangeStiffness = SimulationParameter('exchangeStiffness', float, None,
+                                            ['exchangeStiffness', 'Exchange Stiffness'])
+    anisotropyField = SimulationParameter('anisotropyField', float, None,
+                                          ['anisotropyShapeField', 'Anisotropy (Shape) Field'])
+    latticeConstant = SimulationParameter('latticeConstant', float, None, ['latticeConstant', 'Lattice Constant'])
+
+    @classmethod
+    def get_metadata(cls, name):
+        var = getattr(cls, name, None)
+        if var and isinstance(var, SimulationParameter):
+            return var.metadata
+        raise AttributeError(f"{name} not found")
+
 
 
 class TypedVariable:
-    def __init__(self, name, var_type, default=None, metadata=None):
+    def __init__(self, name, var_type, value=None, metadata=None):
         self.name = name
-        self.type = var_type
-        self.value = default
+        self.value_dtype = var_type
+        self.value = value
+        self.default = None
         self.metadata = metadata or []
 
     def __get__(self, instance, owner):
-        return self.value
+        if instance is None:
+            return self
+        # Return a callable that still allows access to this TypedVariable's attributes
+        return TypedVariableInstance(self, instance)
 
     def __set__(self, instance, value):
-        if not isinstance(value, self.type) and value is not None:
-            raise TypeError(f"Expected type {self.type.__name__}, got {type(value).__name__}")
-        self.value = value
+        if not isinstance(value, self.value_dtype) and value is not None:
+            raise TypeError(f"Expected type {self.value_dtype.__name__}, got {type(value).__name__}")
+        instance.__dict__[self.name] = value
 
-    def __delete__(self, instance):
-        self.value = None
 
-    def __getitem__(self, key):
-        if key == 'name':
-            return self.name
-        elif key == 'type':
-            return self.type
-        elif key == 'value':
-            return self.value
-        elif key == 'metadata':
-            return self.metadata
-        else:
-            raise KeyError(f"Key '{key}' not found")
+class TypedVariableInstance:
+    def __init__(self, typed_variable: TypedVariable, instance: Any):
+        self._typed_variable = typed_variable
+        self._instance = instance
+
+    def __call__(self):
+        # This method allows the instance to be called like a function to retrieve its value.
+        # Retrieve the value from the instance's dictionary or use the default if not set.
+        return self._instance.__dict__.get(self._typed_variable.name, self._typed_variable.default)
+
+    def get_metadata(self) -> List[str]:
+        # Return the metadata associated with the TypedVariable.
+        return self._typed_variable.metadata
+
+    def get_name(self):
+        # Return the metadata associated with the TypedVariable.
+        return self._typed_variable.name
+
+    def get_type(self):
+        # Return the type information of the TypedVariable.
+        return self._typed_variable.value_dtype
+
+    def __getattr__(self, item):
+        # This method is called when an attribute lookup has not found the attribute in the usual places.
+        if hasattr(self._typed_variable, item):
+            return getattr(self._typed_variable, item)
+
+        # Delegate arithmetic and other operations to the value directly.
+        try:
+            if item in dir(operator) and callable(getattr(operator, item)):
+                def operation_wrapper(*args, **kwargs):
+                    operation = getattr(operator, item)
+                    return operation(self.get_value(), *args, **kwargs)
+
+                return operation_wrapper
+        except AttributeError:
+            pass
+
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{item}'")
+
+    def __repr__(self):
+        # Provide a string representation of the instance's current value for easier debugging and logging.
+        return repr(self.__call__())
 
 
 class VariablesMeta(type):
     def __new__(mcs, name, bases, attrs):
-        # Collect TypedVariable instances into a class-level dictionary
-        typed_variables = {k: v for k, v in attrs.items() if isinstance(v, TypedVariable)}
+        # Initialize _typed_variables and _variables for the new class
+        typed_variables = {}
+        _variables = {}
+
+        # Inherit _typed_variables and _variables from bases
+        for base in bases:
+            if hasattr(base, '_typed_variables'):
+                typed_variables.update(base._typed_variables)
+            if hasattr(base, '_variables'):
+                _variables.update(base._variables)
+
+        # Update with current class's TypedVariable instances
+        for k, v in attrs.items():
+            if isinstance(v, TypedVariable):
+                typed_variables[k] = v
+                _variables[k] = (v.name, v.value_dtype, v.default, v.metadata)
+
         attrs['_typed_variables'] = typed_variables
+        attrs['_variables'] = _variables
 
-        __typed_vars2 = {
-            k: (v.type, v.value, v.metadata) for k, v in attrs.items() if isinstance(v, TypedVariable)
-        }
-        attrs['_variables'] = __typed_vars2
-
-        # Optionally, directly set TypedVariable values as class attributes for autocomplete/type hinting
+        # Set annotations for type hinting
+        annotations = attrs.get('__annotations__', {})
         for var_name, typed_var in typed_variables.items():
-            attrs[var_name] = typed_var.value
+            annotations[var_name] = typed_var.value_dtype
+        attrs['__annotations__'] = annotations
 
         return super().__new__(mcs, name, bases, attrs)
 
     def __getitem__(cls, key: str):
-        # Access to TypedVariable instances via class indexing
-        if isinstance(key, str):
-            if key == '_variables':
-                return cls._variables
-            else:
-                return cls._variables[key]
-        else:
-            raise TypeError("Unsupported key type")
+        if key in cls.__dict__.get('_variables', {}):
+            return cls.__dict__['_variables'][key]
+        elif key in cls.__dict__.get('_typed_variables', {}):
+            return cls.__dict__['_typed_variables'][key]
+        raise KeyError(f"{key} is not available in {cls.__name__}")
 
 
 class VariablesContainer(metaclass=VariablesMeta):
-    """
-    This class is a container for TypedVariable instances, which can be accessed via class indexing.
-
-    Example usage to access the whole Dict:
-     -         typed_var_dict = VariablesContainer._typed_variables
-               print(typed_var_dict)  # Shows all TypedVariable instances
-               print(VariablesContainer._typed_variables['staticZeemanStrength'].metadata)
-    """
-    # _typed_variables: Dict[str, TypedVariable] = {}
-    # _variables: Dict[str, Tuple[str, Optional[Type], List[str]]] = {}
+    # Define variables here as class attributes
     staticZeemanStrength = TypedVariable('staticZeemanStrength', float, None, ['staticBiasField', 'Static Bias Field'])
     oscillatingZeemanStrength1 = TypedVariable('oscillatingZeemanStrength1', float, None,
                                                ['dynamicBiasField', 'Dynamic Bias Field'])
@@ -131,7 +325,13 @@ class VariablesContainer(metaclass=VariablesMeta):
                                     ['anisotropyShapeField', 'Anisotropy (Shape) Field'])
     latticeConstant = TypedVariable('latticeConstant', float, None, ['latticeConstant', 'Lattice Constant'])
 
-    # Define other variables similarly...
+    @classmethod
+    def get_metadata(cls, name):
+        var = getattr(cls, name, None)
+        if var and isinstance(var, TypedVariable):
+            return var.metadata
+        raise AttributeError(f"{name} not found")
+
 
 class AttributeMappings:
     key_data: Dict[str, Tuple[Type, List[str]]] = {
