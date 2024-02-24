@@ -394,12 +394,12 @@ class PlotImportedData:
 
         self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
 
-        if self.fp == "rk2":
-            [self.header_data_params, self.header_data_sites,
-             self.header_sim_flags] = self.import_headers_from_file_legacy()
-        else:
-            [self.header_data_params, self.header_data_sites,
-             self.header_sim_flags] = self.import_simulation_header()
+        #if self.fp == "rk2":
+        #    [self.header_data_params, self.header_data_sites,
+        #     self.header_sim_flags] = self.import_headers_from_file_legacy()
+        #else:
+        [self.header_data_params, self.header_data_sites,
+         self.header_sim_flags] = self.import_simulation_header()
 
         self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
         self.m_spin_data = self.all_imported_data[:, 1:]
