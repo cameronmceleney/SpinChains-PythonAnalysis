@@ -48,30 +48,6 @@ from figure_manager import FigureManager, colour_schemes
     IDE         : PyCharm
 """
 
-
-
-
-class AttributeMeta(type):
-    def __new__(mcs, name, bases, attrs):
-
-        if '__annotations__' not in attrs:
-            attrs['__annotations__'] = {}
-
-        for attr, (attr_type, _) in AttributeMappings.key_data.items():
-            attrs['__annotations__'][attr] = attr_type
-            attrs[attr] = None  # Set default value to None
-
-        for attr, (attr_type, _) in AttributeMappings.sim_flags.items():
-            attrs['__annotations__'][attr] = attr_type
-            attrs[attr] = None  # Set default value to None
-
-        return super().__new__(mcs, name, bases, attrs)
-
-    def __init__(self, name, bases, attrs):
-        # perform any additional initialization here...
-        super().__init__(name, bases, attrs)
-
-
 # -------------------------------------- Plot paper figures -------------------------------------
 class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
     """
@@ -97,7 +73,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ax3_label: str
         ax1_line_height: float
 
-    def __init__(self, time_data, amplitude_data, key_data, sim_flags, array_of_sites, output_filepath):
+    def __init__(self, time_data, amplitude_data, params_dict, flags_dict, array_of_sites, output_filepath,
+                 params_container=None, flags_container=None):
         super().__init__()
         # Data and paths read-in from data_analysis.py
         self.time_data = time_data
@@ -105,66 +82,19 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self.sites_array = array_of_sites
         self.output_filepath = output_filepath
 
-        #myVar = VariablesContainer.dmiConstant
-        #examine = myVar['name']
-        #print(VariablesContainer._variables)
-        # print(VariablesContainer['dmiConstant'])
-        #print(f"Type: {self.staticZeemanStrength.get_type()}")
-        #self.staticZeemanStrength = 10.5
-        #print(f"Value: {self.staticZeemanStrength.get_metadata()}")
-        #print(f'Other: {self.staticZeemanStrength.get_name() }')
-        #print(self.lattice_constant.get_name())
-        #print(self._variables)
+        if params_container is not None:
+            self.update_with_container(params_container)
+        else:
+            self.update_with_dict(params_dict)
 
-        print(self.bias_zeeman_static)
-        print(self.is_drive_lhs)
-        for key, value in key_data.items():
-            setattr(self, key, value)
+        if flags_container is not None:
+            self.update_with_container(flags_container)
+        else:
+            self.update_with_dict(flags_dict)
 
-        for key, value in sim_flags.items():
-            setattr(self, key, value)
+        self.lattice_constant = 1e-9
+        self.exchange_dmi_constant = 1.25
 
-        print(self.bias_zeeman_static)
-        print(self.is_drive_lhs)
-        #print(self.staticZeemanStrength)
-        exit(0)
-
-        # typed_var_dict = VariablesContainer._typed_variables
-        # print(typed_var_dict)  # Shows all TypedVariable instances
-        # print(VariablesContainer._typed_variables['staticZeemanStrength'].metadata)  # Access a specific TypedVariable instance
-
-        for key, value in sim_flags.items():
-            setattr(self, key, value)
-
-        #print(PaperFigures.__getattribute__(self, 'staticZeemanStrength'))
-
-        exit(0)
-        """
-        # Individual attributes from key_data that are needed for the class
-        self._nm_method = sim_flags['numericalMethodUsed']
-        self._static_field = key_data['staticBiasField']
-        self._driving_field1 = key_data['dynamicBiasField']
-        self._driving_field2 = key_data['secondDynamicBiasField']
-        self._driving_freq = key_data['drivingFreq'] / 1e9  # Converts from [s] to (ns).
-        self._driving_region_lhs = key_data['drivingRegionLHS']
-        self._driving_region_rhs = key_data['drivingRegionRHS']
-        self._driving_width = key_data['drivingRegionWidth']
-        self._max_time = key_data['maxSimTime'] * 1e9
-        self._stop_iteration_value = key_data['stopIterVal']
-        self._exchange_min = key_data['exchangeMinVal']
-        self._exchange_max = key_data['exchangeMaxVal']
-        self._num_data_points = key_data['numberOfDataPoints']
-        self._chain_spins = key_data['chainSpins']
-        self._num_damped_spins = key_data['dampedSpins']
-        self._total_num_spins = key_data['totalSpins']
-        self._stepsize = key_data['stepsize'] * 1e9
-        self._gilbert_factor = key_data['gilbertFactor']
-        self._gyro_mag_ratio = key_data['gyroMagRatio']
-
-        # These parameters still need to be added to the C++ output files
-        self._lattice_constant = 1e-9
-        self._dmi_val_const = 1.25
-        """
         # Attributes for plots
         self._fig = None
         self._axes = None
@@ -172,7 +102,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._yaxis_lim_fix = 3e-5
         self._fig_kwargs = {"xlabel": f"Position, $n_i$ (site index)",
                             "ylabel": f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
-                            "xlim": [0.0 * self._total_num_spins, 1.0 * self._total_num_spins],
+                            "xlim": [0.0 * self.num_sites_total, 1.0 * self.num_sites_total],
                             "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
 
         # Text sizes for class to override rcParams
@@ -215,7 +145,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._axes.set_aspect("auto")
 
         # Easier to have time-stamp as label than textbox.
-        self._axes.plot(np.arange(0, self._total_num_spins), self.amplitude_data[row_index, :], ls='-',
+        self._axes.plot(np.arange(0, self.num_sites_total), self.amplitude_data[row_index, :], ls='-',
                         lw=2 * 0.75, color='#64bb6a', label=f"Signal", zorder=1.1)
 
         self._axes.set(**self._fig_kwargs)
@@ -235,10 +165,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         if draw_regions_of_interest:
             left, bottom, width, height = (
-                [0, (self._total_num_spins - self._num_damped_spins),
-                 (self._driving_region_lhs + self._num_damped_spins)],
+                [0, (self.num_sites_total - self.num_sites_abc),
+                 (self.driving_region_lhs + self.num_sites_abc)],
                 self._axes.get_ylim()[0] * 2,
-                (self._num_damped_spins, self._driving_width),
+                (self.num_sites_abc, self.driving_region_width),
                 4 * self._axes.get_ylim()[1])
 
             rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height, lw=0,
@@ -379,7 +309,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Take FFT of the signal
         wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
                                                         signal_xlim_min:signal_xlim_max],
-                                                        spatial_spacing=self._lattice_constant)
+                                                        spatial_spacing=self.lattice_constant)
         fourier_transform = abs(fourier_transform)
         intensities_normalized = fourier_transform / np.max(fourier_transform)
 
@@ -389,10 +319,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
 
         # hz_pi_to_norm required for `frequencies` to be linear and not angular when γ in [rad * s^-1 * T^-1]
-        frequencies = ((self._gyro_mag_ratio / hz_pi_to_norm) *
-                       (self._exchange_max * (self._lattice_constant ** 2) * (wavevectors ** 2)
-                        + self._static_field
-                        + self._dmi_val_const * self._lattice_constant * wavevectors))
+        frequencies = ((self.gyro_mag / hz_pi_to_norm) *
+                       (self.exchange_heisenberg_max * (self.lattice_constant ** 2) * (wavevectors ** 2)
+                        + self.bias_zeeman_static
+                        + self.exchange_dmi_constant * self.lattice_constant * wavevectors))
 
         wavevectors *= -1 * self.hz_to_Ghz if negative_wavevector else self.hz_to_Ghz
         frequencies *= self.hz_to_Ghz
@@ -465,15 +395,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Nested Dict to enable many cases (different plots and papers)
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
-                'signal_xlim': [0, int(self._total_num_spins)],  # Example value, replace 100 with self._total_num_spins
+                'signal_xlim': [0, int(self.num_sites_total)],  # Example value, replace 100 with self._total_num_spins
                 'ax2_xlim': [0.0, 1.0],
                 'ax2_ylim': [1e-4, 1e-1],
                 'ax3_xlim': [-0.5, 0.5],
                 'ax3_ylim': [0, 30],
-                'signal1_xlim': [int(self._num_damped_spins + 1),
-                                 int(self._driving_region_lhs + self._num_damped_spins - 1)],
-                'signal2_xlim': [int(self._driving_region_rhs + self._num_damped_spins + 1),
-                                 int(self._total_num_spins - self._num_damped_spins - 1)],
+                'signal1_xlim': [int(self.num_sites_abc + 1),
+                                 int(self.driving_region_lhs + self.num_sites_abc - 1)],
+                'signal2_xlim': [int(self.driving_region_rhs + self.num_sites_abc + 1),
+                                 int(self.num_sites_total - self.num_sites_abc - 1)],
                 'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
@@ -542,7 +472,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # All additional functionality should be after here
         if interactive_plot:
             figure_manager = FigureManager(self._fig, ax_subplots, self._fig.get_size_inches()[0],
-                                           self._fig.get_size_inches()[1], self._fig.dpi, self._driving_freq)
+                                           self._fig.get_size_inches()[1], self._fig.dpi, self.driving_freq)
             figure_manager.connect_events()
             figure_manager.wait_for_close()
         else:

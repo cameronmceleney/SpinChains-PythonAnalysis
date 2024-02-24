@@ -525,6 +525,7 @@ class PlotImportedData:
             return int(data_value)
 
     def import_simulation_header(self):
+
         parameters = SimulationParametersContainer()
         flags = SimulationFlagsContainer()
 
@@ -534,58 +535,62 @@ class PlotImportedData:
             next(csv_reader)  # Skip the 1st line (always blank).
 
             # Process simulation flags (2nd and 3rd lines)
-            data_flags_titles = next(csv_reader)
-            data_flags_values = next(csv_reader)
-            self._process_flags(flags, data_flags_titles, data_flags_values)
+            self._process_section(csv_reader, flags, is_flag=True)
 
-            # Additional blank line handling for newer format
-            if data_flags_values and any(data_flags_values):
-                next(csv_reader)  # Skip the 4th line (blank) for newer format.
+            # Additional blank (4th line) in newer format; older format has blank 3rd and key sim params at 4th
 
-            # Process simulation parameters (5th and 6th lines)
-            key_sim_param_titles = next(csv_reader)
-            key_sim_param_values = next(csv_reader)
-            self._process_parameters(parameters, key_sim_param_titles, key_sim_param_values)
+            # Count from here is for new format. Process simulation parameters (5th and 6th lines)
+            self._process_section(csv_reader, parameters, is_flag=False)
 
             # Skip lines until simulated sites (11th line)
             for _ in range(4):
-                next(csv_reader)  # Skip lines 7th to 10th
+                next(csv_reader)  # Skip lines 7th (blank), 8th (simulation notes), 9th (descriptions), 10th (blank)
             simulated_sites = next(csv_reader)  # 11th line
 
-        # Optionally, process 'simulated_sites' as needed here
-
-        if flags.numerical_method is None:
-            flags.numerical_method = f"{self.fp.upper()} Method"
-
+        # Process simulated sites
         if "Time [s]" in simulated_sites:
             simulated_sites.remove("Time [s]")
 
-        return parameters, flags
+        return parameters.return_data(), simulated_sites, flags.return_data()
 
-    def _process_flags(self, flags_container, titles, values):
-        # Dynamically set flag values based on titles and values
-        for title, value in zip(titles, values):
-            self._set_variable_from_title(flags_container, title.strip(), value.strip(), True)
+    def _process_section(self, csv_reader, container, is_flag, data_titles=None, data_values=None):
 
-    def _process_parameters(self, parameters_container, titles, values):
-        # Dynamically set parameter values based on titles and values
-        for title, value in zip(titles, values):
-            self._set_variable_from_title(parameters_container, title.strip(), value.strip(), False)
+        if data_titles is None and data_values is None:
+            data_titles = next(csv_reader)
+            data_values = next(csv_reader)
+        if data_values:
+            for title, value in zip(data_titles, data_values):
+                self._set_instance_variable(container, title, value, is_flag)
 
-    def _set_variable_from_title(self, container, title, value, is_flag):
-        # Attempt to find and set the corresponding variable in the container
-        for var_name, var_info in container._typed_variables.items():
-            if title in var_info.metadata:
-                cast_value = self._cast_value(value, var_info.value_dtype)
-                setattr(container, var_name, cast_value)
+        else:
+            # Titles and values are all in one line
+            for i in range(0, len(data_titles), 2):
+                title, value = data_titles[i], data_titles[i + 1]
+                self._set_instance_variable(container, title, value, is_flag)
+
+        if data_values:
+            # Skip the next (blank) line for the newer formats
+            next(csv_reader)
+
+
+    def _set_instance_variable(self, container, title, value, is_flag):
+        """
+        Dynamically set the instance attributes if they match the input data.
+        """
+        if is_flag:
+            unpack_container = container.all_flags.items()
+        else:
+            unpack_container = container.all_parameters.items()
+
+        mapped_title = self.custom_string_mappings(title)
+
+        for param_name, param_metadata in unpack_container:
+            param_names = param_metadata['var_names']
+
+            if mapped_title in param_names:
+                # Dynamically set the instance attributes
+                setattr(container, param_name, value)
                 break
-
-    @staticmethod
-    def _cast_value(value, dtype):
-        # Convert the value to the specified data type, with special handling for booleans
-        if dtype is bool:
-            return value.lower() in ['true', '1', 'yes']
-        return dtype(value)
 
     def import_headers_from_file(self):
         log.info("Importing file headers...")
@@ -612,7 +617,7 @@ class PlotImportedData:
             next(csv_reader)  # 9th. Description of how to read tabular data
             next(csv_reader)  # 10th. Blank.
             simulated_sites = next(csv_reader)  # 11th line. Titular value (site number) for each simulated site.
-        print(sim_flags)
+
         # Iterate over each title in the CSV
         for title, value in zip(key_sim_param_titles, key_sim_param_values):
             for desired_var_name, (_, possible_spellings) in AttributeMappings.key_data.items():
@@ -644,7 +649,6 @@ class PlotImportedData:
                             break
                 else:
                     continue
-        print(sim_flags)
 
         """
         for i, val in enumerate(data_flags_titles):
@@ -669,6 +673,9 @@ class PlotImportedData:
 
         if "Time [s]" in simulated_sites:
             simulated_sites.remove("Time [s]")
+
+        print(key_params)
+        print(sim_flags)
 
         return key_params, simulated_sites, sim_flags
 
