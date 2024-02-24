@@ -1004,12 +1004,12 @@ class PlotImportedData:
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         log.info(f"Plotting function selected: paper figure.")
 
-        if self.fp == "rk2":
-            paper_fig = plt_rk_legacy.PaperFigures(self.m_time_data, self.m_spin_data,
-                                            self.header_data_params, self.header_sim_flags, self.header_data_sites,
-                                            self.full_output_path)
-        else:
-            paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
+        #if self.fp == "rk2":
+        #    paper_fig = plt_rk_legacy.PaperFigures(self.m_time_data, self.m_spin_data,
+        #                                    self.header_data_params, self.header_sim_flags, self.header_data_sites,
+        #                                    self.full_output_path)
+        #else:
+        paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
                                             self.header_data_params, self.header_sim_flags, self.header_data_sites,
                                             self.full_output_path)
 

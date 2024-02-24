@@ -211,10 +211,24 @@ class SimulationVariableInstance(Generic[T]):
 
     # Implementing the multiplication special method
     def __mul__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            return self() * other_value
-        raise TypeError(f"Unsupported operand type(s) for *: '{type(self)}' and '{type(other)}'")
+        # Ensure the current instance's value is not None
+        self_value = self()
+        if self_value is None:
+            raise ValueError(f"Cannot perform multiplication: '{self._sim_var._key}' value is None")
+
+        # Handle multiplication with other instances or numeric types
+        if isinstance(other, SimulationVariableInstance):
+            other_value = other()
+            # Check if the other instance's value is None
+            if other_value is None:
+                raise ValueError(f"Cannot perform multiplication with '{other._sim_var._key}': value is None")
+        elif isinstance(other, (int, float)):
+            other_value = other
+        else:
+            raise TypeError(f"Unsupported operand type(s) for *: '{type(self_value)}' and '{type(other)}'")
+
+        # Perform the multiplication if both values are valid
+        return self_value * other_value
 
     # General approach for other arithmetic operations, e.g., addition
     def __add__(self, other):
