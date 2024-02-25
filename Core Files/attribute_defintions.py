@@ -6,7 +6,7 @@
 import operator
 
 # Specific functions from packages
-from typing import Dict, List, Tuple, Type, Any, TypeVar, Generic, Callable
+from typing import Dict, List, Type, Any, TypeVar, Generic, Callable
 
 # My full modules
 
@@ -80,22 +80,13 @@ class SimulationVariable(Generic[T]):
             return True  # Allow int for float types or vice versa
         return isinstance(value, self._value_dtype)
 
-    def convert_type_test(self, value: Any) -> T:
-
-        if self._value_dtype is None:
-            return value
-        if self._value_dtype is bool:
-            return bool(value) if isinstance(value, str) and value.lower() in ['true', '1', 'yes'] else False
-        elif self._value_dtype in [int, float]:
-            try:
-                return self._value_dtype(value)
-            except ValueError:
-                return self._value_dtype(int(value) if value.isdigit() else float(value))
-        return value  # For str and other types
-
     def convert_type(self, value: Any) -> T:
+        if value is None:
+            return value
+
         if self._value_dtype is None:
             return value
+
         elif self._value_dtype is bool:
             true_values = ['true', '1', 'yes']
             false_values = ['false', '0', 'no']
@@ -138,9 +129,12 @@ class SimulationVariableInstance(Generic[T]):
         """
         This method is called when the instance is called like a function, and returns its value.
 
-        :return:
+        Note that `type(value) == <class 'attribute_defintions.SimulationVariableInstance'>` while the return of
+        `__call__` is going to whatever the `_var_dtype` of the given `_key` is.
         """
-        return self._instance.__dict__.get(self._sim_var._key, self._sim_var._val_default)
+        value = self._instance.__dict__.get(self._sim_var._key, self._sim_var._val_default)
+        #print('here', value, self._sim_var._key, self._sim_var._value_dtype)
+        return self._sim_var.convert_type(value)
 
     def __getattr__(self, item: str) -> Callable:
         if hasattr(self._sim_var, item):
@@ -150,13 +144,6 @@ class SimulationVariableInstance(Generic[T]):
 
         if hasattr(value, item):
             return getattr(value, item)
-
-        if item in dir(operator) and callable(getattr(operator, item)):
-            def operation_wrapper(*args, **kwargs):
-                operation = getattr(operator, item)
-                return operation(self(), *args, **kwargs)
-
-            return operation_wrapper
 
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{item}'")
 
@@ -209,85 +196,76 @@ class SimulationVariableInstance(Generic[T]):
     def object(self):
         return self._instance
 
-    # Implementing the multiplication special method
-    def __mul__(self, other):
-        # Ensure the current instance's value is not None
+    def mul_test(self, other):
         self_value = self()
         if self_value is None:
-            raise ValueError(f"Cannot perform multiplication: '{self._sim_var._key}' value is None")
+            raise ValueError(f"Attempted to multiply a 'None' value for '{self._sim_var._key}'.")
 
-        # Handle multiplication with other instances or numeric types
         if isinstance(other, SimulationVariableInstance):
             other_value = other()
-            # Check if the other instance's value is None
             if other_value is None:
-                raise ValueError(f"Cannot perform multiplication with '{other._sim_var._key}': value is None")
+                raise ValueError(f"Attempted to multiply by a 'None' value from '{other._sim_var._key}'.")
         elif isinstance(other, (int, float)):
             other_value = other
+        elif isinstance(other, list):
+            # Define a specific operation for lists, if applicable
+            # Example: return a list where each element is multiplied by self_value
+            return [self_value * elem for elem in other]
         else:
-            raise TypeError(f"Unsupported operand type(s) for *: '{type(self_value)}' and '{type(other)}'")
+            raise TypeError(f"Unsupported operand type(s) for *: '{type(self_value)}' and '{type(other)}'.")
 
-        # Perform the multiplication if both values are valid
         return self_value * other_value
 
-    # General approach for other arithmetic operations, e.g., addition
-    def __add__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            return self() + other_value
-        raise TypeError(f"Unsupported operand type(s) for +: '{type(self)}' and '{type(other)}'")
+    def __perform_operation(self, other, operation):
+        self_value = self()
+        if self_value is None:
+            raise ValueError(f"Attempted operation with a 'None' value for '{self._sim_var._key}'.")
 
-    # Implement the reverse arithmetic operations to handle cases where the instance is on the right
-    def __rmul__(self, other):
-        return self.__mul__(other)
+        if isinstance(other, SimulationVariableInstance):
+            other_value = other()
+            if other_value is None:
+                raise ValueError(f"Attempted operation with a 'None' value from '{other._sim_var._key}'.")
+        elif isinstance(other, (int, float)):
+            other_value = other
+        elif isinstance(other, list) and operation == operator.mul:  # Specific case for multiplication
+            return [self_value * elem for elem in other]
+        else:
+            raise TypeError(
+                f"Unsupported operand type(s) for {operation.__name__}: '{type(self_value)}' and '{type(other)}'.")
+
+        return operation(self_value, other_value)
+
+    def __mul__(self, other):
+        return self.__perform_operation(other, operator.mul)
+
+    def __add__(self, other):
+        return self.__perform_operation(other, operator.add)
+
+    def __sub__(self, other):
+        return self.__perform_operation(other, operator.sub)
+
+    def __truediv__(self, other):
+        return self.__perform_operation(other, operator.truediv)
+
+    def __pow__(self, other, modulo=None):
+        self_value = self()
+        other_value = other() if isinstance(other, SimulationVariableInstance) else other
+        if modulo is None:
+            return pow(self_value, other_value)
+        else:
+            return pow(self_value, other_value, modulo)
 
     def __radd__(self, other):
         return self.__add__(other)
 
-    # Example of implementing subtraction
-    def __sub__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            return self() - other_value
-        raise TypeError(f"Unsupported operand type(s) for -: '{type(self)}' and '{type(other)}'")
-
-    def __truediv__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            if other_value == 0:
-                raise ZeroDivisionError("division by zero")
-            return self() / other_value
-        raise TypeError(f"Unsupported operand type(s) for /: '{type(self)}' and '{type(other)}'")
-
-    def __rtruediv__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            self_value = self()
-            if self_value == 0:
-                raise ZeroDivisionError("division by zero")
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            return other_value / self_value
-        raise TypeError(f"Unsupported operand type(s) for /: '{type(other)}' and '{type(self)}'")
-
-    def __pow__(self, other, modulo=None):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            # Handle modulo if provided for the pow() function
-            if modulo is not None:
-                return pow(self(), other_value, modulo)
-            return self() ** other_value
-        raise TypeError(f"Unsupported operand type(s) for ** or pow(): '{type(self)}' and '{type(other)}'")
+    def __rmul__(self, other):
+        return self.__mul__(other)
 
     def __rpow__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            return other_value ** self()
-        raise TypeError(f"Unsupported operand type(s) for ** or pow(): '{type(other)}' and '{type(self)}'")
+        return self.__perform_operation(other, operator.pow)
 
-    def __rsub__(self, other):
-        if isinstance(other, (int, float, SimulationVariableInstance)):
-            other_value = other() if isinstance(other, SimulationVariableInstance) else other
-            return other_value - self()
-        raise TypeError(f"Unsupported operand type(s) for -: '{type(other)}' and '{type(self)}'")
+    def __rtruediv__(self, other):
+        return self.__perform_operation(other, operator.truediv)
 
     def __int__(self):
         # Attempt to return an integer representation of the instance's value
@@ -306,8 +284,8 @@ class SimulationVariableInstance(Generic[T]):
             raise TypeError(f"Cannot convert {self.__class__.__name__} value to float: {value}") from e
 
 
-
 class SimulationVariableContainerMeta(type):
+
     def __new__(cls, name: str, bases: tuple, attrs: dict):
 
         container_type = attrs.get('container_type', None)
@@ -330,7 +308,7 @@ class SimulationVariableContainerMeta(type):
             if isinstance(val, SimulationVariable):
                 _container_var_objs[key] = val
                 _container_var_dicts[key] = {'key': val._key, 'dtype': val._value_dtype,
-                                  'name': val._name,  'var_names': val._var_names}
+                                             'name': val._name,  'var_names': val._var_names}
                 sim_vars[key] = _container_var_dicts[key]
 
         # Set annotations for type hinting
@@ -365,7 +343,8 @@ class SimulationVariableContainerMeta(type):
                     sim_var = self._container_var_objs[k]
                     if not sim_var.validate_type(v):
                         raise TypeError(
-                            f"Incorrect type for {k}. Expected {sim_var._value_dtype.__name__}, got {type(v).__name__}.")
+                            f"Incorrect type for {k}. Expected {sim_var._value_dtype.__name__}, "
+                            f"got {type(v).__name__}.")
                     setattr(self, k, v)
 
         def update_with_dict(self, data_dict, use_paired_variables=True):
@@ -610,243 +589,3 @@ class SimulationFlagsContainer(metaclass=SimulationVariableContainerMeta):
     def update_with_container(self, *args, **kwargs):
         """Update container attributes from another container instance."""
         pass
-
-
-class TypedVariable:
-    def __init__(self, name, var_type, value=None, metadata=None):
-        self.name = name
-        self.value_dtype = var_type
-        self.value = value
-        self.default = None
-        self.metadata = metadata or []
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        # Return a callable that still allows access to this TypedVariable's attributes
-        return TypedVariableInstance(self, instance)
-
-    def __set__(self, instance, value):
-        if not isinstance(value, self.value_dtype) and value is not None:
-            raise TypeError(f"Expected type {self.value_dtype.__name__}, got {type(value).__name__}")
-        instance.__dict__[self.name] = value
-
-
-class TypedVariableInstance:
-    def __init__(self, typed_variable: TypedVariable, instance: Any):
-        self._typed_variable = typed_variable
-        self._instance = instance
-
-    def __call__(self):
-        # This method allows the instance to be called like a function to retrieve its value.
-        # Retrieve the value from the instance's dictionary or use the default if not set.
-        return self._instance.__dict__.get(self._typed_variable.name, self._typed_variable.default)
-
-    def get_metadata(self) -> List[str]:
-        # Return the metadata associated with the TypedVariable.
-        return self._typed_variable.metadata
-
-    def get_name(self):
-        # Return the metadata associated with the TypedVariable.
-        return self._typed_variable.name
-
-    def get_type(self):
-        # Return the type information of the TypedVariable.
-        return self._typed_variable.value_dtype
-
-    def __getattr__(self, item):
-        # This method is called when an attribute lookup has not found the attribute in the usual places.
-        if hasattr(self._typed_variable, item):
-            return getattr(self._typed_variable, item)
-
-        # Delegate arithmetic and other operations to the value directly.
-        try:
-            if item in dir(operator) and callable(getattr(operator, item)):
-                def operation_wrapper(*args, **kwargs):
-                    operation = getattr(operator, item)
-                    return operation(self.get_value(), *args, **kwargs)
-
-                return operation_wrapper
-        except AttributeError:
-            pass
-
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{item}'")
-
-    def __repr__(self):
-        # Provide a string representation of the instance's current value for easier debugging and logging.
-        return repr(self.__call__())
-
-
-class VariablesMeta(type):
-    def __new__(mcs, name, bases, attrs):
-        # Initialize _typed_variables and _variables for the new class
-        typed_variables = {}
-        _variables = {}
-
-        # Inherit _typed_variables and _variables from bases
-        for base in bases:
-            if hasattr(base, '_typed_variables'):
-                # noinspection PyProtectedMember
-                typed_variables.update(base._typed_variables)
-            if hasattr(base, '_variables'):
-                # noinspection PyProtectedMember
-                _variables.update(base._variables)
-
-        # Update with current class's TypedVariable instances
-        for k, v in attrs.items():
-            if isinstance(v, TypedVariable):
-                typed_variables[k] = v
-                _variables[k] = (v.name, v.value_dtype, v.default, v.metadata)
-
-        attrs['_typed_variables'] = typed_variables
-        attrs['_variables'] = _variables
-
-        # Set annotations for type hinting
-        annotations = attrs.get('__annotations__', {})
-        for var_name, typed_var in typed_variables.items():
-            annotations[var_name] = typed_var.value_dtype
-        attrs['__annotations__'] = annotations
-
-        return super().__new__(mcs, name, bases, attrs)
-
-    def __getitem__(cls, key: str):
-        if key in cls.__dict__.get('_variables', {}):
-            return cls.__dict__['_variables'][key]
-        elif key in cls.__dict__.get('_typed_variables', {}):
-            return cls.__dict__['_typed_variables'][key]
-        raise KeyError(f"{key} is not available in {cls.__name__}")
-
-
-class VariablesContainer(metaclass=VariablesMeta):
-    # Define variables here as class attributes
-    staticZeemanStrength = TypedVariable('staticZeemanStrength', float, None, ['staticBiasField', 'Static Bias Field'])
-    oscillatingZeemanStrength1 = TypedVariable('oscillatingZeemanStrength1', float, None,
-                                               ['dynamicBiasField', 'Dynamic Bias Field'])
-    shockwaveScaling = TypedVariable('shockwaveScaling', float, None,
-                                     ['dynamicBiasFieldScaleFactor', 'Dynamic Bias Field Scale Factor'])
-    oscillatingZeemanStrength2 = TypedVariable('oscillatingZeemanStrength2', float, None,
-                                               ['secondDynamicBiasField', 'Second Dynamic Bias Field'])
-    drivingFreq = TypedVariable('drivingFreq', float, None, ['drivingFreq', 'drivingFrequency'])
-    drivingRegionLhs = TypedVariable('drivingRegionLhs', int, None,
-                                     ['drivingRegionStartSite', 'Driving Region Start Site'])
-    drivingRegionRhs = TypedVariable('drivingRegionRhs', int, None, ['drivingRegionEndSite', 'Driving Region End Site'])
-    drivingRegionWidth = TypedVariable('drivingRegionWidth', int, None, ['drivingRegionWidth', 'Driving Region Width'])
-    maxSimTime = TypedVariable('maxSimTime', float, None, ['maxSimTime', 'Max. Sim. Time'])
-    heisenbergExchangeMin = TypedVariable('heisenbergExchangeMin', float, None, ['minExchangeVal', 'Min. Exchange Val'])
-    heisenbergExchangeMax = TypedVariable('heisenbergExchangeMax', float, None, ['maxExchangeVal', 'Max. Exchange Val'])
-    iterationEnd = TypedVariable('iterationEnd', float, None, ['maxIterations', 'Max. Iterations'])
-    numberOfDataPoints = TypedVariable('numberOfDataPoints', float, None, ['numDatapoints', 'No. DataPoints'])
-    numSpinsInChain = TypedVariable('numSpinsInChain', int, None, ['numSpinsInChain', 'No. Spins in Chain'])
-    numSpinsInABC = TypedVariable('numSpinsInABC', int, None, ['numDampedSpinsPerSide', 'No. Damped Spins (per side)'])
-    systemTotalSpins = TypedVariable('systemTotalSpins', int, None, ['numTotalSpins', 'No. Total Spins'])
-    stepsize = TypedVariable('stepsize', float, None, ['Stepsize'])
-    gilbertDamping = TypedVariable('gilbertDamping', float, None, ['gilbertDampingFactor', 'Gilbert Damping Factor'])
-    gyroMagConst = TypedVariable('gyroMagConst', float, None, ['gyroRatio', 'Gyromagnetic Ratio'])
-    shockwaveGradientTime = TypedVariable('shockwaveGradientTime', float, None,
-                                          ['shockwaveGradientTime', 'Shockwave Gradient Time'])
-    shockwaveApplicationTime = TypedVariable('shockwaveApplicationTime', float, None,
-                                             ['shockwaveApplicationTime', 'Shockwave Application Time'])
-    gilbertABCOuter = TypedVariable('gilbertABCOuter', float, None, ['abcDampingLower', 'ABC Damping (lower)'])
-    gilbertABCInner = TypedVariable('gilbertABCInner', float, None, ['abcDampingUpper', 'ABC Damping (upper)'])
-    dmiConstant = TypedVariable('dmiConstant', float, None, ['dmiConstant', 'DMI Constant'])
-    satMag = TypedVariable('satMag', float, None, ['saturationMagnetisation', 'Saturation Magnetisation'])
-    exchangeStiffness = TypedVariable('exchangeStiffness', float, None, ['exchangeStiffness', 'Exchange Stiffness'])
-    anisotropyField = TypedVariable('anisotropyField', float, None,
-                                    ['anisotropyShapeField', 'Anisotropy (Shape) Field'])
-    latticeConstant = TypedVariable('latticeConstant', float, None, ['latticeConstant', 'Lattice Constant'])
-
-    @classmethod
-    def get_metadata(cls, name):
-        var = getattr(cls, name, None)
-        if var and isinstance(var, TypedVariable):
-            return var.metadata
-        raise AttributeError(f"{name} not found")
-
-
-class AttributeMeta(type):
-    def __new__(mcs, name, bases, attrs):
-
-        if '__annotations__' not in attrs:
-            attrs['__annotations__'] = {}
-
-        for attr, (attr_type, _) in AttributeMappings.key_data.items():
-            attrs['__annotations__'][attr] = attr_type
-            attrs[attr] = None  # Set default value to None
-
-        for attr, (attr_type, _) in AttributeMappings.sim_flags.items():
-            attrs['__annotations__'][attr] = attr_type
-            attrs[attr] = None  # Set default value to None
-
-        return super().__new__(mcs, name, bases, attrs)
-
-    def __init__(self, name, bases, attrs):
-        # perform any additional initialization here...
-        super().__init__(name, bases, attrs)
-
-
-class AttributeMappings:
-    key_data: Dict[str, Tuple[Type, List[str]]] = {
-        'staticZeemanStrength': (float, ['staticBiasField', 'Static Bias Field']),
-        'oscillatingZeemanStrength1': (float, ['dynamicBiasField', 'Dynamic Bias Field']),
-        'shockwaveScaling': (float, ['dynamicBiasFieldScaleFactor', 'Dynamic Bias Field Scale Factor']),
-        'oscillatingZeemanStrength2': (float, ['secondDynamicBiasField', 'Second Dynamic Bias Field']),
-        'drivingFreq': (float, ['drivingFreq', 'drivingFrequency']),
-        'drivingRegionLhs': (int, ['drivingRegionStartSite', 'Driving Region Start Site']),
-        'drivingRegionRhs': (int, ['drivingRegionEndSite', 'Driving Region End Site']),
-        'drivingRegionWidth': (int, ['drivingRegionWidth', 'Driving Region Width']),
-        'maxSimTime': (float, ['maxSimTime', 'Max. Sim. Time']),
-        'heisenbergExchangeMin': (float, ['minExchangeVal', 'Min. Exchange Val']),
-        'heisenbergExchangeMax': (float, ['maxExchangeVal', 'Max. Exchange Val']),
-        'iterationEnd': (float, ['maxIterations', 'Max. Iterations']),
-        'numberOfDataPoints': (float, ['numDatapoints', 'No. DataPoints']),
-        'numSpinsInChain': (int, ['numSpinsInChain', 'No. Spins in Chain']),
-        'numSpinsInABC': (int, ['numDampedSpinsPerSide', 'No. Damped Spins (per side)']),
-        'systemTotalSpins': (int, ['numTotalSpins', 'No. Total Spins']),
-        'stepsize': (float, ['Stepsize']),
-        'gilbertDamping': (float, ['gilbertDampingFactor', 'Gilbert Damping Factor']),
-        'gyroMagConst': (float, ['gyroRatio', 'Gyromagnetic Ratio']),
-        'shockwaveGradientTime': (float, ['shockwaveGradientTime', 'Shockwave Gradient Time']),
-        'shockwaveApplicationTime': (float, ['shockwaveApplicationTime', 'Shockwave Application Time']),
-        'gilbertABCOuter': (float, ['abcDampingLower', 'ABC Damping (lower)']),
-        'gilbertABCInner': (float, ['abcDampingUpper', 'ABC Damping (upper)']),
-        'dmiConstant': (float, ['dmiConstant', 'DMI Constant']),
-        'satMag': (float, ['saturationMagnetisation', 'Saturation Magnetisation']),
-        'exchangeStiffness': (float, ['exchangeStiffness', 'Exchange Stiffness']),
-        'anisotropyField': (float, ['anisotropyShapeField', 'Anisotropy (Shape) Field']),
-        'latticeConstant': (float, ['latticeConstant', 'Lattice Constant'])
-    }
-
-    sim_flags: Dict[str, Tuple[Type, List[str]]] = {
-        'hasLLG': (bool, ['shouldUseLLG', 'usingMagdynamics', 'Using magDynamics']),
-        'usingShockwave': (bool, ['hasShockwave', 'usingShockwave', 'Using Shockwave']),
-        'driveFromLhs': (bool, ['shouldDriveLHS', 'driveFromLhs', 'Drive from LHS']),
-        'numericalMethodUsed': (str, ['numericalMethod', 'numericalMethodUsed', 'Numerical Method Used']),
-        'hasStaticDrive': (bool, ['isOscillatingZeemanStatic', 'hasStaticDrive', 'Has Static Drive']),
-        'hasDipolar': (bool, ['hasDipolar', 'Has Dipolar']),
-        'hasDmi': (bool, ['hasDMI', 'hasDmi', 'Has DMI']),
-        'hasStt': (bool, ['hasSTT', 'hasStt', 'Has STT']),
-        'hasZeeman': (bool, ['hasStaticZeeman', 'hasZeeman', 'Has Zeeman']),
-        'hasDemagIntense': (bool, ['hasDemagIntense', 'Has Demag Intense']),
-        'hasDemagFft': (bool, ['hasDemagFFT', 'hasDemagFft', 'Has Demag FFT']),
-        'hasShapeAnisotropy': (bool, ['hasShapeAnisotropy', 'Has Shape Anisotropy'])
-    }
-
-    @staticmethod
-    def dict_with_none(attributes: Dict[str, Tuple[Type, List[str]]]) -> Dict[str, None]:
-        """
-        This function takes a dictionary mapping attribute names to their types
-        and returns a new dictionary with the same keys, but all values initialized to None.
-
-        The purpose is to prepare a structure for dynamic attribute assignment,
-        where type hints are used for static analysis rather than enforcing types at runtime.
-        """
-        return {key: None for key in attributes.keys()}
-
-
-def apply_type_hints(cls):
-    # Decorator implementation that uses AttributeMappings from the same file
-    for attr, (attr_type, _) in AttributeMappings.key_data.items():
-        cls.__annotations__[attr] = attr_type
-    for attr, (attr_type, _) in AttributeMappings.sim_flags.items():
-        cls.__annotations__[attr] = attr_type
-    return cls

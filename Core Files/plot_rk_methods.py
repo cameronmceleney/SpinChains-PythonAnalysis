@@ -31,7 +31,7 @@ from typing import TypedDict, Any, Dict, List, Optional, Union
 
 
 # Specific functions from my modules
-from attribute_defintions import AttributeMappings, SimulationParametersContainer, SimulationFlagsContainer
+from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
 from figure_manager import FigureManager, colour_schemes
 
 """
@@ -48,7 +48,7 @@ from figure_manager import FigureManager, colour_schemes
     IDE         : PyCharm
 """
 
-# -------------------------------------- Plot paper figures -------------------------------------
+
 class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
     """
     Generates a single subplot that can either be a PNG or GIF.
@@ -61,6 +61,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
     class PlotScheme(TypedDict):
         signal_xlim: List[int]
+        signal_rescale: List[int]
+        ax1_xlim: List[float]
+        ax1_ylim: List[float]
         ax2_xlim: List[float]
         ax2_ylim: List[float]
         ax3_xlim: List[float]
@@ -92,25 +95,23 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         else:
             self.update_with_dict(flags_dict)
 
-        self.lattice_constant = 1e-9
-        self.exchange_dmi_constant = 1.25
+        if self.lattice_constant:
+            self.lattice_constant = 1e-9
+        if self.exchange_dmi_constant:
+            self.exchange_dmi_constant = 1.25
 
         # Attributes for plots
         self._fig = None
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
         self._yaxis_lim_fix = 3e-5
-        self._fig_kwargs = {"xlabel": f"Position, $n_i$ (site index)",
-                            "ylabel": f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
-                            "xlim": [0.0 * self.num_sites_total, 1.0 * self.num_sites_total],
-                            "ylim": [-1 * self._yaxis_lim, self._yaxis_lim]}
 
         # Text sizes for class to override rcParams
         self._fontsizes = {"large": 20, "medium": 14, "small": 11, "smaller": 10, "tiny": 8, "mini": 7}
 
     def _draw_figure(self, row_index: int = -1, has_single_figure: bool = True, publish_plot: bool = False,
                      draw_regions_of_interest: bool = False, static_ylim=False, axes=None,
-                     interactive_plot: bool = False) -> None:
+                     interactive_plot: bool = False, real_distance: bool = True) -> None:
         """
         Private method to plot the given row of data, and create a single figure.
 
@@ -141,18 +142,16 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._yaxis_lim = max(self.amplitude_data[row_index, :]) * (1.1 if self._fig is None else self._yaxis_lim)
 
         self._axes.clear()
-        self._fig_kwargs["ylim"] = [-self._yaxis_lim, self._yaxis_lim]
         self._axes.set_aspect("auto")
 
         # Easier to have time-stamp as label than textbox.
         self._axes.plot(np.arange(0, self.num_sites_total), self.amplitude_data[row_index, :], ls='-',
                         lw=2 * 0.75, color='#64bb6a', label=f"Signal", zorder=1.1)
 
-        self._axes.set(**self._fig_kwargs)
-
-        # Keep tick manipulations in this block to ease debugging
-        self._tick_setter(self._axes, 1000, 200, 3, 4,
-                          yaxis_num_decimals=1.1, show_sci_notation=False)
+        self._axes.set(xlabel=f"Position, $n_i$ (site index)",
+                       ylabel=f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
+                       xlim=[0.0, self.num_sites_total()],
+                       ylim=[-self._yaxis_lim, self._yaxis_lim])
 
         # self._axes.text(0.66, 0.88, f"[DR] Sites: {self._driving_width}", va='center',
         #                 ha='left', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
@@ -203,18 +202,21 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         """
         self._draw_figure(row_index, draw_regions_of_interest=False, static_ylim=fixed_ylim)
 
+        self._tick_setter(self._axes, 1000, 200, 3, 4,
+                          yaxis_num_decimals=1.1, show_sci_notation=False)
+
         self._plot_cleanup(self._axes)
 
         if should_annotate_parameters:
-            if self._exchange_min == self._exchange_max:
-                exchange_string = f"Uniform Exc.: {self._exchange_min} (T)"
+            if self.exchange_heisenberg_min == self.exchange_heisenberg_max:
+                exchange_string = f"Uniform Exc.: {self.exchange_heisenberg_min} (T)"
             else:
-                exchange_string = f"J$_{{min}}$ = {self._exchange_min} (T) | J$_{{max}}$ = " \
-                                  f"{self._exchange_max} (T)"
+                exchange_string = f"J$_{{min}}$ = {self.exchange_heisenberg_min} (T) | J$_{{max}}$ = " \
+                                  f"{self.exchange_heisenberg_min} (T)"
 
-            parameters_textbody = (f"H$_{{0}}$ = {self._static_field} (T) | N = {self._chain_spins} | " + r"$\alpha$" +
-                                   f" = {self._gilbert_factor: 2.2e}\nH$_{{D1}}$ = {self._driving_field1: 2.2e} (T) | "
-                                   f"H$_{{D2}}$ = {self._driving_field2: 2.2e} (T) \n{exchange_string}")
+            parameters_textbody = (f"H$_{{0}}$ = {self.bias_zeeman_static} (T) | N = {self.num_sites_chain} | " + r"$\alpha$" +
+                                   f" = {self.gilbert_chain: 2.2e}\nH$_{{D1}}$ = {self.bias_zeeman_oscillating_1: 2.2e} (T) | "
+                                   f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2: 2.2e} (T) \n{exchange_string}")
 
             parameters_text_props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
             self._axes.text(0.05, 1.2, parameters_textbody, transform=self._axes.transAxes, fontsize=12,
@@ -275,6 +277,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         colour_scheme_settings: List[int | bool] = (1, False), negative_wavevector: bool = False):
 
         signal_xlims = plot_scheme[f'signal{signal_index}_xlim']
+        system_xlims = plot_scheme['signal_xlim']
+        system_xlim_rescale = plot_scheme['signal_rescale']
         signal_xlim_min, signal_xlim_max = signal_xlims[0], signal_xlims[1]
         if signal_xlim_min == signal_xlim_max:
             # Escape case
@@ -367,6 +371,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     ax.text(xtick_position, ytick_position + y_offset, str(tick_text), ha='right', va='top',
                             fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
 
+            ax.set_axisbelow(False)  # Must be last manipulation of subplots
+
+
+
     def plot_row_spatial_ft(self, row_index: int = -1,
                             fixed_ylim: bool = False, interactive_plot: bool = False) -> None:
         """
@@ -395,7 +403,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Nested Dict to enable many cases (different plots and papers)
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
-                'signal_xlim': [0, int(self.num_sites_total)],  # Example value, replace 100 with self._total_num_spins
+                'signal_xlim': [0, self.num_sites_total],  # Example value, replace 100 with self._total_num_spins
+                'signal_rescale': [-int(self.num_sites_total / 2), int(self.num_sites_total / 2)],
                 'ax2_xlim': [0.0, 1.0],
                 'ax2_ylim': [1e-4, 1e-1],
                 'ax3_xlim': [-0.5, 0.5],
@@ -415,6 +424,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ########################################
         # Accessing the selected colour scheme and create a colourbar
         select_plot_scheme = plot_schemes[0]
+
+        #for term in ['signal1_xlim', 'signal2_xlim', 'signal_xlim']:
+        #    select_plot_scheme[term] *= self.lattice_constant
+        #    print(select_plot_scheme[term])
 
         # Create a ScalarMappable for the color mapping
         norm = mpl.colors.Normalize(vmin=0, vmax=1)  # Assuming you want to normalize from 0 to 1
@@ -441,14 +454,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                            xlim=select_plot_scheme['ax3_xlim'], ylim=select_plot_scheme['ax3_ylim'])
         ax_subplots[2].tick_params(pad=2, labeltop=True, labelbottom=False, labelsize=self._fontsizes["smaller"])
         ax_subplots[2].invert_yaxis()
-
-        self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
-                          4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
-
-        self._tick_setter(ax_subplots[2], x_major=select_plot_scheme['ax3_xlim'][1] / 2,
-                          x_minor=select_plot_scheme['ax3_xlim'][1] / 4,
-                          y_major=select_plot_scheme['ax3_ylim'][1] / 2, y_minor=select_plot_scheme['ax3_ylim'][1] / 4,
-                          yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
         ########################################
         # Process each signal
         self._draw_figure(row_index, axes=ax_subplots[0], draw_regions_of_interest=False, static_ylim=fixed_ylim)
@@ -457,6 +462,17 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._process_signal(ax_subplots, row_index, 2, sm, select_plot_scheme, [2, False])
         self._process_signal(ax_subplots, row_index, 3, sm, select_plot_scheme, [2, False])
 
+        ########################################
+        self._tick_setter(ax_subplots[0], int(self.num_sites_total()/4), int(self.num_sites_total()/8), 3, 4,
+                          yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant)
+
+        self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
+                          4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
+
+        self._tick_setter(ax_subplots[2], x_major=select_plot_scheme['ax3_xlim'][1] / 2,
+                          x_minor=select_plot_scheme['ax3_xlim'][1] / 4,
+                          y_major=select_plot_scheme['ax3_ylim'][1] / 2, y_minor=select_plot_scheme['ax3_ylim'][1] / 4,
+                          yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
         ########################################
         # Post-processing actions
         ax_subplots[0].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
@@ -499,7 +515,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                    frames_per_second: float = 10, has_static_ylim: bool = False) -> None:
         frame_filenames = []
 
-        for index in range(0, int(self._num_data_points + 1), int(self._num_data_points * number_of_frames)):
+        for index in range(0, int(self.num_dp_per_site + 1), int(self.num_dp_per_site * number_of_frames)):
             frame = self._plot_paper_gif(index, has_static_ylim=has_static_ylim)
             frame_filename = f"{self.output_filepath}_{index}.png"
             frame.savefig(frame_filename)
@@ -581,7 +597,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # All times in nanoseconds (ns)
         plot_schemes = {  # D:\Data\2023-04-19\Outputs
             0: {  # mceleney2023dispersive Fig. 1b-c [2022-08-29/T1337_site3000]
-                'signal_xlim': (0.0, self._max_time),
+                'signal_xlim': (0.0, self.sim_time_max),
                 'ax1_xlim': [0.0, 5.0],
                 'ax1_ylim': [-4.0625e-3, 3.125e-3],
                 'ax1_inset_xlim': [0.7, 2.6],
@@ -599,7 +615,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_line_height': 3.15e-3
             },
             1: {  # Jiahui T0941/T1107_site3
-                'signal_xlim': (0.0, self._max_time),
+                'signal_xlim': (0.0, self.sim_time_max),
                 'ax1_xlim': [0.0, 1.50 - 0.00001],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
                 'ax1_inset_xlim': [0.01, 0.02],
@@ -617,7 +633,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
             },
             2: {  # Jiahui T0941/T1107_site1
-                'signal_xlim': (0.0, self._max_time),
+                'signal_xlim': (0.0, self.sim_time_max),
                 'ax1_xlim': [0.0, 1.50 - 0.00001],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
                 'ax1_inset_xlim': [0.01, 0.02],
@@ -635,8 +651,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
             },
             3: {  # Test for me
-                'signal_xlim': (0.0, self._max_time),
-                'ax1_xlim': [0.0, self._max_time - 0.00001],
+                'signal_xlim': (0.0, self.sim_time_max),
+                'ax1_xlim': [0.0, self.sim_time_max - 0.00001],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
                 'ax1_inset_xlim': [0.01, 0.02],
                 'ax1_inset_ylim': [-2e-4, 2e-4],
@@ -719,7 +735,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         def convert_norm(val, a=0, b=1):
             # Magic. Don't touch! Normalises precursor region so that both wavepackets and feature can be defined using
             # their own x-axis limits.
-            return int(self._num_data_points * ((b - a) * ((val - signal_xlim_min)
+            return int(self.num_dp_per_site * ((b - a) * ((val - signal_xlim_min)
                                                            / (signal_xlim_max - signal_xlim_min)) + a))
 
         converted_values = {name: (convert_norm(raw_values[name][0]), convert_norm(raw_values[name][1])) for name in
@@ -935,16 +951,16 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             #                        zorder=1)
 
         if add_key_params:
-            if self._exchange_min == self._exchange_max:
-                exchange_string = f"Uniform Exc. ({self._exchange_min} [T])"
+            if self.exchange_heisenberg_min == self.exchange_heisenberg_max:
+                exchange_string = f"Uniform Exc. ({self.exchange_heisenberg_min} [T])"
             else:
-                exchange_string = f"J$_{{min}}$ = {self._exchange_min} [T] | J$_{{max}}$ = " \
-                                  f"{self._exchange_max} [T]"
+                exchange_string = f"J$_{{min}}$ = {self.exchange_heisenberg_min} [T] | J$_{{max}}$ = " \
+                                  f"{self.exchange_heisenberg_max} [T]"
             info_box_full_text = (
-                    (f"H$_{{0}}$ = {self._static_field} [T] | H$_{{D1}}$ = {self._driving_field1: 2.2e} [T] | "
-                     f"H$_{{D2}}$ = {self._driving_field2: 2.2e}[T] \nf = {self._driving_freq} [GHz] | "
-                     f"{exchange_string} | N = {self._chain_spins} | ") + r"$\alpha$" +
-                    f" = {self._gilbert_factor: 2.2e}")
+                    (f"H$_{{0}}$ = {self.bias_zeeman_static} [T] | H$_{{D1}}$ = {self.bias_zeeman_oscillating_1: 2.2e} [T] | "
+                     f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
+                     f"{exchange_string} | N = {self.num_sites_chain} | ") + r"$\alpha$" +
+                    f" = {self.gilbert_chain: 2.2e}")
 
             info_box_props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
 
@@ -1619,7 +1635,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
         if spatial_spacing is None:
-            sample_spacing = (self._max_time / (self._num_data_points - 1))
+            sample_spacing = (self.sim_time_max / (self.num_dp_per_site - 1))
             # Compute the FFT
             n = amplitude_data.size
             normalised_data = amplitude_data
@@ -1637,9 +1653,42 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         return frequencies, fourier_transform
 
+    def _choose_scaling(self, value, presets=None):
+        if presets is None:
+            presets = {
+                'nano': [1e-9, r'$\mathrm{nm}$'],
+                'micro': [1e-6, r'$\mathrm{{\mu} m}$'],
+                'milli': [1e-3, r'$\mathrm{mm}$']
+                # Add as needed
+            }
+
+        # Calculate the logarithm of the input value to determine its magnitude
+        log_value = np.log10(value)
+
+        closest_preset_name, (closest_preset_value, closest_preset_tag) = min(presets.items(),
+                                                                              key=lambda x: abs(
+                                                                                  log_value - np.log10(x[1][0])))
+
+        # Generate labels and values for closest preset and raw value
+        closest_preset_exp = int(np.log10(closest_preset_value))
+        value_exp = int(np.log10(value))
+
+        closest_preset_labels = [
+            r'$\times \mathcal{10}^{' + f'{closest_preset_exp}' + '}$',
+            r'$\mathcal{10}^{' + f'{closest_preset_exp}' + '}$',
+            closest_preset_tag
+        ]
+
+        value_labels = [
+            r'$\times \mathcal{10}^{' + f'{value_exp}' + '}$',
+            r'$\mathcal{10}^{' + f'{value_exp}' + '}$'
+        ]
+
+        return closest_preset_labels, value_labels, closest_preset_value
+
     def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
                      xaxis_num_decimals=.1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False,
-                     show_sci_notation=False):
+                     show_sci_notation=False, xaxis_rescale=None):
 
         if ax is None:
             ax = plt.gca()
@@ -1655,6 +1704,34 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
             # ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
         else:
+            if xaxis_rescale is not None:
+                x_major *= xaxis_rescale
+                x_minor *= xaxis_rescale
+                x_scaled_labels, x_major_labels, x_major_scaled = self._choose_scaling(x_major)
+                rescaled_dif = xaxis_rescale / x_major_scaled
+
+                shift = -self.num_sites_total()/2
+                # Container for all new xdata across lines for determining xlims
+                all_new_xdata = np.array([])
+
+                # Iterate through all line objects in the axes
+                for line in ax.get_lines():
+                    xdata, ydata = line.get_data()
+                    # Apply shift and scale transformation
+                    new_xdata = (xdata + shift) * rescaled_dif
+                    line.set_data(new_xdata, ydata)
+                    all_new_xdata = np.concatenate((all_new_xdata, new_xdata))
+
+                # Ensure all_new_xdata is sorted for xlim calculation
+                all_new_xdata_sorted = np.sort(all_new_xdata)
+
+                # Set xlims to exclude the first and last value
+                ax.set_xlim([all_new_xdata_sorted[0], all_new_xdata_sorted[-1] + rescaled_dif])
+
+                ax.set(xlabel=r'Position, $d$ (' + x_scaled_labels[2] + ')')
+                x_major /= x_major_scaled
+                x_minor /= x_major_scaled
+
             ax.xaxis.set(major_locator=ticker.MultipleLocator(x_major),
                          major_formatter=ticker.FormatStrFormatter(f"%{xaxis_num_decimals}f"),
                          minor_locator=ticker.MultipleLocator(x_minor))
