@@ -43,7 +43,7 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1050_20"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1050_80"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
     system_setup.detect_os(False, "2024-02-14", "2024-02-14")
