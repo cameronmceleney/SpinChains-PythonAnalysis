@@ -114,6 +114,102 @@ class PlotEigenmodes:
 
             return
 
+    def plot_eigenmodes(self):
+        log.info(f"Invoking functions to plot data...")
+
+        """
+        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used
+        to replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to
+        plot the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
+        paper.
+
+        :return: A figure (png).
+
+        """
+        handle_eigenmodes = plt_eigens.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
+                                                  self._arrays_to_output[2], f"{self.fi}{self.fd}",
+                                                  self.input_dir_path, self.full_output_path)
+
+        print('--------------------------------------------------------------------------------')
+        print('''
+        This will plot the eigenmodes of the selected data. Input the requested 
+        modes as single values, or as a space-separated list. Unique [keywords] include:
+            *   Exit [EXIT] (Quit the program)
+            *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
+            *   Dispersion Relation [DIS] (Plot the dispersion relation)
+
+        Note: None of the keywords are case-sensitive.
+              ''')
+        print('--------------------------------------------------------------------------------')
+
+        upper_limit_mode = self._arrays_to_output[0].size  # The largest mode which can be plotted for the given data.
+
+        # Test Code!
+
+        previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
+
+        # Take in first user input. Assume input is valid, until an error is raised.
+        modes_to_plot = input("Enter mode(s) to plot: ").split()
+        has_valid_modes = True
+
+        while True:
+            # Plots eigenmodes as long as the user enters a valid input.
+            for test_mode in modes_to_plot:
+
+                try:
+                    if not 1 <= int(test_mode) <= upper_limit_mode:
+                        # Check mode is in the range held by the dataset
+                        print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
+                        break
+
+                    if set(previously_plotted_modes) & set(modes_to_plot):
+                        # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
+                        has_valid_modes = False
+                        print(
+                            f"You have already printed a mode in {previously_plotted_modes}. Please make "
+                            f"another choice.")
+                        break
+
+                except ValueError:
+                    # If the current tested mode is within the range, then it is either a keyword, or invalid.
+                    if test_mode.upper() == 'EXIT':
+                        exit(0)
+
+                    elif test_mode.upper() == 'FRC':
+                        handle_eigenmodes.generalised_fourier_coefficients(use_defaults=False)
+                        has_valid_modes = False
+                        break
+
+                    elif test_mode.upper() == 'DIS':
+                        handle_eigenmodes.plot_dispersion_relation()
+                        has_valid_modes = False
+                        break
+
+                    has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
+                    while True:
+
+                        if has_more_plots == 'Y':
+                            has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
+                            break
+
+                        elif has_more_plots == 'N':
+                            print("Exiting program...")
+                            exit(0)
+
+                        else:
+                            while has_more_plots not in 'YN':
+                                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
+
+                if has_valid_modes:
+                    handle_eigenmodes.plot_single_eigenmode(int(test_mode), has_endpoints=False)
+
+                else:
+                    has_valid_modes = True  # Reset condition
+                    continue
+
+            previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
+            modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
+
     def _check_directory_tree(self, should_show_errors=False):
 
         if os.path.exists(self.input_dir_path):
@@ -270,143 +366,54 @@ class PlotEigenmodes:
 
         log.info(f"Successfully generated missing (mx) and (my) files, which are saved in {self.input_dir_path}")
 
-    def plot_eigenmodes(self):
-        log.info(f"Invoking functions to plot data...")
 
-        """
-        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used
-        to replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to
-        plot the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
-        paper.
+class AnalyseData:
 
-        :return: A figure (png).
+    def __init__(self):
+        pass
 
-        """
-        handle_eigenmodes = plt_eigens.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
-                                                  self._arrays_to_output[2], f"{self.fi}{self.fd}",
-                                                  self.input_dir_path, self.full_output_path)
+    def import_data(self):
+        pass
 
-        print('--------------------------------------------------------------------------------')
-        print('''
-        This will plot the eigenmodes of the selected data. Input the requested 
-        modes as single values, or as a space-separated list. Unique [keywords] include:
-            *   Exit [EXIT] (Quit the program)
-            *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
-            *   Dispersion Relation [DIS] (Plot the dispersion relation)
+    def process_data(self):
+        pass
 
-        Note: None of the keywords are case-sensitive.
-              ''')
-        print('--------------------------------------------------------------------------------')
-
-        upper_limit_mode = self._arrays_to_output[0].size  # The largest mode which can be plotted for the given data.
-
-        # Test Code!
-
-        previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
-
-        # Take in first user input. Assume input is valid, until an error is raised.
-        modes_to_plot = input("Enter mode(s) to plot: ").split()
-        has_valid_modes = True
-
-        while True:
-            # Plots eigenmodes as long as the user enters a valid input.
-            for test_mode in modes_to_plot:
-
-                try:
-                    if not 1 <= int(test_mode) <= upper_limit_mode:
-                        # Check mode is in the range held by the dataset
-                        print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
-                        break
-
-                    if set(previously_plotted_modes) & set(modes_to_plot):
-                        # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
-                        has_valid_modes = False
-                        print(
-                            f"You have already printed a mode in {previously_plotted_modes}. Please make "
-                            f"another choice.")
-                        break
-
-                except ValueError:
-                    # If the current tested mode is within the range, then it is either a keyword, or invalid.
-                    if test_mode.upper() == 'EXIT':
-                        exit(0)
-
-                    elif test_mode.upper() == 'FRC':
-                        handle_eigenmodes.generalised_fourier_coefficients(use_defaults=False)
-                        has_valid_modes = False
-                        break
-
-                    elif test_mode.upper() == 'DIS':
-                        handle_eigenmodes.plot_dispersion_relation()
-                        has_valid_modes = False
-                        break
-
-                    has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-                    while True:
-
-                        if has_more_plots == 'Y':
-                            has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
-                            break
-
-                        elif has_more_plots == 'N':
-                            print("Exiting program...")
-                            exit(0)
-
-                        else:
-                            while has_more_plots not in 'YN':
-                                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-
-                if has_valid_modes:
-                    handle_eigenmodes.plot_single_eigenmode(int(test_mode), has_endpoints=False)
-
-                else:
-                    has_valid_modes = True  # Reset condition
-                    continue
-
-            previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
-            modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
+    def call_methods(self):
+        pass
 
 
 class PlotImportedData:
 
     def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
                  file_identifier="T"):
-        self.fd = file_descriptor
-        self.in_path = input_dir_path
-        self.out_path = output_dir_path
-        self.fp = file_prefix
-        self.fc = file_component
-        self.fi = file_identifier
+        self._input_dir_path = input_dir_path
+        self._output_dir_path = output_dir_path
+        self._input_prefix = file_prefix
+        self._input_comp = file_component
+        self._input_id = file_identifier
+        self._input_desc = file_descriptor
 
         self.override_method = None
         self.override_function = None
         self.override_site = None
         self.early_exit = False
         self.mass_produce = False
+        
+        self._accepted_methods = ["3P", "FS", "FT", "EXIT", "PF", "CP"]
 
+        self._input_filename = f"{self._input_prefix}_{self._input_comp}_{self._input_id}{self._input_desc}"
+        self._input_path_full = f"{self._input_dir_path}{self._input_filename}.csv"
+        self._output_path_full = f"{self._output_dir_path}{file_identifier}{file_descriptor}"
+
+        self._data_container = self._import_simulation_data()
+        self._data_timestamps = self._data_container[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
+        self._data_magnetic_moments = self._data_container[:, 1:]
+        
+        [self._data_parameters, self._data_sites, self._data_flags] = self._import_simulation_headers()
+        
         rc_params_update()
 
-        self.full_filename = f"{file_prefix}_{file_component}_{file_identifier}{file_descriptor}"
-
-        self.full_output_path = f"{self.out_path}{file_identifier}{file_descriptor}"
-        self.input_data_path = f"{self.in_path}{self.full_filename}.csv"
-
-        self.all_imported_data = self.import_data_from_file(self.full_filename, self.input_data_path)
-
-        #if self.fp == "rk2":
-        #    [self.header_data_params, self.header_data_sites,
-        #     self.header_sim_flags] = self.import_headers_from_file_legacy()
-        #else:
-        [self.header_data_params, self.header_data_sites,
-         self.header_sim_flags] = self.import_simulation_header()
-
-        self.m_time_data = self.all_imported_data[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
-        self.m_spin_data = self.all_imported_data[:, 1:]
-
-        self.accepted_keywords = ["3P", "FS", "FT", "EXIT", "PF", "CP"]
-
-    @staticmethod
-    def import_data_from_file(filename, input_data_path):
+    def _import_simulation_data(self, filename=None, full_path_to_file=None):
         """
         Outputs the data needed to plot single-image panes.
 
@@ -415,9 +422,14 @@ class PlotImportedData:
         """
         log.info(f"Importing data points...")
 
+        if filename is None:
+            filename = self._input_filename
+        if full_path_to_file is None:
+            full_path_to_file = self._input_path_full
+
         # Loads all input data without the header
         try:
-            is_file_present_in_dir = os.path.exists(input_data_path)
+            is_file_present_in_dir = os.path.exists(full_path_to_file)
             if not is_file_present_in_dir:
                 raise FileNotFoundError
         except FileNotFoundError:
@@ -426,10 +438,78 @@ class PlotImportedData:
             exit(1)
         else:
             log.info(f"Data points imported!")
-            return np.loadtxt(input_data_path, delimiter=",", skiprows=11)
+            return np.loadtxt(full_path_to_file, delimiter=",", skiprows=11)
+
+    def _import_simulation_headers(self):
+
+        parameters = SimulationParametersContainer()
+        flags = SimulationFlagsContainer()
+
+        with open(self._input_path_full) as file_header_data:
+            csv_reader = csv.reader(file_header_data)
+            next(csv_reader)  # Skip the 0th line.
+            next(csv_reader)  # Skip the 1st line (always blank).
+
+            # Process simulation flags (2nd and 3rd lines)
+            self._process_selected_headers(csv_reader, flags, is_flag=True)
+
+            # Additional blank (4th line) in newer format; older format has blank 3rd and key sim params at 4th
+
+            # Count from here is for new format. Process simulation parameters (5th and 6th lines)
+            self._process_selected_headers(csv_reader, parameters, is_flag=False)
+
+            # Skip lines until simulated sites (11th line)
+            for _ in range(4):
+                next(csv_reader)  # Skip lines 7th (blank), 8th (simulation notes), 9th (descriptions), 10th (blank)
+            simulated_sites = next(csv_reader)  # 11th line
+
+        # Process simulated sites
+        if "Time [s]" in simulated_sites:
+            simulated_sites.remove("Time [s]")
+
+        return parameters.return_data(), simulated_sites, flags.return_data()
+
+    def _process_selected_headers(self, csv_reader, container, is_flag, data_titles=None, data_values=None):
+
+        if data_titles is None and data_values is None:
+            data_titles = next(csv_reader)
+            data_values = next(csv_reader)
+
+        if data_values:
+            # Titles and values in separate lines
+            for title, value in zip(data_titles, data_values):
+                self._set_instance_variable(container, title, value, is_flag)
+        else:
+            # Titles and values in one line
+            for i in range(0, len(data_titles), 2):
+                title, value = data_titles[i], data_titles[i + 1]
+                self._set_instance_variable(container, title, value, is_flag)
+
+        if data_values:
+            # Skip the next (blank) line for the newer formats where the titles and values are on separate lines
+            next(csv_reader)
+
+    def _set_instance_variable(self, container, title, value, is_flag):
+        """
+        Dynamically set the instance attributes if they match the input data.
+        """
+        if is_flag:
+            unpack_container = container.all_flags.items()
+        else:
+            unpack_container = container.all_parameters.items()
+
+        mapped_title = self._apply_custom_mapping_to_string(title)
+
+        for param_name, param_metadata in unpack_container:
+            param_names = param_metadata['var_names']
+
+            if mapped_title in param_names:
+                # Dynamically set the instance attributes
+                setattr(container, param_name, value)
+                break
 
     @staticmethod
-    def custom_string_mappings(data_name: Any, keep_units=False):
+    def _apply_custom_mapping_to_string(data_name: Any, keep_units=False):
         """Handles the mapping of data names to their corresponding strings as per these rules."""
 
         def _abbreviations(string, target, replacement):
@@ -515,290 +595,6 @@ class PlotImportedData:
 
         return data_name
 
-    @staticmethod
-    def _custom_cast_mappings(data_value: Any):
-        data_value = data_value.strip()
-        if '.' in data_value or 'e' in data_value.lower():
-            return float(data_value)
-        else:
-            return int(data_value)
-
-    def import_simulation_header(self):
-
-        parameters = SimulationParametersContainer()
-        flags = SimulationFlagsContainer()
-
-        with open(self.input_data_path) as file_header_data:
-            csv_reader = csv.reader(file_header_data)
-            next(csv_reader)  # Skip the 0th line.
-            next(csv_reader)  # Skip the 1st line (always blank).
-
-            # Process simulation flags (2nd and 3rd lines)
-            self._process_section(csv_reader, flags, is_flag=True)
-
-            # Additional blank (4th line) in newer format; older format has blank 3rd and key sim params at 4th
-
-            # Count from here is for new format. Process simulation parameters (5th and 6th lines)
-            self._process_section(csv_reader, parameters, is_flag=False)
-
-            # Skip lines until simulated sites (11th line)
-            for _ in range(4):
-                next(csv_reader)  # Skip lines 7th (blank), 8th (simulation notes), 9th (descriptions), 10th (blank)
-            simulated_sites = next(csv_reader)  # 11th line
-
-        # Process simulated sites
-        if "Time [s]" in simulated_sites:
-            simulated_sites.remove("Time [s]")
-
-        return parameters.return_data(), simulated_sites, flags.return_data()
-
-    def _process_section(self, csv_reader, container, is_flag, data_titles=None, data_values=None):
-
-        if data_titles is None and data_values is None:
-            data_titles = next(csv_reader)
-            data_values = next(csv_reader)
-        if data_values:
-            for title, value in zip(data_titles, data_values):
-                self._set_instance_variable(container, title, value, is_flag)
-
-        else:
-            # Titles and values are all in one line
-            for i in range(0, len(data_titles), 2):
-                title, value = data_titles[i], data_titles[i + 1]
-                self._set_instance_variable(container, title, value, is_flag)
-
-        if data_values:
-            # Skip the next (blank) line for the newer formats
-            next(csv_reader)
-
-
-    def _set_instance_variable(self, container, title, value, is_flag):
-        """
-        Dynamically set the instance attributes if they match the input data.
-        """
-        if is_flag:
-            unpack_container = container.all_flags.items()
-        else:
-            unpack_container = container.all_parameters.items()
-
-        mapped_title = self.custom_string_mappings(title)
-
-        for param_name, param_metadata in unpack_container:
-            param_names = param_metadata['var_names']
-
-            if mapped_title in param_names:
-                # Dynamically set the instance attributes
-                setattr(container, param_name, value)
-                break
-
-    def import_headers_from_file(self):
-        log.info("Importing file headers...")
-
-        sim_flags = AttributeMappings.dict_with_none(AttributeMappings.sim_flags)
-        key_params = AttributeMappings.dict_with_none(AttributeMappings.key_data)
-
-        with open(self.input_data_path) as file_header_data:
-            csv_reader = csv.reader(file_header_data)
-            next(csv_reader)  # 0th.
-            next(csv_reader)  # 1st. Always blank.
-
-            data_flags_titles = next(csv_reader)  # 2nd. Boolean titles which might also include values (older)
-            data_flags_values = next(csv_reader)  # 3rd. Might include Boolean values (newer)
-
-            # Count is now in terms of (newer); (older) doesn't have this additional blank line
-
-            if data_flags_values:
-                next(csv_reader)  # 4th line. Blank.
-            key_sim_param_titles = next(csv_reader)  # 5th. Titles for each key simulation parameter.
-            key_sim_param_values = next(csv_reader)  # 6th. Values for each key simulation parameter.
-            next(csv_reader)  # 7th. Blank.
-            next(csv_reader)  # 8th. Simulation notes.
-            next(csv_reader)  # 9th. Description of how to read tabular data
-            next(csv_reader)  # 10th. Blank.
-            simulated_sites = next(csv_reader)  # 11th line. Titular value (site number) for each simulated site.
-
-        # Iterate over each title in the CSV
-        for title, value in zip(key_sim_param_titles, key_sim_param_values):
-            for desired_var_name, (_, possible_spellings) in AttributeMappings.key_data.items():
-                mapped_title = self.custom_string_mappings(title)
-                if mapped_title in possible_spellings:
-                    key_params[desired_var_name] = self._custom_cast_mappings(value)
-                    break
-
-        if data_flags_values:
-            for title, value in zip(data_flags_titles, data_flags_values):
-                for desired_var_name, (_, possible_spellings) in AttributeMappings.sim_flags.items():
-                    if title in possible_spellings:
-                        if len(value) > 1:
-                            mapped_value = self.custom_string_mappings(value, False)
-                        else:
-                            mapped_value = bool(value)
-                        sim_flags[desired_var_name] = mapped_value
-                        break
-        else:
-            for i, entry in enumerate(data_flags_titles):
-                if i % 2 == 0:
-                    title, value = data_flags_titles[i], data_flags_titles[i+1]
-                    for desired_var_name, (_, possible_spellings) in AttributeMappings.sim_flags.items():
-                        if title in possible_spellings:
-                            if len(value) > 1:
-                                sim_flags[desired_var_name] = self.custom_string_mappings(value, False)
-                            else:
-                                sim_flags[desired_var_name] = bool(int(value))
-                            break
-                else:
-                    continue
-
-        """
-        for i, val in enumerate(data_flags_titles):
-            if i % 2 == 0:
-                mapped_title = self.custom_string_mappings(data_flags_titles[i], False)
-                if len(val) > 1:
-                    mapped_value = self.custom_string_mappings(data_flags_titles[i+1], False)
-                else:
-                    mapped_value = bool(data_flags_titles[i+1])
-                sim_flags[mapped_title] = mapped_value
-            else:
-                continue
-
-        for title, value in zip(key_sim_param_titles, key_sim_param_values):
-            mapped_title = self.custom_string_mappings(title)
-            mapped_value = self._custom_cast_mappings(value)
-            key_params[mapped_title] = mapped_value
-        """
-        # Cleanup
-        if sim_flags['numericalMethodUsed'] is None:
-            sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
-
-        if "Time [s]" in simulated_sites:
-            simulated_sites.remove("Time [s]")
-
-        print(key_params)
-        print(sim_flags)
-
-        return key_params, simulated_sites, sim_flags
-
-    def import_headers_from_file_legacy(self):
-        """
-        Import the header lines of each csv file to obtain the C++ simulation parameters.
-
-        THIS IS LEGACY CODE FOR ALL DATA PRODUCED BEFORE 2024-02-20. Each simulation in C++ returns all the key
-        parameters, required to replicate the simulation, as headers in csv files. This function imports that data,
-        and creates dictionaries to store it.
-
-        The Python dictionary keys are the same variable names as their C++ counterparts (for consistency). Casting is
-        required as data comes from csvreader as strings.
-
-        :return: Returns a tuple. [0] is the dictionary containing all the key simulation parameters. [1] is an array
-        containing strings; the names of each spin site.
-        """
-        log.info(f"Importing file headers...")
-
-        if self.fi == "LLGTest":
-            with open(self.input_data_path) as file_header_data:
-                csv_reader = csv.reader(file_header_data)
-                next(csv_reader)  # 0th line.
-                next(csv_reader)  # 1st line. Blank.
-                next(csv_reader)  # 2nd line. Column title for each key simulation parameter. data_names
-                data_values = next(csv_reader)  # 3rd line. Values associated with column titles from 4th line.
-                next(csv_reader)  # 4th line. Blank.
-                next(csv_reader)  # 5th line. Simulation notes.
-                next(csv_reader)  # 6th line. Describes how to understand tabular titles.
-                next(csv_reader)  # 7th line. Blank.
-                list_of_simulated_sites = next(csv_reader)  # 8th line. Array of simulated site numbers.
-
-                data_flags = None
-        else:
-            with open(self.input_data_path) as file_header_data:
-                csv_reader = csv.reader(file_header_data)
-                next(csv_reader)  # 0th line.
-                next(csv_reader)  # 1st line. Blank.
-                data_flags = next(
-                    csv_reader)  # 2nd line. Booleans to indicate which modules were used during simulations.
-                next(csv_reader)  # 3rd line. Blank.
-                data_value_names = next(
-                    csv_reader)  # 4th line. Column title for each key simulation parameter. data_names
-                data_values = next(csv_reader)  # 5th line. Values associated with column titles from 4th line.
-                next(csv_reader)  # 6th line. Blank.
-                next(csv_reader)  # 7th line. Simulation notes.
-                next(csv_reader)  # 8th line. Describes how to understand tabular titles.
-                next(csv_reader)  # 9th line. Blank.
-                list_of_simulated_sites = next(csv_reader)  # 10th line. Array of simulated site numbers.
-
-        sim_flags = dict()
-        if data_flags is not None:
-            # Assignment to dict is done individually to improve readability.
-            sim_flags['isLLGUsed'] = str(data_flags[1])
-            sim_flags['isShockwaveUsed'] = str(data_flags[3])
-            sim_flags['isDriveOnLHS'] = str(data_flags[5])
-            sim_flags['methodName'] = str(data_flags[7])
-            sim_flags['isDriveStatic'] = str(data_flags[9])
-
-            if 'numericalMethodUsed' not in sim_flags.keys():
-                sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
-            else:
-                sim_flags['numericalMethodUsed'] = str(data_flags[7])
-        elif 'numericalMethodUsed' not in sim_flags.keys():
-            sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
-        else:
-            sim_flags['numericalMethodUsed'] = f"{self.fp.upper()} Method"
-
-        key_params = dict()
-
-        if self.fi == "LLGTest":
-            key_params['staticBiasField'] = float(data_values[0])
-            key_params['dynamicBiasField1'] = float(data_values[1])
-            key_params['dynamicBiasFieldScaling'] = float(data_values[2])
-            key_params['drivingFreq'] = float(data_values[3])
-            key_params['drivingRegionLHS'] = int(data_values[4])
-            key_params['drivingRegionRHS'] = int(data_values[5])
-            key_params['drivingRegionWidth'] = int(data_values[6])
-            key_params['maxSimTime'] = float(data_values[7])
-            key_params['exchangeMaxVal'] = float(data_values[8])
-            key_params['stopIterVal'] = float(data_values[9])
-            key_params['exchangeMinVal'] = float(data_values[10])
-            key_params['numberOfDataPoints'] = int(data_values[11])
-            key_params['totalSpins'] = int(data_values[12])
-            key_params['stepsize'] = float(data_values[13])
-            key_params['dampedSpins'] = int(data_values[14])
-            key_params['gilbertFactor'] = 1e-5  # float(data_values[15])
-            sim_flags['isLLGUsed'] = 1  # int(data_values[6])
-
-            key_params['dynamicBiasField2'] = key_params['dynamicBiasField1'] * key_params['dynamicBiasFieldScaling']
-            key_params['chainSpins'] = round(key_params['totalSpins'], -3)
-            key_params['dampedSpins'] = key_params['totalSpins'] - key_params['chainSpins']
-            key_params['gyroMagRatio'] = 2.92E9 * 2 * np.pi
-
-        else:
-            key_params['staticBiasField'] = float(data_values[0])
-            key_params['dynamicBiasField1'] = float(data_values[1])
-            key_params['dynamicBiasFieldScaling'] = float(data_values[2])
-            key_params['dynamicBiasField2'] = float(data_values[3])
-            key_params['drivingFreq'] = float(data_values[4])
-            key_params['drivingRegionLHS'] = int(data_values[5])
-            key_params['drivingRegionRHS'] = int(data_values[6])
-            key_params['drivingRegionWidth'] = int(data_values[7])
-            key_params['maxSimTime'] = float(data_values[8])
-            key_params['exchangeMinVal'] = float(data_values[9])
-            key_params['exchangeMaxVal'] = float(data_values[10])
-            key_params['stopIterVal'] = float(data_values[11])
-            key_params['numberOfDataPoints'] = int(data_values[12])
-            key_params['chainSpins'] = int(data_values[13])
-            key_params['dampedSpins'] = int(data_values[14])
-            key_params['totalSpins'] = int(data_values[15])
-            key_params['stepsize'] = float(data_values[16])
-            key_params['gilbertFactor'] = float(data_values[17])
-            key_params['gyroMagRatio'] = float(data_values[18])
-            key_params['shockGradientTime'] = float(data_values[19])
-            key_params['shockApplyTime'] = float(data_values[20])
-
-        log.info(f"File headers imported!")
-
-        if "Time [s]" in list_of_simulated_sites:
-            list_of_simulated_sites.remove("Time [s]")
-
-        return key_params, list_of_simulated_sites, sim_flags
-
     def call_methods(self, override_method=None, override_function=None, override_site=None,
                      early_exit=False, mass_produce=False):
 
@@ -840,29 +636,29 @@ class PlotImportedData:
 
         if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
             if self.mass_produce:
-                print(f"Producing: {self.fi}{self.fd}")
-                log.info(f"Producing: {self.fi}{self.fd}")
+                print(f"Producing: {self._input_id}{self._input_desc}")
+                log.info(f"Producing: {self._input_id}{self._input_desc}")
             else:
                 print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
                       f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
                 print('--------------------------------------------------------------------------------')
 
         while True:
-            if initials_of_method_to_call in self.accepted_keywords:
-                self._data_plotting_selections(initials_of_method_to_call)
+            if initials_of_method_to_call in self._accepted_methods:
+                self._invoke_data_plotting_selections(initials_of_method_to_call)
                 break
             else:
-                while initials_of_method_to_call not in self.accepted_keywords:
+                while initials_of_method_to_call not in self._accepted_methods:
                     initials_of_method_to_call = input("Invalid option. Select function should to use: ").upper()
 
         if self.mass_produce:
-            print(f"Produced: {self.fi}{self.fd}")
-            log.info(f"Produced: {self.fi}{self.fd}")
+            print(f"Produced: {self._input_id}{self._input_desc}")
+            log.info(f"Produced: {self._input_id}{self._input_desc}")
         else:
             print("Code complete!")
             log.info(f"Code complete! Exiting.")
 
-    def _data_plotting_selections(self, method_to_call):
+    def _invoke_data_plotting_selections(self, method_to_call):
 
         if method_to_call == "3P":
             self._invoke_three_panes()
@@ -880,7 +676,7 @@ class PlotImportedData:
             self._invoke_contour_plot()
 
         elif method_to_call == "EXIT":
-            self._exit_conditions()
+            self._invoke_exit_conditions()
 
     def _invoke_three_panes(self):
         # Use this if you wish to see what my old Spyder code would output
@@ -905,8 +701,8 @@ class PlotImportedData:
         sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
 
         print("Generating plot...")
-        plt_rk_legacy_standalone.three_panes(self.m_spin_data[:, :], self.header_data_params,
-                                  self.full_output_path, sites_to_compare)
+        plt_rk_legacy_standalone.three_panes(self._data_magnetic_moments[:, :], self._data_parameters,
+                                             self._output_path_full, sites_to_compare)
         log.info(f"Plotting 3P complete!")
 
     def _invoke_fs_functions(self):
@@ -926,10 +722,10 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk_legacy_standalone.fft_and_signal_four(self.m_time_data[:], self.m_spin_data[:, target_spin_in_data],
-                                                      target_spin,
-                                                      self.header_data_params,
-                                                      self.full_output_path)
+                    plt_rk_legacy_standalone.fft_and_signal_four(self._data_timestamps[:],
+                                                                 self._data_magnetic_moments[:, target_spin_in_data],
+                                                                 target_spin, self._data_parameters,
+                                                                 self._output_path_full)
                     log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
@@ -961,13 +757,13 @@ class PlotImportedData:
                     print(f"Generating plot for [#{target_spin}]...")
                     log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
                     target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk_legacy_standalone.fft_only(self.m_spin_data[:, target_spin_in_data], target_spin,
-                                           self.header_data_params,
-                                           self.full_output_path)
-                    # plt_rk.multi_fft_only(self.m_spin_data[:, target_spin_in_data],
+                    plt_rk_legacy_standalone.fft_only(self._data_magnetic_moments[:, target_spin_in_data], target_spin,
+                                                      self._data_parameters,
+                                                      self._output_path_full)
+                    # plt_rk.multi_fft_only(self._data_magnetic_moments[:, target_spin_in_data],
                     #                      dataset2_m_spin_data[:, target_spin_in_data], target_spin,
-                    #                      self.header_data_params,
-                    #                      self.full_output_path)
+                    #                      self._data_parameters,
+                    #                      self._output_path_full)
                     log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
                     # cont_plotting_FFT = False  # Remove this after testing.
                 else:
@@ -982,20 +778,17 @@ class PlotImportedData:
         log.info(f"Plotting function selected: contour plot.")
         spin_site = int(input("Plot which site: "))
 
-        mx_name = f"{self.fp}_mx_{self.fi}{self.fd}"
-        my_name = f"{self.fp}_my_{self.fi}{self.fd}"
-        mz_name = f"{self.fp}_mz_{self.fi}{self.fd}"
-        mx_path = f"{self.in_path}{mx_name}.csv"
-        my_path = f"{self.in_path}{my_name}.csv"
-        mz_path = f"{self.in_path}{mz_name}.csv"
+        mx_name = f"{self._input_prefix}_mx_{self._input_id}{self._input_desc}"
+        my_name = f"{self._input_prefix}_my_{self._input_id}{self._input_desc}"
+        mz_name = f"{self._input_prefix}_mz_{self._input_id}{self._input_desc}"
+        mx_path = f"{self._input_dir_path}{mx_name}.csv"
+        my_path = f"{self._input_dir_path}{my_name}.csv"
+        mz_path = f"{self._input_dir_path}{mz_name}.csv"
 
-        mx_m_data = self.import_data_from_file(filename=mx_name,
-                                               input_data_path=mx_path)
-        my_m_data = self.import_data_from_file(filename=my_name,
-                                               input_data_path=my_path)
-        mz_m_data = self.import_data_from_file(filename=mz_name,
-                                               input_data_path=mz_path)
-        # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self.full_output_path, False)
+        mx_m_data = self._import_simulation_data(mx_name, mx_path)
+        my_m_data = self._import_simulation_data(my_name, my_path)
+        mz_m_data = self._import_simulation_data(mz_name, mz_path)
+        # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self._output_path_full, False)
         plt_rk_legacy_standalone.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
         log.info(f"Plotting CP complete!")
 
@@ -1003,14 +796,14 @@ class PlotImportedData:
         # Plots final state of system, similar to the Figs. in macedo2021breaking.
         log.info(f"Plotting function selected: paper figure.")
 
-        #if self.fp == "rk2":
-        #    paper_fig = plt_rk_legacy.PaperFigures(self.m_time_data, self.m_spin_data,
-        #                                    self.header_data_params, self.header_sim_flags, self.header_data_sites,
-        #                                    self.full_output_path)
-        #else:
-        paper_fig = plt_rk.PaperFigures(self.m_time_data, self.m_spin_data,
-                                            self.header_data_params, self.header_sim_flags, self.header_data_sites,
-                                            self.full_output_path)
+        # if self._input_prefix == "rk2":
+        #    paper_fig = plt_rk_legacy.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
+        #                                    self._data_parameters, self._data_flags, self._data_sites,
+        #                                    self._output_path_full)
+        # else:
+        paper_fig = plt_rk.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
+                                        self._data_parameters, self._data_flags, self._data_sites,
+                                        self._output_path_full)
 
         pf_keywords = {  # Full-name: [Initials, Abbreviation]
             "Spat. Ev.": ["SE", "Spatial Evolution"],
@@ -1186,7 +979,7 @@ class PlotImportedData:
                             #                                          use_demag=False, compare_dis=True,
                             #                                          publication_details=False, interactive_plot=True)
 
-                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=False,interactive_plot=True)
+                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=False, interactive_plot=True)
                             log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if self.early_exit:
@@ -1248,7 +1041,7 @@ class PlotImportedData:
         log.info(f"Plotting PF complete!")
 
     @staticmethod
-    def _exit_conditions():
+    def _invoke_exit_conditions():
         print("Exiting program...")
         log.info(f"Exiting program from (select_plotter == EXIT)!")
         exit(0)

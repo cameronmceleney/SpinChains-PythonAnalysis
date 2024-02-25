@@ -582,6 +582,10 @@ class SimulationFlagsContainer(metaclass=SimulationVariableContainerMeta):
             return self._container_var_dicts[key]
         raise KeyError(f"{key} is not available in this container.")
 
+    def return_data(self, *args, **kwargs):
+        """ Real implementation is injected by the metaclass"""
+        pass
+
     def update_with_dict(self, *args, **kwargs):
         """Update container attributes from a dictionary with type checking."""
         pass

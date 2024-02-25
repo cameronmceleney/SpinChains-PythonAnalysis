@@ -43,7 +43,7 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1050_test"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1050_20"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
     system_setup.detect_os(False, "2024-02-14", "2024-02-14")
@@ -99,7 +99,7 @@ if __name__ == '__main__':
             generate_filenames()
         else:
             dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
-                                            file_prefix="24-02-22", file_component='mx', file_identifier="T")
+                                            file_prefix="rk2", file_component='mx', file_identifier="T")
             dataset1.call_methods(override_method="pf", override_function="sfft", override_site=100, early_exit=True)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
