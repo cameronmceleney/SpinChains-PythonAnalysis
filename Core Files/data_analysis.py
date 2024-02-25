@@ -19,10 +19,9 @@ from glob import glob
 import plot_rk_methods as plt_rk
 import plot_eigenmodes as plt_eigens
 import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
-import plot_rk_methods_legacy as plt_rk_legacy
 
 # Specific functions from my modules
-from attribute_defintions import AttributeMappings, SimulationParametersContainer, SimulationFlagsContainer
+from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
 from figure_manager import rc_params_update
 
 """
