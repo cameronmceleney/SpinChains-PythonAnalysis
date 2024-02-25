@@ -444,6 +444,7 @@ class PlotImportedData:
 
         parameters = SimulationParametersContainer()
         flags = SimulationFlagsContainer()
+        process_data = ProcessData()
 
         with open(self._input_path_full) as file_header_data:
             csv_reader = csv.reader(file_header_data)
@@ -451,12 +452,12 @@ class PlotImportedData:
             next(csv_reader)  # Skip the 1st line (always blank).
 
             # Process simulation flags (2nd and 3rd lines)
-            self._process_selected_headers(csv_reader, flags, is_flag=True)
+            csv_reader, flags = process_data.process_selected_headers(csv_reader, flags, is_sim_flags=True)
 
             # Additional blank (4th line) in newer format; older format has blank 3rd and key sim params at 4th
 
             # Count from here is for new format. Process simulation parameters (5th and 6th lines)
-            self._process_selected_headers(csv_reader, parameters, is_flag=False)
+            csv_reader, flags = process_data.process_selected_headers(csv_reader, parameters, is_sim_flags=False)
 
             # Skip lines until simulated sites (11th line)
             for _ in range(4):
@@ -468,132 +469,6 @@ class PlotImportedData:
             simulated_sites.remove("Time [s]")
 
         return parameters.return_data(), simulated_sites, flags.return_data()
-
-    def _process_selected_headers(self, csv_reader, container, is_flag, data_titles=None, data_values=None):
-
-        if data_titles is None and data_values is None:
-            data_titles = next(csv_reader)
-            data_values = next(csv_reader)
-
-        if data_values:
-            # Titles and values in separate lines
-            for title, value in zip(data_titles, data_values):
-                self._set_instance_variable(container, title, value, is_flag)
-        else:
-            # Titles and values in one line
-            for i in range(0, len(data_titles), 2):
-                title, value = data_titles[i], data_titles[i + 1]
-                self._set_instance_variable(container, title, value, is_flag)
-
-        if data_values:
-            # Skip the next (blank) line for the newer formats where the titles and values are on separate lines
-            next(csv_reader)
-
-    def _set_instance_variable(self, container, title, value, is_flag):
-        """
-        Dynamically set the instance attributes if they match the input data.
-        """
-        if is_flag:
-            unpack_container = container.all_flags.items()
-        else:
-            unpack_container = container.all_parameters.items()
-
-        mapped_title = self._apply_custom_mapping_to_string(title)
-
-        for param_name, param_metadata in unpack_container:
-            param_names = param_metadata['var_names']
-
-            if mapped_title in param_names:
-                # Dynamically set the instance attributes
-                setattr(container, param_name, value)
-                break
-
-    @staticmethod
-    def _apply_custom_mapping_to_string(data_name: Any, keep_units=False):
-        """Handles the mapping of data names to their corresponding strings as per these rules."""
-
-        def _abbreviations(string, target, replacement):
-            if target in string:
-                string = string.replace(target, replacement)
-            return string
-
-        def _parentheses(string, target, replacement):
-            # Updated logic to handle parentheses according to specified rules
-            pattern = re.compile(r"\((.*?)\)")
-            matches = pattern.findall(string)
-            for match in matches:
-                formatted_match = f"({match})"
-                if match == target:
-                    # If match equals target and replacement is not empty, replace it; else remove it
-                    if replacement:
-                        string = string.replace(formatted_match, replacement)
-                    else:
-                        string = string.replace(formatted_match, "")
-                elif len(match) == 1:
-                    # Remove single-character matches and their parentheses
-                    string = string.replace(formatted_match, "")
-
-            return string
-
-        def _units(string, target, replacement):
-            target_formatted = f"[{target}]"
-            if target_formatted in string:
-                if keep_units:
-                    string = string.replace(target_formatted, "")
-                    string += f" _{replacement}"
-                else:
-                    string = re.sub(r"\[.*?\]", "", string)
-            return string
-
-        custom_replacements = {
-            'Abbreviations': {
-                'function': _abbreviations,
-                'mappings': {
-                    'Frequency': 'Freq',
-                    'Gyromagnetic': 'Gyro',
-                    'No.': 'Num'
-                }
-            },
-            'Parentheses': {
-                'function': _parentheses,
-                'mappings': {
-                    'lower': 'Lower',
-                    'upper': 'Upper',
-                    'Shape': 'Shape',
-                    'H0': '',
-                    'H_D1': '',
-                    'H_D2': '',
-                    '2Pi*Y': '',
-                    'Hz': ''
-                }
-            },
-            'Units': {
-                'function': _units,
-                'mappings': {
-                    'J': 'Joules',
-                    'T': 'Tesla',
-                    's': 'Seconds',
-                    'J/m': 'JoulesPerMetre',
-                    'kA/m': 'KiloAmperePerMetre',
-                    'Hz': 'Hertz'
-                }
-            }
-        }
-
-        def to_lower_camel_case(s):
-            # Split by non-alphanumeric characters and capitalize the first letter of each word except the first one
-            s = re.sub(r"\.", "", s)
-            parts = re.split(r'\W+', s)
-            return parts[0].lower() + ''.join(word.capitalize() for word in parts[1:])
-
-        for category_dict in custom_replacements.values():
-            category_rule_func = category_dict['function']
-            for find, swap in category_dict['mappings'].items():
-                data_name = category_rule_func(data_name, find, swap)
-
-        data_name = to_lower_camel_case(data_name)
-
-        return data_name
 
     def call_methods(self, override_method=None, override_function=None, override_site=None,
                      early_exit=False, mass_produce=False):
@@ -1045,3 +920,166 @@ class PlotImportedData:
         print("Exiting program...")
         log.info(f"Exiting program from (select_plotter == EXIT)!")
         exit(0)
+
+
+class ProcessData:
+
+    def __init__(self):
+        self.csv_reader = None
+        self.is_sim_flags = None
+        self.header_container = None
+        self.header_titles = None
+        self.header_values = None
+
+    def process_selected_headers(self, csv_reader,
+                                 header_container: SimulationFlagsContainer | SimulationParametersContainer,
+                                 is_sim_flags: bool, header_titles=None, header_values=None):
+
+        self._set_internal_attributes(csv_reader, header_container, is_sim_flags, header_titles, header_values)
+
+        if self.header_values:
+            # Titles and values in separate lines
+            for title, value in zip(self.header_titles, self.header_values):
+                self._set_instance_variable(title, value)
+        else:
+            # Titles and values in one line
+            for i in range(0, len(self.header_titles), 2):
+                title, value = self.header_titles[i], self.header_titles[i + 1]
+                self._set_instance_variable(title, value)
+
+        return_reader = self.csv_reader
+        return_container = self.header_container
+        self._return_and_reset_internal_attributes()
+        return return_reader, return_container
+
+    def _set_internal_attributes(self, csv_reader, header_container, is_sim_flags, header_titles=None,
+                                 header_values=None):
+
+        self.csv_reader = csv_reader
+        self.is_sim_flags = is_sim_flags
+        self.header_container = header_container
+
+        if header_titles is None and header_values is None:
+            self.header_titles = next(self.csv_reader)
+            self.header_values = next(self.csv_reader)
+        else:
+            self.header_titles = header_titles
+            self.header_values = header_values
+
+    def _set_instance_variable(self, title, value):
+        """
+        Dynamically set the instance attributes if they match the input data.
+        """
+        if self.is_sim_flags:
+            unpack_container = self.header_container.all_flags.items()
+        else:
+            unpack_container = self.header_container.all_parameters.items()
+
+        mapped_title = self._apply_custom_mapping_to_string(title)
+
+        for param_name, param_metadata in unpack_container:
+            param_names = param_metadata['var_names']
+
+            if mapped_title in param_names:
+                # Dynamically set the instance attributes
+                setattr(self.header_container, param_name, value)
+                break
+
+    def _return_and_reset_internal_attributes(self):
+
+        if self.header_values:
+            # Skip the next (blank) line for the newer formats where the titles and values are on separate lines
+            next(self.csv_reader)
+
+        self.csv_reader = None
+        self.is_sim_flags = None
+        self.header_container = None
+        self.header_titles = None
+        self.header_values = None
+
+    @staticmethod
+    def _apply_custom_mapping_to_string(input_string: Any, keep_units=False):
+        """Handles the mapping of data names to their corresponding strings as per these rules."""
+
+        def _abbreviations(string, target, replacement):
+            if target in string:
+                string = string.replace(target, replacement)
+            return string
+
+        def _parentheses(string, target, replacement):
+            # Updated logic to handle parentheses according to specified rules
+            pattern = re.compile(r"\((.*?)\)")
+            matches = pattern.findall(string)
+            for match in matches:
+                formatted_match = f"({match})"
+                if match == target:
+                    # If match equals target and replacement is not empty, replace it; else remove it
+                    if replacement:
+                        string = string.replace(formatted_match, replacement)
+                    else:
+                        string = string.replace(formatted_match, "")
+                elif len(match) == 1:
+                    # Remove single-character matches and their parentheses
+                    string = string.replace(formatted_match, "")
+
+            return string
+
+        def _units(string, target, replacement):
+            target_formatted = f"[{target}]"
+            if target_formatted in string:
+                if keep_units:
+                    string = string.replace(target_formatted, "")
+                    string += f" _{replacement}"
+                else:
+                    string = re.sub(r"\[.*?]", "", string)  # r"\[.*?\]"
+            return string
+
+        custom_replacements = {
+            'Abbreviations': {
+                'function': _abbreviations,
+                'mappings': {
+                    'Frequency': 'Freq',
+                    'Gyromagnetic': 'Gyro',
+                    'No.': 'Num'
+                }
+            },
+            'Parentheses': {
+                'function': _parentheses,
+                'mappings': {
+                    'lower': 'Lower',
+                    'upper': 'Upper',
+                    'Shape': 'Shape',
+                    'H0': '',
+                    'H_D1': '',
+                    'H_D2': '',
+                    '2Pi*Y': '',
+                    'Hz': ''
+                }
+            },
+            'Units': {
+                'function': _units,
+                'mappings': {
+                    'J': 'Joules',
+                    'T': 'Tesla',
+                    's': 'Seconds',
+                    'J/m': 'JoulesPerMetre',
+                    'kA/m': 'KiloAmperePerMetre',
+                    'Hz': 'Hertz'
+                }
+            }
+        }
+
+        def to_lower_camel_case(s):
+            # Split by non-alphanumeric characters and capitalize the first letter of each word except the first one
+            s = re.sub(r"\.", "", s)
+            parts = re.split(r'\W+', s)
+            return parts[0].lower() + ''.join(word.capitalize() for word in parts[1:])
+
+        for category_dict in custom_replacements.values():
+            category_rule_func = category_dict['function']
+            for find, swap in category_dict['mappings'].items():
+                input_string = category_rule_func(input_string, find, swap)
+
+        mapped_and_cased_input = to_lower_camel_case(input_string)
+
+        return mapped_and_cased_input
