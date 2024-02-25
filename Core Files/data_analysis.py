@@ -370,48 +370,70 @@ class PlotEigenmodes:
 class AnalyseData:
 
     def __init__(self):
-        pass
+        self.data_container = None
+        self.data_timestamps = None
+        self.data_sites = None
+        self.data_magnetic_moments = None
+        self.header_parameters = None
+        self.header_flags = None
 
-    def import_data(self):
-        pass
+        self._file_terms = {"prefix": None, "component": None, "identifier": None,
+                            "descriptor": None}
+        self._file_paths_full = {"filename": None, "input": None, "output": None}
 
-    def process_data(self):
-        pass
+    def import_data(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
+                    file_identifier="T", auto_run: bool = True):
 
-    def call_methods(self):
-        pass
+        self._file_terms = {"prefix": file_prefix, "component": file_component, "identifier": file_identifier,
+                            "descriptor": file_descriptor}
+
+        imported_data = ImportData(self._file_terms, input_dir_path, output_dir_path)
+
+        if auto_run:
+            (self.data_container, self.data_timestamps, self.data_magnetic_moments,
+             data_headers, self._file_paths_full) = imported_data.default_import()
+
+            self.header_parameters, self.data_sites, self.header_flags = data_headers
+        else:
+            print("Data imported. Ready to process.")
+            exit(0)
+
+    @staticmethod
+    def process_data():
+        print("Data processed. Ready to call method.")
+
+    def call_methods(self, override_method=None, override_function=None, override_site=None, early_exit=False,
+                     loop_function = False, mass_produce=False):
+        called_method = CallMethods(self._file_terms, self._file_paths_full, self.data_container, self.data_timestamps,
+                                    self.data_sites, self.data_magnetic_moments, self.header_parameters,
+                                    self.header_flags, mass_produce)
+        called_method.call_methods(override_method, override_function, override_site, loop_function, early_exit)
 
 
-class PlotImportedData:
+class ImportData:
+    def __init__(self, file_terms, input_dir_path, output_dir_path):
 
-    def __init__(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
-                 file_identifier="T"):
         self._input_dir_path = input_dir_path
         self._output_dir_path = output_dir_path
-        self._input_prefix = file_prefix
-        self._input_comp = file_component
-        self._input_id = file_identifier
-        self._input_desc = file_descriptor
+        self._input_prefix = file_terms["prefix"]
+        self._input_comp = file_terms["component"]
+        self._input_id = file_terms["identifier"]
+        self._input_desc = file_terms["descriptor"]
 
-        self.override_method = None
-        self.override_function = None
-        self.override_site = None
-        self.early_exit = False
-        self.mass_produce = False
-        
-        self._accepted_methods = ["3P", "FS", "FT", "EXIT", "PF", "CP"]
+        self._file_paths_full = {"filename": None, "input": None, "output": None}
 
-        self._input_filename = f"{self._input_prefix}_{self._input_comp}_{self._input_id}{self._input_desc}"
-        self._input_path_full = f"{self._input_dir_path}{self._input_filename}.csv"
-        self._output_path_full = f"{self._output_dir_path}{file_identifier}{file_descriptor}"
+        self._data_container = None
+        self._data_timestamps = None
+        self._data_magnetic_moments = None
+        self._data_headers = [None, None, None]
 
-        self._data_container = self._import_simulation_data()
-        self._data_timestamps = self._data_container[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
-        self._data_magnetic_moments = self._data_container[:, 1:]
-        
-        [self._data_parameters, self._data_sites, self._data_flags] = self._import_simulation_headers()
-        
-        rc_params_update()
+        self._set_internal_attributes()
+
+    def _set_internal_attributes(self):
+        filename = f"{self._input_prefix}_{self._input_comp}_{self._input_id}{self._input_desc}"
+        self._file_paths_full = {"filename": filename,
+                                 "input": f"{self._input_dir_path}{filename}.csv",
+                                 "output": f"{self._output_dir_path}{self._input_id}{self._input_desc}"}
 
     def _import_simulation_data(self, filename=None, full_path_to_file=None):
         """
@@ -423,9 +445,9 @@ class PlotImportedData:
         log.info(f"Importing data points...")
 
         if filename is None:
-            filename = self._input_filename
+            filename = self._file_paths_full['filename']
         if full_path_to_file is None:
-            full_path_to_file = self._input_path_full
+            full_path_to_file = self._file_paths_full['input']
 
         # Loads all input data without the header
         try:
@@ -446,7 +468,7 @@ class PlotImportedData:
         flags = SimulationFlagsContainer()
         process_data = ProcessData()
 
-        with open(self._input_path_full) as file_header_data:
+        with open(str(self._file_paths_full['input'])) as file_header_data:
             csv_reader = csv.reader(file_header_data)
             next(csv_reader)  # Skip the 0th line.
             next(csv_reader)  # Skip the 1st line (always blank).
@@ -470,456 +492,16 @@ class PlotImportedData:
 
         return parameters.return_data(), simulated_sites, flags.return_data()
 
-    def call_methods(self, override_method=None, override_function=None, override_site=None,
-                     early_exit=False, mass_produce=False):
+    def default_import(self):
+        self._data_container = self._import_simulation_data()
 
-        log.info(f"Invoking functions to plot data...")
-        print('\n--------------------------------------------------------------------------------')
+        self._data_timestamps = self._data_container[:, 0] / 1e-9  # Convert to from [seconds] to [ns]
+        self._data_magnetic_moments = self._data_container[:, 1:]
 
-        if early_exit:
-            self.early_exit = early_exit
-        if override_function is not None:
-            self.override_function = override_function
-        if override_site is not None:
-            self.override_site = override_site
+        self._data_headers = self._import_simulation_headers()
 
-        if mass_produce:
-            self.mass_produce = mass_produce
-
-        if override_method is not None:
-            # Allows the user to skip input dialogues, and call a specific function from a specific method.
-            self.override_method = override_method
-            initials_of_method_to_call = self.override_method.upper()
-
-        else:
-            # TODO This list of functions is massively out of date!
-            print('''
-            The plotting functions available are:
-    
-                *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
-                *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
-                *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
-                *   Paper Figure [PF] (Plot final state of system at all sites)
-                *   Contour Plot [CP] (Plot a single site as a 3D map)
-    
-            The terms within the square brackets are the keys for each function. 
-            If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
-                      ''')
-            print('--------------------------------------------------------------------------------\n')
-
-            initials_of_method_to_call = input("Which function to use: ").upper()
-
-        if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
-            if self.mass_produce:
-                print(f"Producing: {self._input_id}{self._input_desc}")
-                log.info(f"Producing: {self._input_id}{self._input_desc}")
-            else:
-                print(f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function} | "
-                      f" Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
-                print('--------------------------------------------------------------------------------')
-
-        while True:
-            if initials_of_method_to_call in self._accepted_methods:
-                self._invoke_data_plotting_selections(initials_of_method_to_call)
-                break
-            else:
-                while initials_of_method_to_call not in self._accepted_methods:
-                    initials_of_method_to_call = input("Invalid option. Select function should to use: ").upper()
-
-        if self.mass_produce:
-            print(f"Produced: {self._input_id}{self._input_desc}")
-            log.info(f"Produced: {self._input_id}{self._input_desc}")
-        else:
-            print("Code complete!")
-            log.info(f"Code complete! Exiting.")
-
-    def _invoke_data_plotting_selections(self, method_to_call):
-
-        if method_to_call == "3P":
-            self._invoke_three_panes()
-
-        elif method_to_call == "FS":
-            self._invoke_fs_functions()
-
-        elif method_to_call == "FT":
-            self._invoke_fft_functions()
-
-        elif method_to_call == "PF":
-            self._invoke_paper_figures()
-
-        elif method_to_call == "CP":
-            self._invoke_contour_plot()
-
-        elif method_to_call == "EXIT":
-            self._invoke_exit_conditions()
-
-    def _invoke_three_panes(self):
-        # Use this if you wish to see what my old Spyder code would output
-        log.info(f"Plotting function selected: three panes.")
-
-        sites_to_compare = []
-        should_compare_sites = "Y"
-        try:
-            while should_compare_sites not in "YN":
-                should_compare_sites = input("Select sites to compare? Y/N: ").upper()
-        except ValueError:
-            raise ValueError
-        else:
-            if should_compare_sites == 'Y':
-                sites_to_compare.append(input("Primary sites to compare: ").split())
-                sites_to_compare.append(input("Secondary sites to compare: ").split())
-                sites_to_compare.append(input("Tertiary sites to compare: ").split())
-
-            elif should_compare_sites == 'N':
-                exit(0)
-
-        sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
-
-        print("Generating plot...")
-        plt_rk_legacy_standalone.three_panes(self._data_magnetic_moments[:, :], self._data_parameters,
-                                             self._output_path_full, sites_to_compare)
-        log.info(f"Plotting 3P complete!")
-
-    def _invoke_fs_functions(self):
-        # Use this to see fourier transforms of data
-
-        log.info(f"Plotting function selected: Fourier Signal.")
-
-        has_more_to_plot = True
-        while has_more_to_plot:
-            # User will plot one spin site at a time, as plotting can take a long time.
-            spins_to_plot = input("Plot which spin (-ve to exit): ").split()
-
-            for target_spin in spins_to_plot:
-                target_spin = int(target_spin)
-
-                if target_spin >= 1:
-                    print(f"Generating plot for [#{target_spin}]...")
-                    log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
-                    target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk_legacy_standalone.fft_and_signal_four(self._data_timestamps[:],
-                                                                 self._data_magnetic_moments[:, target_spin_in_data],
-                                                                 target_spin, self._data_parameters,
-                                                                 self._output_path_full)
-                    log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
-                    # cont_plotting_FFT = False  # Remove this after testing.
-                else:
-                    print("Exiting FFT plotting.")
-                    log.info(f"Exiting FS based upon user input of [{target_spin}]")
-                    has_more_to_plot = False
-
-        log.info(f"Completed plotting FS!")
-
-    def _invoke_fft_functions(self):
-        # Use this to see fourier transforms of data
-
-        log.info(f"Plotting function selected: Fourier Signal only.")
-
-        # dataset2_full_filename = "rk2_mx_T1614.csv"
-        # dataset2_input_data_path = f"D:/Data/2022-11-30/Simulation_Data/{dataset2_full_filename}"
-        # dataset2 = np.loadtxt(dataset2_input_data_path, delimiter=",", skiprows=11)
-        # dataset2_m_spin_data = dataset2[:, 1:]
-
-        has_more_to_plot = True
-        while has_more_to_plot:
-            # User will plot one spin site at a time, as plotting can take a long time.
-            spins_to_plot = input("Plot which spin (-ve to exit): ").split()
-
-            for target_spin in spins_to_plot:
-                target_spin = int(target_spin)
-
-                if target_spin >= 1:
-                    print(f"Generating plot for [#{target_spin}]...")
-                    log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
-                    target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
-                    plt_rk_legacy_standalone.fft_only(self._data_magnetic_moments[:, target_spin_in_data], target_spin,
-                                                      self._data_parameters,
-                                                      self._output_path_full)
-                    # plt_rk.multi_fft_only(self._data_magnetic_moments[:, target_spin_in_data],
-                    #                      dataset2_m_spin_data[:, target_spin_in_data], target_spin,
-                    #                      self._data_parameters,
-                    #                      self._output_path_full)
-                    log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
-                    # cont_plotting_FFT = False  # Remove this after testing.
-                else:
-                    print("Exiting FFT plotting.")
-                    log.info(f"Exiting FS based upon user input of [{target_spin}]")
-                    has_more_to_plot = False
-
-        log.info(f"Completed plotting FS!")
-
-    def _invoke_contour_plot(self):
-        # Use this if you wish to see what my old Spyder code would output
-        log.info(f"Plotting function selected: contour plot.")
-        spin_site = int(input("Plot which site: "))
-
-        mx_name = f"{self._input_prefix}_mx_{self._input_id}{self._input_desc}"
-        my_name = f"{self._input_prefix}_my_{self._input_id}{self._input_desc}"
-        mz_name = f"{self._input_prefix}_mz_{self._input_id}{self._input_desc}"
-        mx_path = f"{self._input_dir_path}{mx_name}.csv"
-        my_path = f"{self._input_dir_path}{my_name}.csv"
-        mz_path = f"{self._input_dir_path}{mz_name}.csv"
-
-        mx_m_data = self._import_simulation_data(mx_name, mx_path)
-        my_m_data = self._import_simulation_data(my_name, my_path)
-        mz_m_data = self._import_simulation_data(mz_name, mz_path)
-        # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self._output_path_full, False)
-        plt_rk_legacy_standalone.test_3d_plot(mx_m_data, my_m_data, mz_m_data, spin_site)
-        log.info(f"Plotting CP complete!")
-
-    def _invoke_paper_figures(self):
-        # Plots final state of system, similar to the Figs. in macedo2021breaking.
-        log.info(f"Plotting function selected: paper figure.")
-
-        # if self._input_prefix == "rk2":
-        #    paper_fig = plt_rk_legacy.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
-        #                                    self._data_parameters, self._data_flags, self._data_sites,
-        #                                    self._output_path_full)
-        # else:
-        paper_fig = plt_rk.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
-                                        self._data_parameters, self._data_flags, self._data_sites,
-                                        self._output_path_full)
-
-        pf_keywords = {  # Full-name: [Initials, Abbreviation]
-            "Spat. Ev.": ["SE", "Spatial Evolution"],
-            "Temp. Ev.": ["TE", "Temporal Evolution"],
-            "Heav. Dis.": ["HD", "Heaviside-Dispersion"],
-            "GIF": ["GIF", "GIF"],
-            "FFT": ["FFT", "Fast Fourier Transform"],
-            "Prev. Menu": ["BACK", "Previous Menu"],
-            "Ric. Paper": ["RIC", "Ricardo's Paper"],
-            "Spat. FFT": ["SFFT", "Spatial FFT"]}
-
-        if self.override_function is not None:
-            pf_selection = self.override_function.upper()
-
-        else:
-            pf_selection = str(input(f"Options:"
-                                     f"\n\t- {pf_keywords['Spat. Ev.'][0]}: {pf_keywords['Spat. Ev.'][1]} | "
-                                     f"{pf_keywords['Temp. Ev.'][0]}: {pf_keywords['Temp. Ev.'][1]} | "
-                                     f"{pf_keywords['Heav. Dis.'][0]}: {pf_keywords['Heav. Dis.'][1]}"
-                                     f"\n\t- {pf_keywords['GIF'][0]}: {pf_keywords['GIF'][1]} | "
-                                     f"{pf_keywords['FFT'][0]}: {pf_keywords['FFT'][1]} | "
-                                     f"{pf_keywords['Ric. Paper'][0]}: {pf_keywords['Ric. Paper'][1]} | "
-                                     f"\nTo return type {pf_keywords['Prev. Menu'][0]}: Select an option: ")).upper()
-
-        pf_sel_first_elm = [values[0] for values in pf_keywords.values()]
-        while True:
-            if pf_selection in [values[0] for values in pf_keywords.values()]:
-                break
-            else:
-                while pf_selection not in pf_keywords.keys():
-                    pf_selection = str(input(f"Invalid choice. Select "
-                                             f"from [{', '.join(pf_sel_first_elm)}]: ")).upper()
-
-        cont_plotting = True
-
-        if pf_selection == pf_keywords["Spat. Ev."][0]:
-            while cont_plotting:
-                # User will plot one spin site at a time, as plotting can take a long time.
-                if self.override_site is not None:
-                    rows_to_plot = [self.override_site]
-                else:
-                    rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
-
-                for row_num in rows_to_plot:
-
-                    try:
-                        row_num = int(row_num)
-
-                    except ValueError:
-                        if row_num.upper() == pf_keywords["Prev. Menu"][0]:
-                            self._invoke_paper_figures()
-                        else:
-                            print("ValueError. Please enter a valid string.")
-
-                    else:
-                        if row_num >= 0:
-                            if not self.mass_produce:
-                                print(f"Generating plot for [#{row_num}]...")
-                            log.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial(row_num, fixed_ylim=False, interactive_plot=True)
-                            log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
-
-                            if self.early_exit:
-                                cont_plotting = False
-
-                        else:
-                            print("Exiting PF-PV plotting.")
-                            log.info(f"Exiting PF-PV based upon user input of [{row_num}]")
-                            cont_plotting = False
-
-        elif pf_selection == pf_keywords["Spat. FFT"][0]:
-            while cont_plotting:
-                # User will plot one spin site at a time, as plotting can take a long time.
-                if self.override_site is not None:
-                    rows_to_plot = [self.override_site]
-                else:
-                    rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
-
-                for row_num in rows_to_plot:
-
-                    try:
-                        row_num = int(row_num)
-
-                    except ValueError:
-                        if row_num.upper() == pf_keywords["Prev. Menu"][0]:
-                            self._invoke_paper_figures()
-                        else:
-                            print("ValueError. Please enter a valid string.")
-
-                    else:
-                        if row_num >= 0:
-                            if not self.mass_produce:
-                                print(f"Generating plot for [#{row_num}]...")
-                            log.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial_ft(row_num, fixed_ylim=False, interactive_plot=True)
-                            log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
-
-                            if self.early_exit:
-                                cont_plotting = False
-
-                        else:
-                            print("Exiting PF-PV plotting.")
-                            log.info(f"Exiting PF-PV based upon user input of [{row_num}]")
-                            cont_plotting = False
-        elif pf_selection == pf_keywords["Temp. Ev."][0]:
-            while cont_plotting:
-
-                if self.override_site is not None:
-                    sites_to_plot = [self.override_site]
-                else:
-                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
-
-                # Loops through user's inputs, ensuring that they are correct.
-                for target_site in sites_to_plot:
-
-                    try:
-                        target_site = int(target_site)
-
-                    except ValueError:
-                        if target_site.upper() == pf_keywords["Prev. Menu"][0]:
-                            self._invoke_paper_figures()
-                        else:
-                            print("ValueError. Please enter a valid string.")
-
-                    else:
-                        if target_site >= 0:
-                            print(f"Generating temporal evolution plot for [#{target_site}]...")
-
-                            log.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
-                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=False, visualise_wavepackets=False,
-                                                         annotate_precursors_fft=False, annotate_signal=False,
-                                                         wavepacket_inset=False, add_key_params=False,
-                                                         add_signal_backgrounds=False, publication_details=False,
-                                                         interactive_plot=True)
-                            log.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
-
-                            if self.early_exit:
-                                cont_plotting = False
-
-                        else:
-                            print("Exiting PF-TV plotting.")
-                            log.info(f"Exiting PF-TV based upon user input of [{target_site}]")
-                            cont_plotting = False
-
-        elif pf_selection == pf_keywords["Heav. Dis."][0]:
-            while cont_plotting:
-
-                if self.override_site is not None:
-                    sites_to_plot = [self.override_site]
-                else:
-                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
-
-                # Loops through user's inputs, ensuring that they are correct.
-                for target_site in sites_to_plot:
-
-                    try:
-                        target_site = int(target_site)
-
-                    except ValueError:
-                        if target_site.upper() == pf_keywords["Prev. Menu"][0]:
-                            self._invoke_paper_figures()
-                        else:
-                            print("ValueError. Please enter a valid string.")
-
-                    else:
-                        if target_site >= 0:
-                            print(f"Generating Heaviside-Dispersion plot for [#{target_site}]...")
-                            log.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
-                            # paper_fig.plot_heaviside_and_dispersions(dispersion_relations=True,
-                            #                                          use_dual_signal_inset=False,
-                            #                                          show_group_velocity_cases=False,
-                            #                                          dispersion_inset=False,
-                            #                                          use_demag=False, compare_dis=True,
-                            #                                          publication_details=False, interactive_plot=True)
-
-                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=False, interactive_plot=True)
-                            log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
-
-                            if self.early_exit:
-                                cont_plotting = False
-
-                        else:
-                            print("Exiting PF-TV plotting.")
-                            log.info(f"Exiting PF-TV based upon user input of [{target_site}]")
-                            cont_plotting = False
-
-        elif pf_selection == pf_keywords["GIF"][0]:
-            paper_fig.create_gif(has_static_ylim=True)
-            print("GIF successfully created!")
-            if self.early_exit:
-                exit(0)
-            self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
-
-        elif pf_selection == pf_keywords["FFT"][0]:
-            while cont_plotting:
-                # User will plot one spin site at a time, as plotting can take a long time.
-                if self.override_site is not None:
-                    sites_to_plot = [self.override_site]
-                else:
-                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
-
-                for target_site in sites_to_plot:
-
-                    try:
-                        target_site = int(target_site)
-
-                    except ValueError:
-                        if target_site.upper() == pf_keywords["Prev. Menu"][0]:
-                            self._invoke_paper_figures()
-                        else:
-                            print("ValueError. Please enter a valid string.")
-
-                    else:
-                        if target_site >= 1:
-                            print(f"Generating plot for [#{target_site}]...")
-
-                            log.info(f"Generating FFT plot for Spin Site [#{target_site}]")
-                            paper_fig.plot_fft(target_site - 1, add_zoomed_region=False)
-                            log.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
-
-                            if self.early_exit:
-                                cont_plotting = False
-
-                        else:
-                            print("Exiting PF-FFT plotting.")
-                            log.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
-                            cont_plotting = False
-
-        elif pf_selection == pf_keywords["Ric. Paper"][0]:
-            paper_fig.ricardo_paper()
-
-        elif pf_selection == pf_keywords["Prev. Menu"][0]:
-            self.call_methods()
-
-        log.info(f"Plotting PF complete!")
-
-    @staticmethod
-    def _invoke_exit_conditions():
-        print("Exiting program...")
-        log.info(f"Exiting program from (select_plotter == EXIT)!")
-        exit(0)
+        return (self._data_container, self._data_timestamps, self._data_magnetic_moments, self._data_headers,
+                self._file_paths_full)
 
 
 class ProcessData:
@@ -1083,3 +665,513 @@ class ProcessData:
         mapped_and_cased_input = to_lower_camel_case(input_string)
 
         return mapped_and_cased_input
+
+
+class CallMethods:
+
+    def __init__(self, file_terms, file_paths, data_container, data_timestamps, data_sites,
+                 data_magnetic_moments, header_parameters, header_flags, mass_produce=False):
+
+        self._file_terms = {"prefix": None, "component": None, "identifier": None,
+                            "descriptor": None}
+        self.file_terms = file_terms
+
+        self._file_paths_full = {"filename": None, "input": None, "output": None}
+        self.file_paths_full = file_paths
+
+        self.data_container = data_container
+
+        self._data_timestamps = data_timestamps
+        self._data_sites = data_sites
+        self._data_magnetic_moments = data_magnetic_moments
+
+        self._header_parameters = header_parameters
+        self._header_flags = header_flags
+
+        self._method_to_use = None
+        self.override_method = None
+        self.override_function = None
+        self.override_site = None
+        self.early_exit: bool = False
+        self.loop_function: bool = False
+        self.mass_produce = mass_produce
+
+        self._accepted_methods = ["3P", "FS", "FT", "PF", "CP", "EXIT"]
+
+    def _set_internal_attributes(self, override_method, override_function, override_site, loop_function: bool,
+                                 early_exit: bool):
+        if override_method is not None:
+            self.override_method = self._method_to_use = override_method
+        if override_function is not None:
+            self.override_function = override_function
+        if override_site is not None:
+            self.override_site = override_site
+
+        if isinstance(early_exit, bool) and early_exit is True:
+            self.early_exit = True
+        else:
+            self.early_exit = False
+
+        if isinstance(loop_function, bool) and loop_function is True:
+            self.loop_function = False  # currently doesn't work properly
+        else:
+            self.loop_function = False
+
+        self._set_internal_methods()
+
+    def _set_internal_methods(self):
+        if self._method_to_use is None:
+            # TODO This list of functions is massively out of date!
+            print('''
+            The plotting functions available are:
+    
+                *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
+                *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
+                *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
+                *   Paper Figure [PF] (Plot final state of system at all sites)
+                *   Contour Plot [CP] (Plot a single site as a 3D map)
+    
+            The terms within the square brackets are the keys for each function. 
+            If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
+                      ''')
+            print('--------------------------------------------------------------------------------\n')
+
+            self._method_to_use = input("Which function to use: ").upper()
+        else:
+            self._method_to_use = self.override_method.upper()
+
+        if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
+            if self.mass_produce:
+                output = f"Producing: {self._file_paths_full['filename']}"
+                print(output)
+                log.info(output)
+
+            else:
+                output = (f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function}"
+                          f" | Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
+                print(output)
+                print('--------------------------------------------------------------------------------')
+                log.info(output)
+
+    def call_methods(self, override_method=None, override_function=None, override_site=None,
+                     loop_function: bool = False, early_exit: bool = False):
+
+        self._set_internal_attributes(override_method, override_function, override_site, loop_function, early_exit)
+        attempts, attempts_max = 0, 4
+
+        while True:
+            match self._method_to_use:
+                case "3P":
+                    self._invoke_three_panes()
+                case "FS":
+                    self._invoke_fs_functions()
+                case "FT":
+                    self._invoke_fft_functions()
+                case "PF":
+                    self._invoke_paper_figures()
+                case "CP":
+                    self._invoke_contour_plot()
+                case "EXIT":
+                    self._invoke_exit_conditions()
+                case _:
+                    attempts += 1
+                    if attempts > attempts_max:
+                        print("Maximum attempts exceeded. Exiting.")
+                        break
+
+                    print(f"Invalid option. The available functions are: {', '.join(self._accepted_methods)}.")
+                    self._method_to_use = input("Select function to use: ").upper()
+
+            if self.early_exit:
+                break
+            else:
+                self._method_to_use = input("Select function to use: ").upper()
+
+        if self.mass_produce:
+            output = f"Produced: {self.file_terms['identifier']}{self.file_terms['descriptor']}"
+            print(output)
+            log.info(output)
+        else:
+            output = "Code complete! Exiting."
+            print(output)
+            log.info(output)
+
+    def _invoke_three_panes(self):
+        # Use this if you wish to see what my old Spyder code would output
+        log.info(f"Plotting function selected: three panes.")
+
+        sites_to_compare = []
+        should_compare_sites = "Y"
+        try:
+            while should_compare_sites not in "YN":
+                should_compare_sites = input("Select sites to compare? Y/N: ").upper()
+        except ValueError:
+            raise ValueError
+        else:
+            if should_compare_sites == 'Y':
+                sites_to_compare.append(input("Primary sites to compare: ").split())
+                sites_to_compare.append(input("Secondary sites to compare: ").split())
+                sites_to_compare.append(input("Tertiary sites to compare: ").split())
+
+            elif should_compare_sites == 'N':
+                exit(0)
+
+        sites_to_compare = [[int(number_as_string) for number_as_string in str_array] for str_array in sites_to_compare]
+
+        print("Generating plot...")
+        plt_rk_legacy_standalone.three_panes(self._data_magnetic_moments[:, :], self._header_parameters,
+                                             self._file_paths_full['output'], sites_to_compare)
+        log.info(f"Plotting 3P complete!")
+
+    def _invoke_fs_functions(self):
+        # Use this to see fourier transforms of data
+
+        log.info(f"Plotting function selected: Fourier Signal.")
+
+        has_more_to_plot = True
+        while has_more_to_plot:
+            # User will plot one spin site at a time, as plotting can take a long time.
+            spins_to_plot = input("Plot which spin (-ve to exit): ").split()
+
+            for target_spin in spins_to_plot:
+                target_spin = int(target_spin)
+
+                if target_spin >= 1:
+                    print(f"Generating plot for [#{target_spin}]...")
+                    log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
+                    target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
+                    plt_rk_legacy_standalone.fft_and_signal_four(self._data_timestamps[:],
+                                                                 self._data_magnetic_moments[:, target_spin_in_data],
+                                                                 target_spin, self._header_parameters,
+                                                                 self._file_paths_full['output'])
+                    log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
+                    # cont_plotting_FFT = False  # Remove this after testing.
+                else:
+                    print("Exiting FFT plotting.")
+                    log.info(f"Exiting FS based upon user input of [{target_spin}]")
+                    has_more_to_plot = False
+
+        log.info(f"Completed plotting FS!")
+
+    def _invoke_fft_functions(self):
+        # Use this to see fourier transforms of data
+
+        log.info(f"Plotting function selected: Fourier Signal only.")
+
+        has_more_to_plot = True
+        while has_more_to_plot:
+            # User will plot one spin site at a time, as plotting can take a long time.
+            spins_to_plot = input("Plot which spin (-ve to exit): ").split()
+
+            for target_spin in spins_to_plot:
+                target_spin = int(target_spin)
+
+                if target_spin >= 1:
+                    print(f"Generating plot for [#{target_spin}]...")
+                    log.info(f"Generating FFT plot for Spin Site [#{target_spin}]")
+                    target_spin_in_data = target_spin - 1  # To avoid off-by-one error. First spin date at [:, 0]
+                    plt_rk_legacy_standalone.fft_only(self._data_magnetic_moments[:, target_spin_in_data], target_spin,
+                                                      self._header_parameters,
+                                                      self._file_paths_full['output'])
+                    log.info(f"Finished plotting FFT of Spin Site [#{target_spin}]. Continuing...")
+                    # cont_plotting_FFT = False  # Remove this after testing.
+                else:
+                    print("Exiting FFT plotting.")
+                    log.info(f"Exiting FS based upon user input of [{target_spin}]")
+                    has_more_to_plot = False
+
+        log.info(f"Completed plotting FS!")
+
+    def _invoke_contour_plot(self):
+        # Use this if you wish to see what my old Spyder code would output
+        log.info(f"Plotting function selected: contour plot.")
+        spin_site = int(input("Plot which site: "))
+
+        mag_moment_components = ["mx", "my", "mz"]
+        mx_data = None
+        my_data = None
+        mz_data = None
+
+        def update_file_path(file_path, old_component, new_component):
+            # Only works for windows filepaths
+            path_parts = file_path.split('\\\\')
+            new_file_name = path_parts[-1].replace(old_component, new_component)
+            updated_file_path = '\\\\'.join(path_parts[:-1] + [new_file_name])
+            return updated_file_path
+
+        local_import = ImportData(self.file_terms, self.file_paths_full['input'], self.file_paths_full['output'])
+
+        for component in mag_moment_components:
+            filename = (f"{self.file_terms['prefix']}_{component}_{self.file_terms['identifier']}"
+                        f"{self.file_terms['descriptor']}")
+            component_path = update_file_path(self.file_paths_full['input'], self.file_terms['component'], component)
+            data = local_import._import_simulation_data(filename, component_path)
+
+            match component:
+                case "mx":
+                    mx_data = data
+                case "my":
+                    my_data = data
+                case "mz":
+                    mz_data = data
+
+        # plt_rk.create_contour_plot(mx_m_data, my_m_data, mz_m_data, spin_site, self._output_path_full, False)
+        plt_rk_legacy_standalone.test_3d_plot(mx_data, my_data, mz_data, spin_site)
+        log.info(f"Plotting CP complete!")
+
+    def _invoke_paper_figures(self):
+        # Plots final state of system, similar to the Figs. in macedo2021breaking.
+        log.info(f"Plotting function selected: paper figure.")
+
+        # if self._input_prefix == "rk2":
+        #    paper_fig = plt_rk_legacy.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
+        #                                    self._data_parameters, self._data_flags, self._data_sites,
+        #                                    self._output_path_full)
+        # else:
+        paper_fig = plt_rk.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
+                                        self._header_parameters, self._header_flags, self._data_sites,
+                                        self._file_paths_full['output'])
+
+        pf_keywords = {  # Full-name: [Initials, Abbreviation]
+            "Spat. Ev.": ["SE", "Spatial Evolution"],
+            "Temp. Ev.": ["TE", "Temporal Evolution"],
+            "Heav. Dis.": ["HD", "Heaviside-Dispersion"],
+            "GIF": ["GIF", "GIF"],
+            "FFT": ["FFT", "Fast Fourier Transform"],
+            "Prev. Menu": ["BACK", "Previous Menu"],
+            "Ric. Paper": ["RIC", "Ricardo's Paper"],
+            "Spat. FFT": ["SFFT", "Spatial FFT"]}
+
+        if self.override_function is not None:
+            pf_selection = self.override_function.upper()
+
+        else:
+            pf_selection = str(input(f"Options:"
+                                     f"\n\t- {pf_keywords['Spat. Ev.'][0]}: {pf_keywords['Spat. Ev.'][1]} | "
+                                     f"{pf_keywords['Temp. Ev.'][0]}: {pf_keywords['Temp. Ev.'][1]} | "
+                                     f"{pf_keywords['Heav. Dis.'][0]}: {pf_keywords['Heav. Dis.'][1]}"
+                                     f"\n\t- {pf_keywords['GIF'][0]}: {pf_keywords['GIF'][1]} | "
+                                     f"{pf_keywords['FFT'][0]}: {pf_keywords['FFT'][1]} | "
+                                     f"{pf_keywords['Ric. Paper'][0]}: {pf_keywords['Ric. Paper'][1]} | "
+                                     f"\nTo return type {pf_keywords['Prev. Menu'][0]}: Select an option: ")).upper()
+
+        pf_sel_first_elm = [values[0] for values in pf_keywords.values()]
+        while True:
+            if pf_selection in [values[0] for values in pf_keywords.values()]:
+                break
+            else:
+                while pf_selection not in pf_keywords.keys():
+                    pf_selection = str(input(f"Invalid choice. Select "
+                                             f"from [{', '.join(pf_sel_first_elm)}]: ")).upper()
+
+        cont_plotting = True
+
+        if pf_selection == pf_keywords["Spat. Ev."][0]:
+            while cont_plotting:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                if self.override_site is not None:
+                    rows_to_plot = [self.override_site]
+                else:
+                    rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
+
+                for row_num in rows_to_plot:
+
+                    try:
+                        row_num = int(row_num)
+
+                    except ValueError:
+                        if row_num.upper() == pf_keywords["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if row_num >= 0:
+                            if not self.mass_produce:
+                                print(f"Generating plot for [#{row_num}]...")
+                            log.info(f"Generating PV plot for row [#{row_num}]")
+                            paper_fig.plot_row_spatial(row_num, fixed_ylim=False, interactive_plot=True)
+                            log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+
+                            if not self.loop_function:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-PV plotting.")
+                            log.info(f"Exiting PF-PV based upon user input of [{row_num}]")
+                            cont_plotting = False
+
+        elif pf_selection == pf_keywords["Spat. FFT"][0]:
+            while cont_plotting:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                if self.override_site is not None:
+                    rows_to_plot = [self.override_site]
+                else:
+                    rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
+
+                for row_num in rows_to_plot:
+
+                    try:
+                        row_num = int(row_num)
+
+                    except ValueError:
+                        if row_num.upper() == pf_keywords["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if row_num >= 0:
+                            if not self.mass_produce:
+                                print(f"Generating plot for [#{row_num}]...")
+                            log.info(f"Generating PV plot for row [#{row_num}]")
+                            paper_fig.plot_row_spatial_ft(row_num, fixed_ylim=False, interactive_plot=True)
+                            log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
+
+                            if self.loop_function:
+                                self.override_site = None
+                            else:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-PV plotting.")
+                            log.info(f"Exiting PF-PV based upon user input of [{row_num}]")
+                            cont_plotting = False
+
+        elif pf_selection == pf_keywords["Temp. Ev."][0]:
+            while cont_plotting:
+
+                if self.override_site is not None:
+                    sites_to_plot = [self.override_site]
+                else:
+                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
+                # Loops through user's inputs, ensuring that they are correct.
+                for target_site in sites_to_plot:
+
+                    try:
+                        target_site = int(target_site)
+
+                    except ValueError:
+                        if target_site.upper() == pf_keywords["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if target_site >= 0:
+                            print(f"Generating temporal evolution plot for [#{target_site}]...")
+
+                            log.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
+                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=False, visualise_wavepackets=False,
+                                                         annotate_precursors_fft=False, annotate_signal=False,
+                                                         wavepacket_inset=False, add_key_params=False,
+                                                         add_signal_backgrounds=False, publication_details=False,
+                                                         interactive_plot=True)
+                            log.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
+
+                            if not self.loop_function:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-TV plotting.")
+                            log.info(f"Exiting PF-TV based upon user input of [{target_site}]")
+                            cont_plotting = False
+
+        elif pf_selection == pf_keywords["Heav. Dis."][0]:
+            while cont_plotting:
+
+                if self.override_site is not None:
+                    sites_to_plot = [self.override_site]
+                else:
+                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
+                # Loops through user's inputs, ensuring that they are correct.
+                for target_site in sites_to_plot:
+
+                    try:
+                        target_site = int(target_site)
+
+                    except ValueError:
+                        if target_site.upper() == pf_keywords["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if target_site >= 0:
+                            print(f"Generating Heaviside-Dispersion plot for [#{target_site}]...")
+                            log.info(f"Generating PF-HD plot for Spin Site [#{target_site}]")
+                            # paper_fig.plot_heaviside_and_dispersions(dispersion_relations=True,
+                            #                                          use_dual_signal_inset=False,
+                            #                                          show_group_velocity_cases=False,
+                            #                                          dispersion_inset=False,
+                            #                                          use_demag=False, compare_dis=True,
+                            #                                          publication_details=False, interactive_plot=True)
+
+                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=False, interactive_plot=True)
+                            log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
+
+                            if not self.loop_function:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-TV plotting.")
+                            log.info(f"Exiting PF-TV based upon user input of [{target_site}]")
+                            cont_plotting = False
+
+        elif pf_selection == pf_keywords["GIF"][0]:
+            paper_fig.create_gif(has_static_ylim=True)
+            print("GIF successfully created!")
+            if not self.loop_function:
+                exit(0)
+            self._invoke_paper_figures()  # Use of override flag here will lead to an infinite loop!
+
+        elif pf_selection == pf_keywords["FFT"][0]:
+            while cont_plotting:
+                # User will plot one spin site at a time, as plotting can take a long time.
+                if self.override_site is not None:
+                    sites_to_plot = [self.override_site]
+                else:
+                    sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
+
+                for target_site in sites_to_plot:
+
+                    try:
+                        target_site = int(target_site)
+
+                    except ValueError:
+                        if target_site.upper() == pf_keywords["Prev. Menu"][0]:
+                            self._invoke_paper_figures()
+                        else:
+                            print("ValueError. Please enter a valid string.")
+
+                    else:
+                        if target_site >= 1:
+                            print(f"Generating plot for [#{target_site}]...")
+
+                            log.info(f"Generating FFT plot for Spin Site [#{target_site}]")
+                            paper_fig.plot_fft(target_site - 1, add_zoomed_region=False)
+                            log.info(f"Finished plotting FFT of Spin Site [#{target_site}]. Continuing...")
+
+                            if not self.loop_function:
+                                cont_plotting = False
+
+                        else:
+                            print("Exiting PF-FFT plotting.")
+                            log.info(f"Exiting PF-FFT based upon user input of [{target_site}]")
+                            cont_plotting = False
+
+        elif pf_selection == pf_keywords["Ric. Paper"][0]:
+            paper_fig.ricardo_paper()
+
+        elif pf_selection == pf_keywords["Prev. Menu"][0]:
+            self.call_methods()
+
+        log.info(f"Plotting PF complete!")
+
+    @staticmethod
+    def _invoke_exit_conditions():
+        print("Exiting program...")
+        log.info(f"Exiting program from (select_plotter == EXIT)!")
+        exit(0)

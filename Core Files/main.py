@@ -98,9 +98,14 @@ if __name__ == '__main__':
         if _mass_produce:
             generate_filenames()
         else:
-            dataset1 = das.PlotImportedData(filename_base, system_setup.input_dir(), system_setup.output_dir(),
-                                            file_prefix="rk2", file_component='mx', file_identifier="T")
-            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=100, early_exit=True)
+            dataset1 = das.AnalyseData()
+            dataset1.import_data(file_descriptor=filename_base, input_dir_path=system_setup.input_dir(),
+                                 output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
+                                 file_identifier="T", auto_run=True)
+            dataset1.process_data()
+            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=100, early_exit=True,
+                                  loop_function=True, mass_produce=False)
+            exit(0)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()
