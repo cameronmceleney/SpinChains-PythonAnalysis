@@ -371,11 +371,12 @@ class AnalyseData:
 
     def __init__(self):
         self.data_container = None
-        self.data_timestamps = None
-        self.data_sites = None
         self.data_magnetic_moments = None
-        self.header_parameters = None
+        self.data_timestamps = None
+
         self.header_flags = None
+        self.header_parameters = None
+        self.header_simulated_sites = None
 
         self._file_terms = {"prefix": None, "component": None, "identifier": None,
                             "descriptor": None}
@@ -393,19 +394,31 @@ class AnalyseData:
             (self.data_container, self.data_timestamps, self.data_magnetic_moments,
              data_headers, self._file_paths_full) = imported_data.default_import()
 
-            self.header_parameters, self.data_sites, self.header_flags = data_headers
+            self.header_parameters, self.header_simulated_sites, self.header_flags = data_headers
         else:
             print("Data imported. Ready to process.")
             exit(0)
 
-    @staticmethod
-    def process_data():
+    def process_data(self):
+
+        # Process simulated sites
+        if "Time [s]" in self.header_simulated_sites:
+            self.header_simulated_sites.remove("Time [s]")
+
+        if ' ' in self.header_simulated_sites:
+            self.header_simulated_sites.remove(' ')
+
+        if 'lattice_constant' not in self.header_parameters.keys():
+            self.header_parameters['lattice_constant'] = 1e-9
+
+        rc_params_update()
+
         print("Data processed. Ready to call method.")
 
     def call_methods(self, override_method=None, override_function=None, override_site=None, early_exit=False,
-                     loop_function = False, mass_produce=False):
+                     loop_function=False, mass_produce=False):
         called_method = CallMethods(self._file_terms, self._file_paths_full, self.data_container, self.data_timestamps,
-                                    self.data_sites, self.data_magnetic_moments, self.header_parameters,
+                                    self.header_simulated_sites, self.data_magnetic_moments, self.header_parameters,
                                     self.header_flags, mass_produce)
         called_method.call_methods(override_method, override_function, override_site, loop_function, early_exit)
 
@@ -474,21 +487,19 @@ class ImportData:
             next(csv_reader)  # Skip the 1st line (always blank).
 
             # Process simulation flags (2nd and 3rd lines)
-            csv_reader, flags = process_data.process_selected_headers(csv_reader, flags, is_sim_flags=True)
+            csv_reader, move_reader, flags = process_data.process_selected_headers(csv_reader, flags, is_sim_flags=True)
+            if move_reader:
+                next(csv_reader)
 
             # Additional blank (4th line) in newer format; older format has blank 3rd and key sim params at 4th
 
             # Count from here is for new format. Process simulation parameters (5th and 6th lines)
-            csv_reader, flags = process_data.process_selected_headers(csv_reader, parameters, is_sim_flags=False)
+            csv_reader, move_reader, parameters = process_data.process_selected_headers(csv_reader, parameters, is_sim_flags=False)
 
             # Skip lines until simulated sites (11th line)
             for _ in range(4):
                 next(csv_reader)  # Skip lines 7th (blank), 8th (simulation notes), 9th (descriptions), 10th (blank)
             simulated_sites = next(csv_reader)  # 11th line
-
-        # Process simulated sites
-        if "Time [s]" in simulated_sites:
-            simulated_sites.remove("Time [s]")
 
         return parameters.return_data(), simulated_sites, flags.return_data()
 
@@ -529,10 +540,15 @@ class ProcessData:
                 title, value = self.header_titles[i], self.header_titles[i + 1]
                 self._set_instance_variable(title, value)
 
+        should_move_reader = False
+        if self.header_values:
+            # Skip the next (blank) line for the newer formats where the titles and values are on separate lines
+            should_move_reader = True
+
         return_reader = self.csv_reader
         return_container = self.header_container
         self._return_and_reset_internal_attributes()
-        return return_reader, return_container
+        return return_reader, should_move_reader, return_container
 
     def _set_internal_attributes(self, csv_reader, header_container, is_sim_flags, header_titles=None,
                                  header_values=None):
@@ -568,10 +584,6 @@ class ProcessData:
                 break
 
     def _return_and_reset_internal_attributes(self):
-
-        if self.header_values:
-            # Skip the next (blank) line for the newer formats where the titles and values are on separate lines
-            next(self.csv_reader)
 
         self.csv_reader = None
         self.is_sim_flags = None
@@ -646,7 +658,8 @@ class ProcessData:
                     's': 'Seconds',
                     'J/m': 'JoulesPerMetre',
                     'kA/m': 'KiloAmperePerMetre',
-                    'Hz': 'Hertz'
+                    'Hz': 'Hertz',
+                    'm': 'Metres'
                 }
             }
         }
@@ -669,24 +682,22 @@ class ProcessData:
 
 class CallMethods:
 
-    def __init__(self, file_terms, file_paths, data_container, data_timestamps, data_sites,
+    def __init__(self, file_terms, file_paths, data_container, data_timestamps, header_simulated_sites,
                  data_magnetic_moments, header_parameters, header_flags, mass_produce=False):
 
         self._file_terms = {"prefix": None, "component": None, "identifier": None,
                             "descriptor": None}
         self.file_terms = file_terms
 
-        self._file_paths_full = {"filename": None, "input": None, "output": None}
-        self.file_paths_full = file_paths
+        self._file_paths_full = file_paths
 
         self.data_container = data_container
-
         self._data_timestamps = data_timestamps
-        self._data_sites = data_sites
         self._data_magnetic_moments = data_magnetic_moments
 
         self._header_parameters = header_parameters
         self._header_flags = header_flags
+        self._header_simulated_sites = header_simulated_sites
 
         self._method_to_use = None
         self.override_method = None
@@ -928,8 +939,9 @@ class CallMethods:
         #                                    self._data_parameters, self._data_flags, self._data_sites,
         #                                    self._output_path_full)
         # else:
+
         paper_fig = plt_rk.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
-                                        self._header_parameters, self._header_flags, self._data_sites,
+                                        self._header_parameters, self._header_flags, self._header_simulated_sites,
                                         self._file_paths_full['output'])
 
         pf_keywords = {  # Full-name: [Initials, Abbreviation]
@@ -941,6 +953,10 @@ class CallMethods:
             "Prev. Menu": ["BACK", "Previous Menu"],
             "Ric. Paper": ["RIC", "Ricardo's Paper"],
             "Spat. FFT": ["SFFT", "Spatial FFT"]}
+
+        min_site = min([int(site) for site in self._header_simulated_sites])
+        max_site = max([int(site) for site in self._header_simulated_sites])
+        min_row, max_row = 0, int(len(self._data_timestamps) - 1)
 
         if self.override_function is not None:
             pf_selection = self.override_function.upper()
@@ -979,11 +995,21 @@ class CallMethods:
                     try:
                         row_num = int(row_num)
 
+                        if row_num < min_row or row_num > max_row:
+                            # Manually raise IndexError if target_site is out of the allowed range
+                            raise IndexError
+
                     except ValueError:
                         if row_num.upper() == pf_keywords["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
+
+                    except IndexError:
+                        print(f"IndexError. You chose an invalid row of data: [{row_num}] "
+                              f"(options are: {min_row} <= site <= {max_row}).")
+                        self.override_site = None
+                        self._invoke_paper_figures()
 
                     else:
                         if row_num >= 0:
@@ -1014,14 +1040,25 @@ class CallMethods:
                     try:
                         row_num = int(row_num)
 
+                        if row_num < min_row or row_num > max_row:
+                            # Manually raise IndexError if target_site is out of the allowed range
+                            raise IndexError
+
                     except ValueError:
                         if row_num.upper() == pf_keywords["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
 
+                    except IndexError:
+                        print(f"IndexError. You chose an invalid row of data: [{row_num}] "
+                              f"(options are: {min_row} <= site <= {max_row}).")
+                        self.override_site = None
+                        self._invoke_paper_figures()
+
                     else:
                         if row_num >= 0:
+
                             if not self.mass_produce:
                                 print(f"Generating plot for [#{row_num}]...")
                             log.info(f"Generating PV plot for row [#{row_num}]")
@@ -1052,11 +1089,21 @@ class CallMethods:
                     try:
                         target_site = int(target_site)
 
+                        if target_site < min_site or target_site > max_site:
+                            # Manually raise IndexError if target_site is out of the allowed range
+                            raise IndexError
+
                     except ValueError:
                         if target_site.upper() == pf_keywords["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
+
+                    except IndexError:
+                        print(f"IndexError. You chose an invalid site [{target_site}] "
+                              f"(options are: {min_site} <= site <= {max_site}).")
+                        self.override_site = None
+                        self._invoke_paper_figures()
 
                     else:
                         if target_site >= 0:
@@ -1092,11 +1139,21 @@ class CallMethods:
                     try:
                         target_site = int(target_site)
 
+                        if target_site < min_site or target_site > max_site:
+                            # Manually raise IndexError if target_site is out of the allowed range
+                            raise IndexError
+
                     except ValueError:
                         if target_site.upper() == pf_keywords["Prev. Menu"][0]:
                             self._invoke_paper_figures()
                         else:
                             print("ValueError. Please enter a valid string.")
+
+                    except IndexError:
+                        print(f"IndexError. You chose an invalid site [{target_site}] "
+                              f"(options are: {min_site} <= site <= {max_site}).")
+                        self.override_site = None
+                        self._invoke_paper_figures()
 
                     else:
                         if target_site >= 0:
