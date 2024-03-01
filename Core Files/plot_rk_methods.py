@@ -62,6 +62,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
     class PlotScheme(TypedDict):
         signal_xlim: List[int]
         signal_rescale: List[int]
+        rescale_extras: List[float | int | str]
         ax1_xlim: List[float]
         ax1_ylim: List[float]
         ax2_xlim: List[float]
@@ -95,11 +96,12 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         else:
             self.update_with_dict(flags_dict)
 
-        if self.lattice_constant:
-            self.lattice_constant = 1e-9
-        if self.exchange_dmi_constant:
-            self.exchange_dmi_constant = 1.25
+        if self.lattice_constant() < 0:
+            self.lattice_constant = 0.25e-9
 
+        if self.exchange_dmi_constant() == 0.625:
+            # TODO. Change this. Note that, for now, the halving of the DMI is taken care of by the C++ code
+            self.exchange_dmi_constant *= 2
         # Attributes for plots
         self._fig = None
         self._axes = None
@@ -145,7 +147,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._axes.set_aspect("auto")
 
         # Easier to have time-stamp as label than textbox.
-        self._axes.plot(np.arange(0, self.num_sites_total), self.amplitude_data[row_index, :], ls='-',
+        self._axes.plot(np.arange(0, self.num_sites_total()), self.amplitude_data[row_index, :], ls='-',
                         lw=2 * 0.75, color='#64bb6a', label=f"Signal", zorder=1.1)
 
         self._axes.set(xlabel=f"Position, $n_i$ (site index)",
@@ -164,10 +166,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         if draw_regions_of_interest:
             left, bottom, width, height = (
-                [0, (self.num_sites_total - self.num_sites_abc),
-                 (self.driving_region_lhs + self.num_sites_abc)],
+                [0, (self.num_sites_total() - self.num_sites_abc()),
+                 (self.driving_region_lhs() + self.num_sites_abc())],
                 self._axes.get_ylim()[0] * 2,
-                (self.num_sites_abc, self.driving_region_width),
+                (self.num_sites_abc(), self.driving_region_width()),
                 4 * self._axes.get_ylim()[1])
 
             rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height, lw=0,
@@ -205,22 +207,28 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._tick_setter(self._axes, 1000, 200, 3, 4,
                           yaxis_num_decimals=1.1, show_sci_notation=False)
 
+        _, y_major_labels, _ = self._choose_scaling(abs(self._axes.get_ylim()[1]))
+
+        self._axes.set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
+
         self._plot_cleanup(self._axes)
 
         if should_annotate_parameters:
-            if self.exchange_heisenberg_min == self.exchange_heisenberg_max:
-                exchange_string = f"Uniform Exc.: {self.exchange_heisenberg_min} (T)"
+            if self.exchange_heisenberg_min() == self.exchange_heisenberg_max():
+                exchange_string = f"Uniform Exc.: {self.exchange_heisenberg_min()} (T)"
             else:
-                exchange_string = f"J$_{{min}}$ = {self.exchange_heisenberg_min} (T) | J$_{{max}}$ = " \
-                                  f"{self.exchange_heisenberg_min} (T)"
+                exchange_string = f"J$_{{min}}$ = {self.exchange_heisenberg_min()} (T) | J$_{{max}}$ = " \
+                                  f"{self.exchange_heisenberg_min()} (T)"
 
-            parameters_textbody = (f"H$_{{0}}$ = {self.bias_zeeman_static} (T) | N = {self.num_sites_chain} | " + r"$\alpha$" +
-                                   f" = {self.gilbert_chain: 2.2e}\nH$_{{D1}}$ = {self.bias_zeeman_oscillating_1: 2.2e} (T) | "
-                                   f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2: 2.2e} (T) \n{exchange_string}")
+            parameters_textbody = (f"H$_{{0}}$ = {self.bias_zeeman_static()} (T) | N = {self.num_sites_chain()} | " + r"$\alpha$" +
+                                   f" = {self.gilbert_chain(): 2.2e}\nH$_{{D1}}$ = {self.bias_zeeman_oscillating_1(): 2.2e} (T) | "
+                                   f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2(): 2.2e} (T) \n{exchange_string}")
 
             parameters_text_props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
             self._axes.text(0.05, 1.2, parameters_textbody, transform=self._axes.transAxes, fontsize=12,
                             ha='center', va='center', bbox=parameters_text_props)
+
+        self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
 
         if interactive_plot:
             # Initialize variables
@@ -268,7 +276,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig.tight_layout()
             plt.show()
 
-        self._fig.savefig(f"{self.output_filepath}_row{row_index}.png", bbox_inches="tight")
         plt.close(self._fig)
 
     def _process_signal(self, ax: Optional[Union[plt.Axes, List[plt.Axes]]] = None, row_index: int = -1,
@@ -313,7 +320,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Take FFT of the signal
         wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
                                                         signal_xlim_min:signal_xlim_max],
-                                                        spatial_spacing=self.lattice_constant)
+                                                        spatial_spacing=self.lattice_constant())
         fourier_transform = abs(fourier_transform)
         intensities_normalized = fourier_transform / np.max(fourier_transform)
 
@@ -323,10 +330,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
 
         # hz_pi_to_norm required for `frequencies` to be linear and not angular when γ in [rad * s^-1 * T^-1]
-        frequencies = ((self.gyro_mag / hz_pi_to_norm) *
-                       (self.exchange_heisenberg_max * (self.lattice_constant ** 2) * (wavevectors ** 2)
-                        + self.bias_zeeman_static
-                        + self.exchange_dmi_constant * self.lattice_constant * wavevectors))
+        frequencies = ((self.gyro_mag() / hz_pi_to_norm) *
+                       (self.exchange_heisenberg_max() * (self.lattice_constant() ** 2) * (wavevectors ** 2)
+                        + self.bias_zeeman_static()
+                        + self.exchange_dmi_constant() * self.lattice_constant() * wavevectors))
 
         wavevectors *= -1 * self.hz_to_Ghz if negative_wavevector else self.hz_to_Ghz
         frequencies *= self.hz_to_Ghz
@@ -363,7 +370,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 tick_label_last.set_visible(False)
                 xtick_position, ytick_position = tick_label_last.get_position()
                 tick_text = tick_label_last.get_text()
-                y_offset = 0.125 if ax == axis[2] else -0.045
+                if len(axis) != 3:
+                    y_offset = -0.045
+                else:
+                    y_offset = 0.125 if ax == axis[2] else -0.045
                 if tick_pos == 1:
                     ax.text(xtick_position, ytick_position + y_offset, str(tick_text), ha='left', va='top',
                             fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
@@ -372,8 +382,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                             fontsize=self._fontsizes["smaller"], transform=ax.get_xaxis_transform())
 
             ax.set_axisbelow(False)  # Must be last manipulation of subplots
-
-
 
     def plot_row_spatial_ft(self, row_index: int = -1,
                             fixed_ylim: bool = False, interactive_plot: bool = False) -> None:
@@ -390,6 +398,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         :return: Saves a .png to the nominated 'Outputs' directory.
         """
         self._fig = plt.figure(figsize=(4.5, 6))
+        plt.rcParams.update({'savefig.dpi': 1200})
         num_rows, num_cols = 3, 3
         ax_subplots = []
 
@@ -403,15 +412,17 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Nested Dict to enable many cases (different plots and papers)
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
-                'signal_xlim': [0, self.num_sites_total],  # Example value, replace 100 with self._total_num_spins
-                'signal_rescale': [-int(self.num_sites_total / 2), int(self.num_sites_total / 2)],
+                'signal_xlim': [0, self.num_sites_total()],  # Example value, replace 100 with self._total_num_spins()
+                'signal_rescale': [-int(self.num_sites_total() / 2), int(self.num_sites_total() / 2)],
+                'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
+                                   'um'],
                 'ax2_xlim': [0.0, 1.0],
-                'ax2_ylim': [1e-4, 1e-1],
-                'ax3_xlim': [-0.5, 0.5],
-                'ax3_ylim': [0, 30],
+                'ax2_ylim': [1e-4, 1e0],
+                'ax3_xlim': [-0.75, 0.5],
+                'ax3_ylim': [0, 45],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
-                                 int(self.driving_region_lhs + self.num_sites_abc - 1)],
-                'signal2_xlim': [int(self.driving_region_rhs + self.num_sites_abc + 1),
+                                 int(self.driving_region_lhs - 1)],
+                'signal2_xlim': [int(self.driving_region_rhs + 1),
                                  int(self.num_sites_total - self.num_sites_abc - 1)],
                 'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
@@ -426,7 +437,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         select_plot_scheme = plot_schemes[0]
 
         #for term in ['signal1_xlim', 'signal2_xlim', 'signal_xlim']:
-        #    select_plot_scheme[term] *= self.lattice_constant
+        #    select_plot_scheme[term] *= self.lattice_constant()
         #    print(select_plot_scheme[term])
 
         # Create a ScalarMappable for the color mapping
@@ -464,7 +475,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         self._tick_setter(ax_subplots[0], int(self.num_sites_total()/4), int(self.num_sites_total()/8), 3, 4,
-                          yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant)
+                          yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant())
 
         self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
                           4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
@@ -475,6 +486,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                           yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
         ########################################
         # Post-processing actions
+        _, y_major_labels, _ = self._choose_scaling(abs(ax_subplots[0].get_ylim()[1]))
+        ax_subplots[0].set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
+
         ax_subplots[0].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
                               facecolor=None, edgecolor=None)
         ax_subplots[1].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
@@ -485,10 +499,13 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._plot_cleanup(ax_subplots)
 
         ########################################
+        self._fig.savefig(f"{self.output_filepath}_row{row_index}_ft.png", bbox_inches="tight")
+
         # All additional functionality should be after here
         if interactive_plot:
             figure_manager = FigureManager(self._fig, ax_subplots, self._fig.get_size_inches()[0],
-                                           self._fig.get_size_inches()[1], self._fig.dpi, self.driving_freq)
+                                           self._fig.get_size_inches()[1], self._fig.dpi, self.driving_freq(),
+                                           select_plot_scheme)
             figure_manager.connect_events()
             figure_manager.wait_for_close()
         else:
@@ -1635,7 +1652,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
         if spatial_spacing is None:
-            sample_spacing = (self.sim_time_max / (self.num_dp_per_site - 1))
+            # Time-based FFTs
+            sample_spacing = (self.sim_time_max() / (self.num_dp_per_site() - 1))
             # Compute the FFT
             n = amplitude_data.size
             normalised_data = amplitude_data
@@ -1643,6 +1661,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             fourier_transform = sp.fftpack.rfft(normalised_data)
             frequencies = sp.fftpack.rfftfreq(n, sample_spacing)
         else:
+            # Spatial-based FFTs
             sample_spacing = spatial_spacing
             # Compute the FFT
             n = amplitude_data.size
@@ -1930,11 +1949,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         external_field_moon = 0.3  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 28.0e9  # 28.8e9
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 4e-6  # metres 4e-6
+        system_len_moon = 6e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
         exc_stiff_moon = 0.2 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 0.75e-3  # 1.0e-3
+        dmi_val_const_moon = 0.5e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 

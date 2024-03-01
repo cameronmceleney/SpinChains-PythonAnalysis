@@ -167,6 +167,10 @@ class SimulationVariableInstance(Generic[T]):
         return self._sim_var._value_dtype
 
     @property
+    def value(self) -> T:
+        return self.__call__()
+
+    @property
     def default_value(self) -> T:
         return self._sim_var._val_default
 

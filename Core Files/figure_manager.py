@@ -61,10 +61,11 @@ class Debouncer:
 
 
 class FigureManager:
-    def __init__(self, fig, ax, width, height, dpi, driving_freq):
+    def __init__(self, fig, ax, width, height, dpi, driving_freq, plot_scheme=None):
         self.fig = fig
         self.subplots = ax
         self.figure_manager = plt.get_current_fig_manager()
+        self.plot_scheme = {'signal_xlim': [0, 4000]} if plot_scheme is None else plot_scheme
 
         # If frequently crashing due to being unresponsive, increase the delay
         self.debouncer = Debouncer(delay_ms=100)
@@ -488,20 +489,39 @@ class FigureManager:
     def engage_mouse_button_1(self):
         self.engage_left_click = not self.engage_left_click
 
-        if self.engage_left_click:
-            self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self.cid1)
-        else:
-            self.figure_manager.canvas.mpl_disconnect(self.cid1)
+        #if self.engage_left_click:
+        #    self.cid1 = self.figure_manager.canvas.mpl_connect('button_press_event', self.cid1)
+        #else:
+        #    self.figure_manager.canvas.mpl_disconnect(self.cid1)
 
         print(f'Mouse had been: {"enabled" if self.engage_left_click else "disabled"}.')
 
     def _console_output(self, ) -> None:
         """Handles console outputs based on the mouse event."""
+        xdata_n = self.mouse_inputs['MB1']['xdata']
+        xaxis_lims = self.subplots[0].get_xlim()
+
+        if self.plot_scheme['signal_rescale'] != self.plot_scheme['signal_xlim']:
+            if self.plot_scheme is None:
+                raise "Error: Plot scheme not initialised in FigureManager, but rescaling used."
+
+            shift = - np.rint(abs(self.plot_scheme['signal_rescale'][1] - self.plot_scheme['signal_rescale'][0]) / 2)
+            rescaled_dif = self.plot_scheme['rescale_extras'][1] / self.plot_scheme['rescale_extras'][0]
+            xdata_n = np.rint(self.mouse_inputs['MB1']['xdata'] * rescaled_dif) - shift
+
+        if self.plot_scheme['rescale_extras'][0] != 0:
+            xaxis_output = f'd: {self.mouse_inputs['MB1']['xdata']:.3f} '
+            if self.plot_scheme['rescale_extras'][2] == r'$\mathrm{{\mu} m}$':
+                xaxis_output += 'um'
+            else:
+                xaxis_output += self.plot_scheme['rescale_extras'][2]
+        else:
+            xaxis_output = f'n: {xdata_n:.0f} [site]'
 
         if self.print_mode == 1:
             # Override each default by pressing num key after mouse is hovering over plot
             if self.select_subplot == 1 or self.mouse_inputs['MB1']['inaxes'] == self.subplots[0]:
-                print(f'n: {round(self.mouse_inputs['MB1']['xdata'], 0):.0f} [site] |'
+                print(f'{xaxis_output} |'
                       f' m_x: {self.mouse_inputs['MB1']['ydata']:.3e} [a.u.]')
 
             elif self.select_subplot == 2 or self.mouse_inputs['MB1']['inaxes'] == self.subplots[1]:
@@ -519,19 +539,19 @@ class FigureManager:
         elif self.print_mode == 2 and self.mouse_inputs['MB1']['inaxes'] == self.subplots[0]:
             # Only used to find average wavelength
             self.num_clicks += 1
-            print(f'#{self.num_clicks} | n: {round(self.mouse_inputs['MB1']['xdata'], 0):.0f} [site] | '
+            print(f'#{self.num_clicks} | {xaxis_output} | '
                   f'm_x: {self.mouse_inputs['MB1']['ydata']:.3e} [a.u.]', end='')
 
             if self.last_wl is not None:
-                diff_wl = abs(self.mouse_inputs['MB1']['xdata'] - self.last_wl)
+                diff_wl = abs(xdata_n - self.last_wl)
                 self.total_diff_wl += diff_wl
 
                 if self.num_clicks > 1:
                     avg_diff_wl = self.total_diff_wl / (self.num_clicks - 1)
                     print(
-                        f' | Avg. λ: {avg_diff_wl:.1f}, Avg. k: {(2 * np.pi / avg_diff_wl):.3e}', end='')
+                        f' | Avg. λ: {avg_diff_wl:.1f} [nm], Avg. k: {(2 * np.pi / avg_diff_wl):.3e} [1/nm]', end='')
             print(end='\n')
-            self.last_wl = self.mouse_inputs['MB1']['xdata']
+            self.last_wl = xdata_n
 
 
 def rc_params_update():
