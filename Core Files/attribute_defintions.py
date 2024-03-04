@@ -133,7 +133,7 @@ class SimulationVariableInstance(Generic[T]):
         `__call__` is going to whatever the `_var_dtype` of the given `_key` is.
         """
         value = self._instance.__dict__.get(self._sim_var._key, self._sim_var._val_default)
-        #print('here', value, self._sim_var._key, self._sim_var._value_dtype)
+        # print('here', value, self._sim_var._key, self._sim_var._value_dtype)
         return self._sim_var.convert_type(value)
 
     def __getattr__(self, item: str) -> Callable:
@@ -295,7 +295,7 @@ class SimulationVariableContainerMeta(type):
         container_type = attrs.get('container_type', None)
 
         _container_var_objs: Dict[Any, SimulationVariable[T]] = {}  # test
-        _container_var_dicts:  Dict[Any, Dict[str, str | Type[T] | list[str]]] = {}
+        _container_var_dicts: Dict[Any, Dict[str, str | Type[T] | list[str]]] = {}
         sim_vars = {}  # Unified dictionary fpr easy mapping to container type-specific attributes
 
         for base in bases:
@@ -312,7 +312,7 @@ class SimulationVariableContainerMeta(type):
             if isinstance(val, SimulationVariable):
                 _container_var_objs[key] = val
                 _container_var_dicts[key] = {'key': val._key, 'dtype': val._value_dtype,
-                                             'name': val._name,  'var_names': val._var_names}
+                                             'name': val._name, 'var_names': val._var_names}
                 sim_vars[key] = _container_var_dicts[key]
 
         # Set annotations for type hinting
@@ -378,7 +378,8 @@ class SimulationVariableContainerMeta(type):
 
                             # Mark this pairing as processed
                             special_pairings[pair_descriptor][2] = True
-#
+
+        #
 
         def update_with_container(self, other_container, use_paired_variables=True):
             """Update container attributes from another container instance, with an option to apply special pairings."""
@@ -499,6 +500,50 @@ class SimulationParametersContainer(metaclass=SimulationVariableContainerMeta):
 
     lattice_constant = SimulationVariable('lattice_constant', float, ['latticeConstant', 'Lattice Constant'])
 
+    num_sites_bias_zeeman_oscillating_peak = SimulationVariable('num_sites_bias_zeeman_oscillating_peak', int,
+                                                                ['No. Spins in DR Peak', 'numSpinsDRPeak', 'numSpinsInDrPeak',
+                                                                 'numSpinsInDRPeak'])
+
+    num_sites_bias_zeeman_oscillating_gradient = SimulationVariable('num_sites_bias_zeeman_oscillating_gradient', int,
+                                                                    ['No. Spins in DR Gradient', 'numSpinsDRGradient',
+                                                                     'numSpinsInDrGradient', 'numSpinsInDRGradient'])
+
+    dmi_region_lhs = SimulationVariable('dmi_region_lhs', int, ['DMI Region LHS', 'dmiRegionLhs'])
+
+    dmi_region_rhs = SimulationVariable('dmi_region_rhs', int, ['DMI Region RHS', 'dmiRegionRhs'])
+
+    num_sites_dmi_peak = SimulationVariable('num_sites_dmi_peak', int, ['No. Spins in DMI Peak', 'numSpinsDmiPeak',
+                                                                        'numSpinsInDmiPeak'])
+
+    num_sites_dmi_gradient = SimulationVariable('num_sites_dmi_gradient', int,
+                                                ['No. Spins in DMI Gradient', 'numSpinsDmiGradient', 'numSpinsInDmiGradient'])
+
+    num_sites_dmi_width = SimulationVariable('num_sites_dmi_width', int, ['No. Spins in DMI Width', 'numSpinsDmiWidth', 'numSpinsInDmiWidth'])
+
+    dmi_region_offset = SimulationVariable('dmi_region_offset', int, ['DMI Region Offset', 'dmiRegionOffset'])
+
+    damping_region_lhs = SimulationVariable('damping_region_lhs', int, ['Damping Region LHS', 'dampingRegionLhs'])
+
+    damping_region_rhs = SimulationVariable('damping_region_rhs', int, ['Damping Region RHS', 'dampingRegionRhs'])
+
+    num_sites_damping_peak = SimulationVariable('num_sites_damping_peak', int,
+                                                ['No. Spins in Damping Peak', 'numSpinsDampingPeak', 'numSpinsInDampingPeak'])
+
+    num_sites_damping_gradient = SimulationVariable('num_sites_damping_gradient', int,
+                                                    ['No. Spins in Damping Gradient', 'numSpinsDampingGradient', 'numSpinsInDampingGradient'])
+
+    num_sites_damping_width = SimulationVariable('num_sites_damping_width', int,
+                                                 ['No. Spins in Damping Width', 'numSpinsDampingWidth', 'numSpinsInDampingWidth'])
+
+    damping_region_offset = SimulationVariable('damping_region_offset', int,
+                                               ['Damping Region Offset', 'dampingRegionOffset'])
+
+    damping_gradient_peak = SimulationVariable('damping_gradient_peak', float,
+                                               ['Damping Gradient Peak', 'dampingGradientPeak'])
+
+    damping_gradient_gradient = SimulationVariable('damping_gradient_gradient', float,
+                                                   ['Damping Gradient Gradient', 'dampingGradientGradient'])
+
     def __getitem__(self, key: str):
         # Access class attributes directly
         if key in self._container_var_dicts:
@@ -579,6 +624,57 @@ class SimulationFlagsContainer(metaclass=SimulationVariableContainerMeta):
                                       ['driveFromLhs', 'shouldDriveLHS', 'driveFromLhs', 'Drive from LHS'])
 
     is_drive_rhs = SimulationVariable('is_drive_rhs', bool, ['hasDrivenRHS', 'shouldDriveRHS'])
+
+    has_bias_zeeman_oscillating_map = SimulationVariable('has_bias_zeeman_oscillating_map', bool,
+                                                         ['Has Oscillating Zeeman Gradient Map',
+                                                          'hasOscillatingZeemanGradientMap',
+                                                          'hasGradientRegionForOscillatingZeeman'])
+
+    has_dmi_map = SimulationVariable('has_dmi_map', bool,
+                                     ['Has DMI Gradient Map',
+                                      'hasDMIGradientMap', 'hasDmiGradientMap',
+                                      'hasGradientRegionForDmi'])
+
+    has_gilbert_damping_map = SimulationVariable('has_gilbert_damping_map', bool,
+                                                 ['Has Damping Gradient Map',
+                                                  'hasDampingGradientMap', 'hasGradientRegionForDamping'])
+
+    does_dmi_map_mirror_oscillating_zeeman_map = SimulationVariable('does_dmi_map_mirror_oscillating_zeeman_map',
+                                                                    bool,
+                                                                    ['Should DMI Gradient Mirror Oscillating Zeeman',
+                                                                     'shouldDmiGradientMirrorOscillatingZeeman'])
+
+    does_damping_map_mirror_oscillating_zeeman_map = SimulationVariable(
+        'does_damping_map_mirror_oscillating_zeeman_map',
+        bool,
+        ['Should Damping Gradient Mirror Oscillating Zeeman', 'shouldDampingGradientMirrorOscillatingZeeman'])
+
+    is_dmi_only_within_map = SimulationVariable('is_dmi_only_within_map',
+                                                bool,
+                                                ['Should Restrict DMI To Within Gradient Region',
+                                                 'shouldRestrictDmiToWithinGradientRegion'])
+
+    is_bias_zeeman_oscillating_map_linear = SimulationVariable('is_bias_zeeman_oscillating_map_linear',
+                                                               bool,
+                                                               ['Is Oscillating Zeeman Linear Across Map',
+                                                                'isOscillatingZeemanLinearAcrossMap'])
+
+    is_gilbert_damping_map_linear = SimulationVariable('is_gilbert_damping_map_linear',
+                                                       bool,
+                                                       ['Is Damping Linear Across Map', 'isDampingLinearAcrossMap'])
+
+    is_dmi_map_linear = SimulationVariable('is_dmi_map_linear',
+                                           bool,
+                                           ['Is DMI Linear Across Map', 'isDmiLinearAcrossMap'])
+
+    use_updated_generate_abc = SimulationVariable('use_updated_generate_abc',
+                                                  bool,
+                                                  ['Use Generate ABC Updated', 'useGenerateABCUpdated'])
+
+    is_forced_sequential_from_parallel = SimulationVariable('is_forced_sequential_from_parallel',
+                                                            bool,
+                                                            ['Use Force Sequential Operation',
+                                                             'forceSequentialOperation'])
 
     def __getitem__(self, key: str):
         # Access class attributes directly
