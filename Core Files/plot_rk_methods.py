@@ -99,14 +99,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         if self.lattice_constant() < 0:
             self.lattice_constant = 0.25e-9
 
-        if self.exchange_dmi_constant() == 0.625:
-            # TODO. Change this. Note that, for now, the halving of the DMI is taken care of by the C++ code
-            self.exchange_dmi_constant *= 2
+        #if self.exchange_dmi_constant() == 0.625:
+        #    # TODO. Change this. Note that, for now, the halving of the DMI is taken care of by the C++ code
+        #    self.exchange_dmi_constant *= 2
         # Attributes for plots
         self._fig = None
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
-        self._yaxis_lim_fix = 3e-5
+        self._yaxis_lim_fix = 3e-4
 
         # Text sizes for class to override rcParams
         self._fontsizes = {"large": 20, "medium": 14, "small": 11, "smaller": 10, "tiny": 8, "mini": 7}
@@ -1949,7 +1949,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         external_field_moon = 0.3  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 28.0e9  # 28.8e9
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 6e-6  # metres 4e-6
+        system_len_moon = 4e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
         exc_stiff_moon = 0.2 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
