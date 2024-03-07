@@ -5,6 +5,7 @@
 import errno
 import logging as log
 import os
+import platform
 import re
 import sys
 
@@ -83,8 +84,12 @@ class SystemSetup:
             raise SystemError("Detected Linux, which is not yet supported.")
 
         elif sys.platform == "darwin":
-            # OS X. This is the permanent location on my Macbook
-            mac_dir_root = "/Users/cameronaidanmceleney/CLionProjects/Data/"
+            if platform.processor() == 'arm':
+                # This is my M3 Pro Macbook
+                mac_dir_root = "/Users/cameronmceleney/Data/"
+            else:
+                # OS X. This is the permanent location on my Intel Macbook
+                mac_dir_root = "/Users/cameronaidanmceleney/CLionProjects/Data/"
 
             if not self.has_target_dir_been_found:
                 self._create_directory(mac_dir_root, self.input_dir_name)
