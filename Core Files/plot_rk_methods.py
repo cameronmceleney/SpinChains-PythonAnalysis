@@ -410,6 +410,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         # Nested Dict to enable many cases (different plots and papers)
+        self.exchange_dmi_constant = 0
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
                 'signal_xlim': [0, self.num_sites_total()],  # Example value, replace 100 with self._total_num_spins()
@@ -420,10 +421,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax2_ylim': [1e-4, 1e0],
                 'ax3_xlim': [-0.75, 0.5],
                 'ax3_ylim': [0, 45],
-                'signal1_xlim': [int(self.num_sites_abc + 1),
+                'signal1_xlim': [int(self.num_sites_abc + 1 - self.dmi_region_offset()),
                                  int(self.driving_region_lhs - 1)],
-                'signal2_xlim': [int(self.driving_region_rhs + 1),
-                                 int(self.num_sites_total - self.num_sites_abc - 1)],
+                'signal2_xlim': [int(self.driving_region_rhs + 1 + self.dmi_region_offset()),
+                                 int(self.num_sites_total - self.num_sites_abc + 1)],
                 'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
@@ -435,6 +436,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ########################################
         # Accessing the selected colour scheme and create a colourbar
         select_plot_scheme = plot_schemes[0]
+
 
         #for term in ['signal1_xlim', 'signal2_xlim', 'signal_xlim']:
         #    select_plot_scheme[term] *= self.lattice_constant()
@@ -1946,14 +1948,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
-        external_field_moon = 0.3  # exchange_field = [8.125, 32.5]  # [T]
-        gyromag_ratio_moon = 28.0e9  # 28.8e9
-        lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
+        external_field_moon = 0.15  # exchange_field = [8.125, 32.5]  # [T]
+        gyromag_ratio_moon = 29.2e9  # 28.8e9
+        lattice_constant_moon = 0.5e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
         system_len_moon = 4e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
-        exc_stiff_moon = 0.2 * 1.3e-11  # J/m
+        exc_stiff_moon = 0.3 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 0.5e-3  # 1.0e-3
+        dmi_val_const_moon = 0.2e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
@@ -1979,37 +1981,44 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             max_len = round(system_len / lattice_constant)
             half_max_length = int(max_len / 2)
             n_lower, n_upper = 0, half_max_length
-
-            num_spins_array = np.arange(-half_max_length, half_max_length + 1, 1)
-            total_sys_pairs = (max_len - 1) * lattice_constant
+            num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
 
             # Output controls
             should_print_only_matches = True
             should_print_only_half_ints = True
             should_highlight_all_matches = True
             should_highlight_half_ints = True
+
             use_original_wavenumbers = True
+            use_relative_atol = True
 
             if should_print_only_half_ints:
                 should_print_only_matches = False
 
             # Precision of output
-            wv_rnd = 6
-            fq_rnd = 3  # kz resolution for rounding
+            wv_rnd = 4
+            fq_rnd = 4
 
             # Error tolerances
-            wv_tol = 10 ** -(wv_rnd - 1)
-            freq_atol = 3 * 10 ** -(fq_rnd - 1)
-            half_int_atol = 1e-1
+            wv_tol = 10 * 10 ** -wv_rnd
+            freq_atol = 10 * 10 ** -fq_rnd
+            half_int_atol = 4e-1
+            relative_freq_atol = 5e-3
 
             # Calculate all wavevectors in system
-            wave_number_array = (2 * num_spins_array * np.pi) / total_sys_pairs
+            wavevector_array = (2 * num_spins_array * np.pi) / system_len
 
             # Calculate all frequencies in system assuming that there is no demagnetisation
             freq_array = gyromag_ratio * (
-                    round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
+                    round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wavevector_array ** 2
                     + external_field
-                    + dmi_val_const * lattice_constant * wave_number_array)
+                    + (dmi_val_const * lattice_constant * wavevector_array))
+
+            # Convert frequencies to [GHz] with rounding
+            freq_array = abs(np.round(freq_array * hz_2_GHz, fq_rnd))
+
+            # Find minima (frequency). Only need to check all frequencies that are greater than this ONCE
+            min_freq_index = int(np.where(np.isclose(freq_array, min(freq_array), atol=0))[0])
 
             print(
                 f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} | "
@@ -2018,38 +2027,32 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             print(
                 f'wv_rnd: {wv_rnd} | fq_rnd: {fq_rnd} | wv_tol: {wv_tol} | freq_atol: {freq_atol} | '
                 f'half_int_atol: {half_int_atol}')
+
             # Calculate all wavelengths
-            wavelengths_array = np.zeros_like(wave_number_array, dtype=float)
+            wavelengths_array = np.zeros_like(wavevector_array, dtype=float)
 
             # Set wavelength to infinity where wave number is zero
-            zero_wave_indices = wave_number_array == 0
+            zero_wave_indices = wavevector_array == 0
             wavelengths_array[zero_wave_indices] = np.inf
 
             # Perform division where wave number is non-zero and convert to [nm]
             non_zero_wave_indices = ~zero_wave_indices
-            wavelengths_array[non_zero_wave_indices] = ((2 * np.pi) / wave_number_array[
-                non_zero_wave_indices]) * lattice_constant_moon
+            wavelengths_array[non_zero_wave_indices] = ((2 * np.pi) / wavevector_array[
+                non_zero_wave_indices])
+
+            # Convert to nm
+            wavelengths_array = np.round(wavelengths_array * m_2_nm, 3)  # Sometimes might want abs() so that all wavelengths are +ve (for readability)
 
             # Convert wave numbers to [1/nm] with rounding
-            wave_number_array = np.round(wave_number_array * 1e-9, wv_rnd)
-            wavevectors_from_n = wave_number_array[half_max_length + n_lower:half_max_length + n_upper + 1]
+            wavevector_array = np.round(wavevector_array * 1e-9, wv_rnd)
 
-            # Convert frequencies to [GHz] with rounding
-            freq_array = abs(np.round(freq_array * hz_2_GHz, fq_rnd))  # all in GHz now
+            if min_freq_index >= half_max_length:
+                wavevectors_from_n = wavevector_array[:min_freq_index+1]
+            else:
+                wavevectors_from_n = wavevector_array[min_freq_index:]
+
             # Initialize containers
-            frequency_container = []
-            positive_wave_numbers = wave_number_array[wave_number_array >= 0]
-
-            # l1 = wavelengths_array[2001:2040]
-            # l2 = np.flip(wavelengths_array[1813:1852])
-            # print(l1)
-            # print(l2)
-            # print(l1/l2 % 1)
-            # f1 = freq_array[2001:2040]
-            # f2 = np.flip(freq_array[1813:1852])
-            # print(abs(f1))
-            # print(abs(f2))
-            # exit(0)
+            matches_container = []
 
             def is_wavelength_half(n1, n2, atol=1e-2, convert_to_wavelength=False):
                 results = []
@@ -2086,7 +2089,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     modulus = larger % smaller
 
                     # Calculate scaling
-                    scaling_factors.append(larger / smaller % 1)
+                    scaling_factors.append(np.round((larger / smaller % 1), 6))
 
                     # Calculate tolerance range
                     tolerance = half_smaller * atol
@@ -2101,31 +2104,38 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                 return results, scaling_factors
 
+            def find_matches_with_adaptive_tolerance(frequency_value, frequencies, relative_tolerance):
+                # Function to find matching frequencies with adaptive tolerance
+                tolerance = abs(frequency_value) * relative_tolerance
+                matches = np.flatnonzero(np.abs(frequencies - frequency_value) <= tolerance)
+                return matches
+
             for wavevector_n in wavevectors_from_n:
-                if use_original_wavenumbers:
-                    # Will always exactly match so no need to test
-                    closest_match_wavevector = wavevector_n
-                else:
-                    closest_match_wavevector = min(positive_wave_numbers, key=lambda x: abs(x - wavevector_n))
 
                 # Step 2: Find the index of the closest match in wave_number_array
-                closest_match_index = np.where(np.isclose(wave_number_array, closest_match_wavevector, atol=wv_tol))[0]
+                closest_match_index = np.where(np.isclose(wavevector_array, wavevector_n, atol=wv_tol))[0]
 
                 # Step 3, 4, 5: For each match, find frequency and check for other occurrences
                 for match_index in closest_match_index:
-                    # For each match, find the corresponding frequency
                     match_frequency = freq_array[match_index]
-                    if match_frequency < external_field * gyromag_ratio * hz_2_GHz:
+
+                    if wavevector_array[match_index] == 0 or np.isinf(wavevector_array[match_index]):
                         continue
+
                     match_wavelength = wavelengths_array[match_index]
 
                     # Find all other occurrences of this frequency, and then their indices
-                    matched_freq_indices = np.where(np.isclose(freq_array, match_frequency, atol=freq_atol))[0]
+                    if use_relative_atol:
+                        matched_freq_indices = find_matches_with_adaptive_tolerance(match_frequency, freq_array,
+                                                                                    relative_freq_atol)
+                    else:
+                        matched_freq_indices = np.where(np.isclose(freq_array, match_frequency, atol=freq_atol))[0]
+
                     other_occurrences_indices = [i for i in matched_freq_indices if i != match_index]
-                    other_occurrences_frequencies = freq_array[other_occurrences_indices]  # mainly for debugging
+                    other_occurrences_frequencies = freq_array[other_occurrences_indices]
 
                     # Find the corresponding wavevectors for the other occurrences of the given frequency
-                    other_occurrences_wavevectors = wave_number_array[other_occurrences_indices]
+                    other_occurrences_wavevectors = wavevector_array[other_occurrences_indices]
 
                     # Calculate all wavelengths
                     if use_original_wavenumbers:
@@ -2135,31 +2145,30 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         other_occurrences_wavelengths = np.zeros_like(other_occurrences_wavevectors, dtype=float)
                         other_zero_wave_indices = other_occurrences_wavevectors == 0
                         other_occurrences_wavelengths[other_zero_wave_indices] = np.inf
+
                         # Perform division where wave number is non-zero
                         other_non_zero_wave_indices = ~other_zero_wave_indices
                         other_occurrences_wavelengths[other_non_zero_wave_indices] = ((2 * np.pi) /
                                                                                       other_occurrences_wavevectors[
                                                                                           other_non_zero_wave_indices])
+                    # TODO. Add code to prune other results so that every f/k pair (positive) only has one other f/k pair (negative)
+                    if match_frequency == 74.4823:
+                        print(match_frequency, other_occurrences_frequencies)
+                        print(match_wavelength, other_occurrences_wavelengths)
 
                     # Check if we have any matches
                     (other_occurrences_half_ints,
                      other_occurrences_scaling) = is_wavelength_half(match_wavelength, other_occurrences_wavelengths,
                                                                      atol=half_int_atol)
-                    # Debugging
-                    # if other_occurrences_indices:
-                    #    print(f"Freq: {match_frequency} at {match_index} for {match_wavelength} | "
-                    #          f"Matches: {freq_array[other_occurrences_indices]} at {other_occurrences_indices} "
-                    #          f"for {other_occurrences_wavelengths} ")
-                    #    print(wavevector_n, closest_match, other_occurrences_wavevectors,
-                    #          match_index, other_occurrences_indices,
-                    #          match_frequency, freq_array[other_occurrences_indices],
-                    #          match_wavelength, other_occurrences_wavelengths)
 
+                    if match_frequency == 74.4823:
+                        print(other_occurrences_half_ints, other_occurrences_scaling)
+                        exit(0)
                     # Recording the information
-                    frequency_container.append({
+                    matches_container.append({
                         'match_index': match_index,
                         'user_wavevector': wavevector_n,
-                        'closest_wavevector': closest_match_wavevector,
+                        'closest_wavevector': wavevector_n,
                         'match_frequency': match_frequency,
                         'match_wavelength': match_wavelength,
 
@@ -2172,7 +2181,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     })
 
             # Step 6: Sort the container by frequency and then by wavevector
-            frequency_container.sort(key=lambda x: (x['match_frequency'], x['closest_wavevector']))
+            matches_container.sort(key=lambda x: (x['match_frequency'], x['closest_wavevector']))
 
             # for entry in frequency_container:
             #     print((entry['match_frequency'], entry['other_occurrences_frequencies']))
@@ -2181,7 +2190,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             select_colour_scheme = colour_schemes[3]
 
             line_counter = 0
-            for entry in frequency_container:
+            for entry in matches_container:
                 # Note that I can't run simulations for wavelengths smaller than 1nm so there's no point being
                 # more precise than this
                 match_index = entry['match_index']
@@ -2212,11 +2221,12 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     # Iterate over other occurrences should the exist
                     if entry['other_occurrences_indices']:
                         for enum_index, (
-                                other_index, other_wavevector, other_wavelength, other_scaling,
+                                other_index, other_wavevector, other_wavelength, other_freq, other_scaling,
                                 other_half_int) in enumerate(
                             zip(entry['other_occurrences_indices'],
                                 entry['other_occurrences_wavevectors'],
                                 entry['other_occurrences_wavelengths'],
+                                entry['other_occurrences_frequencies'],
                                 entry['other_occurrences_scaling'],
                                 entry['other_occurrences_half_ints'])):
 
@@ -2226,7 +2236,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                 color = select_colour_scheme['BLUE']
 
                             print(
-                                f"{color}| i{enum_index + 1}: {other_index}, "
+                                f"{color}| {other_freq:.{fq_rnd}f} [GHz],  "
+                                f"i{enum_index + 1}: {other_index}, "
                                 f"\u03BB{enum_index + 1}: {other_wavelength:.{2}f} [nm], "
                                 f"k{enum_index + 1}: {other_wavevector:.{wv_rnd}f} [1/nm],"
                                 f"\t\u03BE{enum_index + 1}: {other_scaling:.3f}"
@@ -2267,7 +2278,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                          label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
                 ax1.set(xlabel="Wavevector (nm$^{-1}$)",
-                        ylabel='Frequency (GHz)', xlim=[-0.75, 0.75], ylim=[0, 60])
+                        ylabel='Frequency (GHz)', xlim=[-0.4, 0.4], ylim=[0, 60])
                 self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
                                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
@@ -2340,8 +2351,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig.canvas.mpl_connect('button_press_event', mouse_event)
 
             cursor = mplcursors.cursor(hover=True)
-            cursor.connect("add", lambda sel: sel.annotation.set_text(
-                f'x={sel.target[0]:.4f}, y={sel.target[1]:.4f}'))
+            cursor.connect("add", lambda sel: sel.annotation.set_text(f'(k: {sel.target[0]:.6f}, f: {sel.target[1]:.6f})'))
 
             # Hide the arrow in the callback
             @cursor.connect("add")
