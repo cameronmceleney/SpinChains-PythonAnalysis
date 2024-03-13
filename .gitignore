@@ -15,6 +15,7 @@
 #/.idea/vcs.xml
 #.idea/**/dictionaries
 /.idea/copilot/
+*.iml
 
 ## Local changes
 /.idea/shelf/
