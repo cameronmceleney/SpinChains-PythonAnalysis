@@ -43,10 +43,10 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1558"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1432"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2024-03-11", "2024-03-12")
+    system_setup.detect_os(True, "2024-03-11", "2024-03-12")
 
     def generate_filenames():
         if _has_numeric_suffix:
