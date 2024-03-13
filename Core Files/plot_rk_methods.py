@@ -1948,12 +1948,12 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
-        external_field_moon = 0.15  # exchange_field = [8.125, 32.5]  # [T]
+        external_field_moon = 0.4  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 29.2e9  # 28.8e9
-        lattice_constant_moon = 0.5e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
+        lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
         system_len_moon = 4e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
-        exc_stiff_moon = 0.3 * 1.3e-11  # J/m
+        exc_stiff_moon = 2 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
         dmi_val_const_moon = 0.2e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
@@ -1989,6 +1989,12 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             should_highlight_all_matches = True
             should_highlight_half_ints = True
 
+            # TODO. Add filter for for closest half-int match
+            filter_for_closest_matching_wavelength = True
+            filter_for_closest_matching_frequency = False
+
+            print_cutoff_freq = [8, 30]  # must be in GHz
+
             use_original_wavenumbers = True
             use_relative_atol = True
 
@@ -1996,14 +2002,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 should_print_only_matches = False
 
             # Precision of output
-            wv_rnd = 4
+            wv_rnd = 5
             fq_rnd = 4
 
             # Error tolerances
             wv_tol = 10 * 10 ** -wv_rnd
             freq_atol = 10 * 10 ** -fq_rnd
-            half_int_atol = 4e-1
-            relative_freq_atol = 5e-3
+            freq_rtol = 5e-3
+            half_int_atol = 5e-2
 
             # Calculate all wavevectors in system
             wavevector_array = (2 * num_spins_array * np.pi) / system_len
@@ -2083,20 +2089,28 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         else:
                             wavelength2 = abs(i)
                     larger, smaller = max(wavelength1, wavelength2), min(wavelength1, wavelength2)
-                    half_smaller = smaller / 2
 
-                    # Calculate modulus
-                    modulus = larger % smaller
+                    sf_rnd = 3
+                    sf_base = np.round((larger / smaller % 1), sf_rnd)
 
                     # Calculate scaling
-                    scaling_factors.append(np.round((larger / smaller % 1), 6))
+                    if sf_base == 0.0:
+                        sf_div = np.round((larger / smaller), sf_rnd)
+                        if sf_div == 1.0:
+                            scaling_factors.append(0.0)
+                        elif sf_div > 1.0:
+                            scaling_factors.append(1.0)
+                    else:
+                        scaling_factors.append(sf_base)
 
                     # Calculate tolerance range
+                    half_smaller = smaller / 2
                     tolerance = half_smaller * atol
                     lower_bound = half_smaller - tolerance
                     upper_bound = half_smaller + tolerance
 
                     # Check if modulus is within the tolerance range
+                    modulus = larger % smaller
                     if lower_bound <= modulus <= upper_bound:
                         results.append(True)
                     else:
@@ -2127,7 +2141,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     # Find all other occurrences of this frequency, and then their indices
                     if use_relative_atol:
                         matched_freq_indices = find_matches_with_adaptive_tolerance(match_frequency, freq_array,
-                                                                                    relative_freq_atol)
+                                                                                    freq_rtol)
                     else:
                         matched_freq_indices = np.where(np.isclose(freq_array, match_frequency, atol=freq_atol))[0]
 
@@ -2152,30 +2166,53 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                                                                       other_occurrences_wavevectors[
                                                                                           other_non_zero_wave_indices])
                     # TODO. Add code to prune other results so that every f/k pair (positive) only has one other f/k pair (negative)
-                    if match_frequency == 74.4823:
-                        print(match_frequency, other_occurrences_frequencies)
-                        print(match_wavelength, other_occurrences_wavelengths)
 
                     # Check if we have any matches
                     (other_occurrences_half_ints,
                      other_occurrences_scaling) = is_wavelength_half(match_wavelength, other_occurrences_wavelengths,
                                                                      atol=half_int_atol)
 
-                    if match_frequency == 74.4823:
-                        print(other_occurrences_half_ints, other_occurrences_scaling)
-                        exit(0)
+                    if filter_for_closest_matching_wavelength:
+                        base_case = [1, 0]
+                        base_idx = [-1, -1]
+
+                        for i, val in enumerate(other_occurrences_scaling):
+                            if val < base_case[0]:
+                                base_case[0] = val
+                                base_idx[0] = i
+                            elif val > base_case[1]:
+                                base_case[1] = val
+                                base_idx[1] = i
+
+                        use_idx = None
+                        if base_case[1] >= 1.0:
+                            use_idx = base_idx[1]
+                        elif base_case[0] == 0.0 and base_case[1] == 1.0:
+                            print('errrrrr what happened here?')
+                        else:
+                            use_idx = base_idx[0]
+
+                        other_occurrences_scaling = [other_occurrences_scaling[use_idx]]
+                        other_occurrences_half_ints = [not other_occurrences_half_ints[use_idx]]
+                        other_occurrences_frequencies = [other_occurrences_frequencies[use_idx]]
+                        other_occurrences_wavelengths = [other_occurrences_wavelengths[use_idx]]
+                        other_occurrences_wavevectors = [other_occurrences_wavevectors[use_idx]]
+                        other_occurrences_indices = [other_occurrences_indices[use_idx]]
+                    elif filter_for_closest_matching_frequency:
+                        pass
+
                     # Recording the information
                     matches_container.append({
                         'match_index': match_index,
                         'user_wavevector': wavevector_n,
                         'closest_wavevector': wavevector_n,
                         'match_frequency': match_frequency,
-                        'match_wavelength': match_wavelength,
+                        'match_wavelength': abs(match_wavelength),
 
                         'other_occurrences_indices': other_occurrences_indices,
                         'other_occurrences_wavevectors': other_occurrences_wavevectors,
                         'other_occurrences_frequencies': other_occurrences_frequencies,
-                        'other_occurrences_wavelengths': abs(other_occurrences_wavelengths),
+                        'other_occurrences_wavelengths': [abs(x) for x in other_occurrences_wavelengths],
                         'other_occurrences_half_ints': other_occurrences_half_ints,
                         'other_occurrences_scaling': other_occurrences_scaling
                     })
@@ -2197,6 +2234,12 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 match_frequency = entry['match_frequency']
                 match_wavevector = entry['closest_wavevector']
                 match_wavelength = entry['match_wavelength']
+
+                if print_cutoff_freq[0] is not None and match_frequency < print_cutoff_freq[0]:
+                    continue
+
+                if print_cutoff_freq[1] is not None and match_frequency > print_cutoff_freq[1]:
+                    exit(0)
 
                 if should_print_only_half_ints and not any(entry['other_occurrences_half_ints']):
                     continue
@@ -2231,7 +2274,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                 entry['other_occurrences_half_ints'])):
 
                             if should_highlight_half_ints and other_half_int:
-                                color = select_colour_scheme['PURPLE']
+                                if filter_for_closest_matching_wavelength and not (other_scaling < 0.05 or other_scaling > 0.95):
+                                    color = select_colour_scheme['BLUE']
+                                else:
+                                    color = select_colour_scheme['PURPLE']
                             elif should_highlight_all_matches:
                                 color = select_colour_scheme['BLUE']
 
@@ -2278,7 +2324,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                          label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
                 ax1.set(xlabel="Wavevector (nm$^{-1}$)",
-                        ylabel='Frequency (GHz)', xlim=[-0.4, 0.4], ylim=[0, 60])
+                        ylabel='Frequency (GHz)', xlim=[-0.4, 0.4], ylim=[8, 30])
                 self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
                                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
