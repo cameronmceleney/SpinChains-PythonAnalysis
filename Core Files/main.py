@@ -43,10 +43,10 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "0150"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1558"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2024-03-06", "2024-03-06")
+    system_setup.detect_os(False, "2024-03-11", "2024-03-12")
 
     def generate_filenames():
         if _has_numeric_suffix:
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                                  output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
                                  file_identifier="T", auto_run=True)
             dataset1.process_data()
-            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=20, early_exit=True,
+            dataset1.call_methods(override_method="pf", override_function="hd", override_site=100, early_exit=True,
                                   loop_function=True, mass_produce=False)
             exit(0)
     elif _should_use_eigens:
