@@ -41,12 +41,12 @@ if __name__ == '__main__':
     log.info(f"Program start...")
 
     _should_use_eigens = False
-    _mass_produce = False
+    _mass_produce = True
     _has_numeric_suffix = True
-    filename_base = "1154"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1946"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(True, "2024-03-28", "2024-03-28")
+    system_setup.detect_os(False, "2024-04-02", "2024-04-02")
 
     def generate_filenames():
         if _has_numeric_suffix:
@@ -66,13 +66,14 @@ if __name__ == '__main__':
                                        output_dir_path=system_setup.output_dir(), file_prefix="rk2",
                                        file_component='mx', file_identifier="T", auto_run=True)
             analyseDataset.process_data()
-            analyseDataset.call_methods(override_function="sfft", override_method="pf", override_site=1000, early_exit=True,
-                                  loop_function=True, mass_produce=True, interactive_mode=False)
+            analyseDataset.call_methods(override_function="sfft", override_method="pf", override_site=500,
+                                        early_exit=True, loop_function=True, mass_produce=True,
+                                        interactive_mode=False)
 
             suffix = increment_suffix(suffix, _has_numeric_suffix)
 
             # Set `aaa` as an arb. endpoints for now
-            if suffix == 'aaa' or suffix == 4:
+            if suffix == 'aaa' or suffix == 1000:
                 break
 
     def increment_suffix(suffix, has_numeric_suffix):
@@ -106,7 +107,7 @@ if __name__ == '__main__':
                                  output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
                                  file_identifier="T", auto_run=True)
             dataset1.process_data()
-            dataset1.call_methods(override_method="pf", override_function="gif", override_site=1000, early_exit=True,
+            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=500, early_exit=True,
                                   loop_function=True, mass_produce=False, interactive_mode=True)
             exit(0)
     elif _should_use_eigens:

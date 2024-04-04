@@ -451,8 +451,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'signal_rescale': [-int(self.num_sites_total() / 2), int(self.num_sites_total() / 2)],
                 'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
                                    'um'],
-                'ax2_xlim': [0.0, 0.25],
-                'ax2_ylim': [1e-3, 1e1],
+                'ax2_xlim': [0.0, 0.15],
+                'ax2_ylim': [1e-4, 1e1],
                 'ax3_xlim': [-0.15, 0.15],
                 'ax3_ylim': [0, 20],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
@@ -528,14 +528,27 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                           yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
         ########################################
         # Post-processing actions
-        ax_subplots[0].set(ylim=[-1e-2, 1e-2])
         _, y_major_labels, _ = self._choose_scaling(subplot_to_scale=ax_subplots[0], row_index=row_index)
         ax_subplots[0].set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
 
-        ax_subplots[0].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
-                              facecolor=None, edgecolor=None)
-        ax_subplots[1].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
-                              facecolor=None, edgecolor=None)
+        ax_subplots_zero_handles, labels = ax_subplots[0].get_legend_handles_labels()
+
+        # Determine the index of 'Signal' in labels and remove it
+        signal_index = labels.index('Signal')
+        signal_handle = ax_subplots_zero_handles.pop(signal_index)
+        labels.pop(signal_index)
+
+        # Assuming you want 'Signal' in the middle column of 3, insert it back in the middle
+        middle_index = len(ax_subplots_zero_handles) // 2
+        ax_subplots_zero_handles.insert(middle_index, signal_handle)
+        labels.insert(middle_index, 'Signal')
+
+        legend_kwargs = dict(loc='upper center', fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True,
+                             facecolor='white', edgecolor='black', bbox_to_anchor=(0.5, 1.14), framealpha=1,
+                             handlelength=1.5, handleheight=1.5, handletextpad=0.5, columnspacing=1.5, borderpad=0.25)
+
+        ax_subplots[0].legend(handles=ax_subplots_zero_handles, ncol=3, **legend_kwargs)
+        ax_subplots[1].legend(ncol=2, **legend_kwargs)
         # ax3.legend(ncol=1, loc='upper center', fontsize=self._fontsizes["small"], frameon=False, fancybox=True,
         #           facecolor=None, edgecolor=None)
         plt.tight_layout(w_pad=0.2, h_pad=0.25)
