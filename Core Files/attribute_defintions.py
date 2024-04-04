@@ -162,6 +162,11 @@ class SimulationVariableInstance(Generic[T]):
     def key(self) -> str:
         return self._sim_var._key
 
+    def update(self, val) -> None:
+        """Update the value of the variable in the instance."""
+        key1 = self._sim_var._key
+        setattr(self._instance, key1, val)
+
     @property
     def dtype(self) -> Type[T]:
         return self._sim_var._value_dtype
