@@ -416,11 +416,13 @@ class AnalyseData:
         print("Data processed. Ready to call method.")
 
     def call_methods(self, override_method=None, override_function=None, override_site=None, early_exit=False,
-                     loop_function=False, mass_produce=False):
+                     loop_function=False, mass_produce=False, interactive_mode=False):
         called_method = CallMethods(self._file_terms, self._file_paths_full, self.data_container, self.data_timestamps,
                                     self.header_simulated_sites, self.data_magnetic_moments, self.header_parameters,
                                     self.header_flags, mass_produce)
-        called_method.call_methods(override_method, override_function, override_site, loop_function, early_exit)
+        called_method.call_methods(override_method=override_method, override_function=override_function,
+                                   override_site=override_site, loop_function=loop_function, early_exit=early_exit,
+                                   interactive_mode=interactive_mode)
 
 
 class ImportData:
@@ -463,17 +465,22 @@ class ImportData:
             full_path_to_file = self._file_paths_full['input']
 
         # Loads all input data without the header
-        try:
-            is_file_present_in_dir = os.path.exists(full_path_to_file)
-            if not is_file_present_in_dir:
-                raise FileNotFoundError
-        except FileNotFoundError:
-            print(f"File {filename} was not found")
+        # Check if the file exists
+        if not os.path.exists(full_path_to_file):
             log.error(f"File {filename} was not found")
+            print(f"File {filename} was not found")
             exit(1)
-        else:
-            log.info(f"Data points imported!")
-            return np.loadtxt(full_path_to_file, delimiter=",", skiprows=11)
+
+        # Loads all input data without the header, handling missing values as NaN
+        try:
+            data = np.loadtxt(full_path_to_file, delimiter=",", skiprows=11)
+            log.info(f"Data points imported successfully!")
+            return data
+        except ValueError as ve:
+
+            log.error(f"Failed to import data points due to: {ve}")
+            print(f"During _import_simulation_data().\n\tValueError: {ve}")
+            exit(1)
 
     def _import_simulation_headers(self):
 
@@ -699,18 +706,19 @@ class CallMethods:
         self._header_flags = header_flags
         self._header_simulated_sites = header_simulated_sites
 
-        self._method_to_use = None
-        self.override_method = None
-        self.override_function = None
-        self.override_site = None
+        self._method_to_use: str | None = None
+        self.override_method: str | None = None
+        self.override_function: str | None = None
+        self.override_site: int | None = None
         self.early_exit: bool = False
         self.loop_function: bool = False
-        self.mass_produce = mass_produce
+        self.mass_produce: bool = mass_produce
+        self.interactive_mode: bool = False
 
         self._accepted_methods = ["3P", "FS", "FT", "PF", "CP", "EXIT"]
 
-    def _set_internal_attributes(self, override_method, override_function, override_site, loop_function: bool,
-                                 early_exit: bool):
+    def _set_internal_attributes(self, override_method, override_function, override_site, early_exit: bool,
+                                 loop_function: bool, interactive_mode: bool):
         if override_method is not None:
             self.override_method = self._method_to_use = override_method
         if override_function is not None:
@@ -727,6 +735,11 @@ class CallMethods:
             self.loop_function = False  # currently doesn't work properly
         else:
             self.loop_function = False
+
+        if isinstance(interactive_mode, bool) and interactive_mode is True:
+            self.interactive_mode = True
+        else:
+            self.interactive_mode = False
 
         self._set_internal_methods()
 
@@ -764,10 +777,13 @@ class CallMethods:
                 print('--------------------------------------------------------------------------------')
                 log.info(output)
 
-    def call_methods(self, override_method=None, override_function=None, override_site=None,
-                     loop_function: bool = False, early_exit: bool = False):
+    def call_methods(self, loop_function: bool = False, early_exit: bool = False, interactive_mode: bool = False,
+                     override_method: str | None = None, override_function: str | None = None,
+                     override_site: int | None = None):
 
-        self._set_internal_attributes(override_method, override_function, override_site, loop_function, early_exit)
+        self._set_internal_attributes(override_method=override_method, override_function=override_function,
+                                      override_site=override_site, loop_function=loop_function,
+                                      early_exit=early_exit, interactive_mode=interactive_mode)
         attempts, attempts_max = 0, 4
 
         while True:
@@ -1016,7 +1032,8 @@ class CallMethods:
                             if not self.mass_produce:
                                 print(f"Generating plot for [#{row_num}]...")
                             log.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial(row_num, fixed_ylim=False, interactive_plot=True)
+                            paper_fig.plot_row_spatial(row_num, fixed_ylim=False,
+                                                       interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if not self.loop_function:
@@ -1062,7 +1079,8 @@ class CallMethods:
                             if not self.mass_produce:
                                 print(f"Generating plot for [#{row_num}]...")
                             log.info(f"Generating PV plot for row [#{row_num}]")
-                            paper_fig.plot_row_spatial_ft(row_num, fixed_ylim=False, interactive_plot=True)
+                            paper_fig.plot_row_spatial_ft(row_num, fixed_ylim=False,
+                                                          interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.loop_function:
@@ -1114,7 +1132,7 @@ class CallMethods:
                                                          annotate_precursors_fft=False, annotate_signal=False,
                                                          wavepacket_inset=False, add_key_params=False,
                                                          add_signal_backgrounds=False, publication_details=False,
-                                                         interactive_plot=True)
+                                                         interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
 
                             if not self.loop_function:
@@ -1164,9 +1182,11 @@ class CallMethods:
                             #                                          show_group_velocity_cases=False,
                             #                                          dispersion_inset=False,
                             #                                          use_demag=False, compare_dis=True,
-                            #                                          publication_details=False, interactive_plot=True)
+                            #                                          publication_details=False,
+                            #                                          interactive_plot=self.interactive_mode)
 
-                            paper_fig.find_degenerate_modes(find_modes=True, use_demag=False, interactive_plot=True)
+                            paper_fig.find_degenerate_modes(find_modes=True, use_demag=True,
+                                                            interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
                             if not self.loop_function:

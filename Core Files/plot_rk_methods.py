@@ -97,16 +97,18 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self.update_with_dict(flags_dict)
 
         if self.lattice_constant() < 0:
-            self.lattice_constant = 0.25e-9
+            self.lattice_constant.update(1e-9)
 
-        #if self.exchange_dmi_constant() == 0.625:
-        #    # TODO. Change this. Note that, for now, the halving of the DMI is taken care of by the C++ code
-        #    self.exchange_dmi_constant *= 2
+        if self.exchange_dmi_constant() == 0.625:
+            # TODO. Change this. Note that, for now, the halving of the DMI is taken care of by the C++ code
+            self.exchange_dmi_constant *= 2
         # Attributes for plots
         self._fig = None
         self._axes = None
         self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
-        self._yaxis_lim_fix = 3e-4
+        self._yaxis_lim_fix = 8e-3
+
+        self.track_zorder = [[], []]
 
         # Text sizes for class to override rcParams
         self._fontsizes = {"large": 20, "medium": 14, "small": 11, "smaller": 10, "tiny": 8, "mini": 7}
@@ -135,7 +137,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig = plt.figure(figsize=figsize)
             self._axes = self._fig.add_subplot(111)
             if not has_single_figure:
-                plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})  # Adjust for GIFs
+                # Adjust for GIFs
+                plt.rcParams.update({'savefig.dpi': 200, "figure.dpi": 200})
 
         # Adjust y-axis limit based on static_ylim and amplitude data
         if static_ylim:
@@ -151,12 +154,13 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         lw=2 * 0.75, color='#64bb6a', label=f"Signal", zorder=1.1)
 
         self._axes.set(xlabel=f"Position, $n_i$ (site index)",
-                       ylabel=f"m$_x$ (a.u. "r'$\mathcal{10}^{{\mathcal{-4}}}$)',
                        xlim=[0.0, self.num_sites_total()],
                        ylim=[-self._yaxis_lim, self._yaxis_lim])
 
-        # self._axes.text(0.66, 0.88, f"[DR] Sites: {self._driving_width}", va='center',
-        #                 ha='left', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
+        _, y_major_labels, _ = self._choose_scaling(subplot_to_scale=self._axes)
+        self._axes.set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
+
+
         if publish_plot:
             self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
                             ha='center', transform=self._axes.transAxes, fontsize=6)
@@ -207,7 +211,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._tick_setter(self._axes, 1000, 200, 3, 4,
                           yaxis_num_decimals=1.1, show_sci_notation=False)
 
-        _, y_major_labels, _ = self._choose_scaling(abs(self._axes.get_ylim()[1]))
+        _, y_major_labels, _ = self._choose_scaling(value=abs(self._axes.get_ylim()[1]))
 
         self._axes.set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
 
@@ -320,38 +324,69 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Take FFT of the signal
         wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
                                                         signal_xlim_min:signal_xlim_max],
-                                                        spatial_spacing=self.lattice_constant())
-        fourier_transform = abs(fourier_transform)
-        intensities_normalized = fourier_transform / np.max(fourier_transform)
+                                                        spatial_spacing=self.lattice_constant(), fft_window='hamming')
 
         ########################################
         # Obtain frequencies: default is 'angular' when γ in [rad * s^-1 * T^-1]
         # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
         wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
 
+        if (self.has_dmi and self.is_dmi_only_within_map and self.has_dmi_map
+                and (signal_xlims[0] < self.driving_region_lhs() or signal_xlims[1] > self.driving_region_rhs())):
+            # If the system has a valid DMI map which this region is out with then set the DMI to zero
+            region_dmi = 0.0
+        else:
+            region_dmi = self.exchange_dmi_constant()
+
         # hz_pi_to_norm required for `frequencies` to be linear and not angular when γ in [rad * s^-1 * T^-1]
         frequencies = ((self.gyro_mag() / hz_pi_to_norm) *
                        (self.exchange_heisenberg_max() * (self.lattice_constant() ** 2) * (wavevectors ** 2)
                         + self.bias_zeeman_static()
-                        + self.exchange_dmi_constant() * self.lattice_constant() * wavevectors))
+                        + region_dmi * self.lattice_constant() * wavevectors))
 
         wavevectors *= -1 * self.hz_to_Ghz if negative_wavevector else self.hz_to_Ghz
         frequencies *= self.hz_to_Ghz
+
+        # Find the index of the element with the minimum absolute difference
+        absolute_diff = np.abs(wavevectors - plot_scheme['ax2_xlim'][1])
+        closest_index = np.argmin(absolute_diff)
+
+        # Find the maximum of vec2 up to the count
+        max_fft_value = np.max(fourier_transform[:closest_index])
+        if len(self.track_zorder[0]) == 0:
+            self.track_zorder[0].append(max_fft_value)
+            self.track_zorder[1].append(1.3)
+            zorder_to_use = self.track_zorder[1][0]
+        else:
+            if max_fft_value < np.min(self.track_zorder[0]):
+                # New value is smaller, so push to front of plot
+                update_zorder = min(self.track_zorder[1]) + 0.01
+                zorder_to_use = update_zorder
+                self.track_zorder[0].append(max_fft_value)
+                self.track_zorder[1].append(update_zorder)
+            elif max_fft_value > np.max(self.track_zorder[0]):
+                # New value is larger, so push to back of plot
+                update_zorder = max(self.track_zorder[1]) - 0.01
+                zorder_to_use = update_zorder
+                self.track_zorder[0].append(max_fft_value)
+                self.track_zorder[1].append(update_zorder)
+            else:
+                zorder_to_use = self.track_zorder[1][0]
 
         ########################################
         ax[0].plot(np.arange(signal_xlim_min, signal_xlim_max),
                    self.amplitude_data[row_index, signal_xlim_min:signal_xlim_max],
                    ls='-', lw=1.5, color=signal_colour, label=f"Segment {signal_index}",
-                   markerfacecolor='black', markeredgecolor='black', zorder=1.3)
+                   markerfacecolor='black', markeredgecolor='black', zorder=zorder_to_use)
 
         ax[1].plot(wavevectors, fourier_transform,
                    lw=1.5, color=signal_colour, marker='', markerfacecolor='black', markeredgecolor='black',
-                   label=f"Segment {signal_index}", zorder=1.2)
+                   label=f"Segment {signal_index}", zorder=zorder_to_use)
 
         scatter_x = -wavevectors if negative_wavevector else wavevectors
         ax[2].scatter(scatter_x, frequencies,
-                      c=scalar_map.to_rgba(intensities_normalized), s=12, marker='.',
-                      label=f"Segment {signal_index}", zorder=1.2)
+                      c=scalar_map.to_rgba(fourier_transform), s=12, marker='.',
+                      label=f"Segment {signal_index}", zorder=zorder_to_use)
 
     def _plot_cleanup(self, axis=None):
         if axis is None:
@@ -410,20 +445,19 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         # Nested Dict to enable many cases (different plots and papers)
-        self.exchange_dmi_constant = 0
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
             0: {
                 'signal_xlim': [0, self.num_sites_total()],  # Example value, replace 100 with self._total_num_spins()
                 'signal_rescale': [-int(self.num_sites_total() / 2), int(self.num_sites_total() / 2)],
                 'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
                                    'um'],
-                'ax2_xlim': [0.0, 1.0],
-                'ax2_ylim': [1e-4, 1e0],
-                'ax3_xlim': [-0.75, 0.5],
-                'ax3_ylim': [0, 45],
-                'signal1_xlim': [int(self.num_sites_abc + 1 - self.dmi_region_offset()),
+                'ax2_xlim': [0.0, 0.25],
+                'ax2_ylim': [1e-3, 1e1],
+                'ax3_xlim': [-0.15, 0.15],
+                'ax3_ylim': [0, 20],
+                'signal1_xlim': [int(self.num_sites_abc + 1),
                                  int(self.driving_region_lhs - 1)],
-                'signal2_xlim': [int(self.driving_region_rhs + 1 + self.dmi_region_offset()),
+                'signal2_xlim': [int(self.driving_region_rhs + 1),
                                  int(self.num_sites_total - self.num_sites_abc + 1)],
                 'signal3_xlim': [0, 0],
                 'ax1_label': '(a)',
@@ -433,10 +467,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             }
         }
 
+        if self.is_dmi_only_within_map() and self.has_dmi_map():
+            plot_schemes[0]['signal1_xlim'] = [int(self.num_sites_abc + 1 - self.dmi_region_offset()),
+                                               int(self.driving_region_lhs - 1)]
+            plot_schemes[0]['signal2_xlim'] = [int(self.driving_region_rhs + 1 + self.dmi_region_offset()),
+                                               int(self.num_sites_total - self.num_sites_abc + 1)]
+
         ########################################
         # Accessing the selected colour scheme and create a colourbar
         select_plot_scheme = plot_schemes[0]
-
 
         #for term in ['signal1_xlim', 'signal2_xlim', 'signal_xlim']:
         #    select_plot_scheme[term] *= self.lattice_constant()
@@ -454,9 +493,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Set the ticks at the top and bottom using normalized values
         ax3_cbar = self._fig.colorbar(sm, ax=ax_subplots[2], cax=cax3, location='bottom', orientation='horizontal',
                                       shrink=1.0)
-        ax3_cbar.set_label('Normalised Intensity', loc='center', labelpad=-7.5, fontsize=self._fontsizes["smaller"])
-        ax3_cbar.ax.tick_params(axis='x', top=False, bottom=True, pad=2, labelsize=self._fontsizes["smaller"])
-        ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.03], labels=[str(norm.vmin), str(norm.vmax)])
+        ax3_cbar.set_label('Intensity (a.u.)', loc='center', labelpad=-5)
+        ax3_cbar.ax.tick_params(axis='x', top=False, bottom=True, pad=3.5)
+        ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.035], labels=['Min', 'Max'])
+        #ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.03], labels=[str(norm.vmin), str(norm.vmax)])
 
         ########################################
         # ax_subplots[1] is handled in the _draw_figure method
@@ -488,7 +528,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                           yaxis_multi_loc=True, xaxis_num_decimals=.2, yaxis_num_decimals=2.1, yscale_type='plain')
         ########################################
         # Post-processing actions
-        _, y_major_labels, _ = self._choose_scaling(abs(ax_subplots[0].get_ylim()[1]))
+        ax_subplots[0].set(ylim=[-1e-2, 1e-2])
+        _, y_major_labels, _ = self._choose_scaling(subplot_to_scale=ax_subplots[0], row_index=row_index)
         ax_subplots[0].set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
 
         ax_subplots[0].legend(ncol=1, loc='best', fontsize=self._fontsizes["tiny"], frameon=False, fancybox=True,
@@ -502,6 +543,26 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         self._fig.savefig(f"{self.output_filepath}_row{row_index}_ft.png", bbox_inches="tight")
+        output_text_to_file = True
+        if output_text_to_file:
+            try:
+                # Open the file in append mode
+                with (open(f"D:\\Data\\2024-04-01\\Outputs\\T1317_details.txt", 'a') as file):
+                    # Write the data to the file
+                    data_to_write = (f"{self.output_filepath}"
+                                     f","
+                                     f"{self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6/1e-9))]}"
+                                     f","
+                                     f"{self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6/1e-9))]}")
+                    file.write(data_to_write + '\n')  # Assuming 'data' is a string with two columns separated by a comma
+                    file.close()
+            except IOError:
+                print("Error: Unable to append data to the file.")
+            finally:
+                print(f"Data written to file:\n"
+                      f"\t- Before: {self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6 / 1e-9))]}\n"
+                      f"\t- After : {self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6 / 1e-9))]}"
+                      )
 
         # All additional functionality should be after here
         if interactive_plot:
@@ -510,8 +571,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                            select_plot_scheme)
             figure_manager.connect_events()
             figure_manager.wait_for_close()
-        else:
-            self._fig.savefig(f"{self.output_filepath}_row{row_index}_ft.png", bbox_inches="tight")
 
         plt.close(self._fig)
 
@@ -527,6 +586,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         """
         self._draw_figure(row_index, False, draw_regions_of_interest=False, publish_plot=False,
                           static_ylim=has_static_ylim)
+
+        self._tick_setter(self._axes, int(self.num_sites_total()/4), int(self.num_sites_total()/8), 3, 4,
+                          yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant())
+
+        self._axes.text(1.0, -0.095, f"{self.time_data[row_index]: .2f} ns", va='center',
+                        ha='right', transform=self._axes.transAxes, fontsize=self._fontsizes["small"])
+
+        self._fig.tight_layout()
 
         return self._fig
 
@@ -1642,39 +1709,81 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # plt.show()
         fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
 
-    def _fft_data(self, amplitude_data, spatial_spacing=None):
+    def _fft_data(self, input_data, spatial_spacing: bool = None, fft_window: str = False):
         """
-        Computes the FFT transform of a given signal, and also outputs useful data such as key frequencies.
+        Computes the discrete Fourier transform (DFT) of a given 1-D signal using FFT algorithms.
 
-        :param amplitude_data: Magnitudes of magnetic moments for a spin site
+        Regarding the returned `dft_samples`, if the `input_data` contains:
+            - spatial information then dft_samples will represent 'wavevectors', and be in units of inverse-length.
+            - temporal information then dft_samples will represent 'frequencies', and be in units of Hz.
 
-        :return: A tuple containing the frequencies [0], FFT [1] of a spin site. Also includes the  natural frequency
-        (1st eigenvalue) [2], and driving frequency [3] for the system.
+        Regarding the returned `discrete_fourier_transform`, it will contain the magnitudes of the DFT results. It will
+        be the absolute value of the DFT results; caution if the phase information is needed for subsequent analysis.
+
+        :param input_data: Magnitudes of a magnetic moment components for a given axis.
+        :param spatial_spacing: The lattice constant for the system for spatial data.
+        :param fft_window: Apply a window to the data before taking the FFT; default is a Hann window.
+
+        :return: A tuple containing the sample frequencies [0] and DFT results [1].
         """
 
-        # Find bin size by dividing the simulated time into equal segments based upon the number of data-points.
+        # Pad the data to greatly improve efficiency of the FFT computation
+        n_total = input_data.size
+        n_total_padded = sp.fft.next_fast_len(n_total)
+
+        # Find the bin size
         if spatial_spacing is None:
-            # Time-based FFTs
+            # For temporal: divide the simulated time into equally sized segments based upon the number of data-points.
             sample_spacing = (self.sim_time_max() / (self.num_dp_per_site() - 1))
-            # Compute the FFT
-            n = amplitude_data.size
-            normalised_data = amplitude_data
-
-            fourier_transform = sp.fftpack.rfft(normalised_data)
-            frequencies = sp.fftpack.rfftfreq(n, sample_spacing)
         else:
-            # Spatial-based FFTs
+            # For spatial: division of lattice is already known with the lattice constant
             sample_spacing = spatial_spacing
-            # Compute the FFT
-            n = amplitude_data.size
-            normalised_data = amplitude_data
 
-            fourier_transform = sp.fftpack.rfft(normalised_data)
-            frequencies = sp.fftpack.rfftfreq(n, sample_spacing)
+        # Data for DFT (create copy to avoid modifying original data)
+        data_to_process = input_data
 
-        return frequencies, fourier_transform
+        # Select a window for the FFT.
+        if fft_window is not None:
+            if isinstance(fft_window, str):
+                # For valid windows, see https://docs.scipy.org/doc/scipy/reference/signal.windows.html
+                window_func = getattr(sp.signal.windows, fft_window, "hann")
+                window = window_func(n_total)
+            elif callable(fft_window):
+                # Incase the user wants a custom window function
+                window = sp.signal.fft_window(n_total)
+            else:
+                # Default case
+                window = sp.signal.windows.hann(n_total)
 
-    def _choose_scaling(self, value, presets=None):
+            # *= doesn't work here for some reason without breaking subplots
+            data_to_process = data_to_process * window
+
+        # Perform the FFT
+        discrete_fourier_transform = sp.fft.fft(data_to_process, n_total_padded)
+
+        # Samples from the DFT.
+        dft_samples = sp.fft.fftfreq(n_total_padded, sample_spacing)
+
+        # Always skip the DC component at y[0] as I don't need the signal's mean value
+        if n_total_padded % 2 == 0:
+            # For N even, the elements `y = [1, N / 2 -1]` contain the positive-frequency terms with the final
+            # element `y = N / 2` containing the Nyquist frequency
+            positive_wavevector_indices = slice(1, n_total_padded // 2)
+        else:
+            # For N odd, the elements `y = [1, (N - 1) / 2]` contain the positive-frequency terms
+            positive_wavevector_indices = slice(1, (n_total_padded + 1) // 2)
+
+        # Only want positive wavevectors and their corresponding fourier transform. Must take absolute value of DFT.
+        discrete_fourier_transform = np.abs(discrete_fourier_transform[positive_wavevector_indices])
+        dft_samples = dft_samples[positive_wavevector_indices]
+
+        return dft_samples, discrete_fourier_transform
+
+
+    def _choose_scaling(self, value=None, subplot_to_scale=None, row_index=None, presets=None):
+        if value is None and subplot_to_scale is None:
+            exit(1)
+
         if presets is None:
             presets = {
                 'nano': [1e-9, r'$\mathrm{nm}$'],
@@ -1683,16 +1792,25 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 # Add as needed
             }
 
-        # Calculate the logarithm of the input value to determine its magnitude
-        log_value = np.log10(value)
+        if subplot_to_scale is not None:
+            value = subplot_to_scale.get_ylim()[1]
+            magnitude_value = int(np.floor(np.log10(value)))
+            # Convert uppermost y-tick label to a float, and compared against ylim (upper). If the uppermost tick is
+            # greater than ylim (upper) it means an automatic scientific notation conversion (10e-2 -> 1e01)
+            # occurred and needs to be undone.
+            if float(subplot_to_scale.get_yticklabels()[-2].get_text()) * 10 ** magnitude_value > value:
+                magnitude_value -= 1
+        else:
+            magnitude_value = int(np.floor(np.log10(value)))
 
         closest_preset_name, (closest_preset_value, closest_preset_tag) = min(presets.items(),
                                                                               key=lambda x: abs(
-                                                                                  log_value - np.log10(x[1][0])))
+                                                                                  magnitude_value - np.log10(x[1][0])))
 
         # Generate labels and values for closest preset and raw value
         closest_preset_exp = int(np.log10(closest_preset_value))
-        value_exp = int(np.log10(value))
+        # This gives us the order, so the +1 is required so we can plot across all values in this order
+        # e.g. if value_exp = -3 (i.e. 1e-3 order)
 
         closest_preset_labels = [
             r'$\times \mathcal{10}^{' + f'{closest_preset_exp}' + '}$',
@@ -1701,8 +1819,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ]
 
         value_labels = [
-            r'$\times \mathcal{10}^{' + f'{value_exp}' + '}$',
-            r'$\mathcal{10}^{' + f'{value_exp}' + '}$'
+            r'$\times \mathcal{10}^{' + f'{magnitude_value}' + '}$',
+            r'$\mathcal{10}^{' + f'{magnitude_value}' + '}$'
         ]
 
         return closest_preset_labels, value_labels, closest_preset_value
@@ -1728,7 +1846,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             if xaxis_rescale is not None:
                 x_major *= xaxis_rescale
                 x_minor *= xaxis_rescale
-                x_scaled_labels, x_major_labels, x_major_scaled = self._choose_scaling(x_major)
+                x_scaled_labels, x_major_labels, x_major_scaled = self._choose_scaling(value=x_major)
                 rescaled_dif = xaxis_rescale / x_major_scaled
 
                 shift = -self.num_sites_total()/2
@@ -1945,17 +2063,17 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ########################################
         # Key values and computations that are common to both systems
         hz_2_GHz, hz_2_THz, m_2_nm = 1e-9, 1e-12, 1e9
-        # mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
+        mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
-        external_field_moon = 0.4  # exchange_field = [8.125, 32.5]  # [T]
+        external_field_moon = 0.2  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 29.2e9  # 28.8e9
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 4e-6  # metres 4e-6
+        system_len_moon = 9.2e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
-        exc_stiff_moon = 2 * 1.3e-11  # J/m
+        exc_stiff_moon = 1.6 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 0.2e-3  # 1.0e-3
+        dmi_val_const_moon = 0.4e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
@@ -1985,15 +2103,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
             # Output controls
             should_print_only_matches = True
-            should_print_only_half_ints = True
+            should_print_only_half_ints = False
             should_highlight_all_matches = True
             should_highlight_half_ints = True
 
             # TODO. Add filter for for closest half-int match
-            filter_for_closest_matching_wavelength = True
-            filter_for_closest_matching_frequency = False
+            filter_for_closest_matching_wavelength = False
+            filter_for_closest_matching_frequency = True
 
-            print_cutoff_freq = [8, 30]  # must be in GHz
+            print_cutoff_freq = [12, 20]  # must be in GHz
 
             use_original_wavenumbers = True
             use_relative_atol = True
@@ -2009,7 +2127,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             wv_tol = 10 * 10 ** -wv_rnd
             freq_atol = 10 * 10 ** -fq_rnd
             freq_rtol = 5e-3
-            half_int_atol = 5e-2
+            half_int_atol = 10e-2
 
             # Calculate all wavevectors in system
             wavevector_array = (2 * num_spins_array * np.pi) / system_len
