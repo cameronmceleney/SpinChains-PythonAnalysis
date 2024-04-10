@@ -43,10 +43,10 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = True
     _has_numeric_suffix = True
-    filename_base = "1946"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "0231"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2024-04-02", "2024-04-02")
+    system_setup.detect_os(False, "2024-04-08", "2024-04-08")
 
     def generate_filenames():
         if _has_numeric_suffix:
@@ -66,9 +66,9 @@ if __name__ == '__main__':
                                        output_dir_path=system_setup.output_dir(), file_prefix="rk2",
                                        file_component='mx', file_identifier="T", auto_run=True)
             analyseDataset.process_data()
-            analyseDataset.call_methods(override_function="sfft", override_method="pf", override_site=500,
+            analyseDataset.call_methods(override_function="te", override_method="pf", override_site=5701,
                                         early_exit=True, loop_function=True, mass_produce=True,
-                                        interactive_mode=False)
+                                        interactive_mode=True)
 
             suffix = increment_suffix(suffix, _has_numeric_suffix)
 
@@ -107,7 +107,7 @@ if __name__ == '__main__':
                                  output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
                                  file_identifier="T", auto_run=True)
             dataset1.process_data()
-            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=500, early_exit=True,
+            dataset1.call_methods(override_method="pf", override_function="te", override_site=3501, early_exit=True,
                                   loop_function=True, mass_produce=False, interactive_mode=True)
             exit(0)
     elif _should_use_eigens:

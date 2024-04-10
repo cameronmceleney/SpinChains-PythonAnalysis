@@ -160,7 +160,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         _, y_major_labels, _ = self._choose_scaling(subplot_to_scale=self._axes)
         self._axes.set(ylabel=f"m$_x$ (a.u. " + y_major_labels[1] + ")")
 
-
         if publish_plot:
             self._axes.text(-0.04, 0.96, r'$\times \mathcal{10}^{{\mathcal{-3}}}$', va='center',
                             ha='center', transform=self._axes.transAxes, fontsize=6)
@@ -452,9 +451,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
                                    'um'],
                 'ax2_xlim': [0.0, 0.15],
-                'ax2_ylim': [1e-4, 1e1],
+                'ax2_ylim': [1e-4, 1e2],
                 'ax3_xlim': [-0.15, 0.15],
-                'ax3_ylim': [0, 20],
+                'ax3_ylim': [0, 25],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
                                  int(self.driving_region_lhs - 1)],
                 'signal2_xlim': [int(self.driving_region_rhs + 1),
@@ -614,6 +613,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                    frames_per_second: float = 10, has_static_ylim: bool = False) -> None:
         frame_filenames = []
 
+        if has_static_ylim:
+            self._yaxis_lim_fix = self.amplitude_data[-1, :].max() * self._yaxis_lim
+
         for index in range(0, int(self.num_dp_per_site + 1), int(self.num_dp_per_site * number_of_frames)):
             frame = self._plot_paper_gif(index, has_static_ylim=has_static_ylim)
             frame_filename = f"{self.output_filepath}_{index}.png"
@@ -664,7 +666,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         # Setup figure environment
         if self._fig is None:
-            self._fig = plt.figure(figsize=(4.5, 3.375))
+            self._fig = plt.figure(figsize=(4.5*2, 3*3.375))
 
         num_rows = 2
         num_cols = 3
@@ -691,6 +693,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         select_colour_scheme = 2
         is_colour_matte = False
         selected_scheme = colour_schemes[select_colour_scheme]
+        prev_max_t = self.sim_time_max() * 1e9
+        self.sim_time_max.update(prev_max_t)
 
         ########################################
         # All times in nanoseconds (ns)
@@ -716,7 +720,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             1: {  # Jiahui T0941/T1107_site3
                 'signal_xlim': (0.0, self.sim_time_max),
                 'ax1_xlim': [0.0, 1.50 - 0.00001],
-                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
+                             self.amplitude_data[:, site_index].max() * self._yaxis_lim],
                 'ax1_inset_xlim': [0.01, 0.02],
                 'ax1_inset_ylim': [-2e-4, 2e-4],
                 'ax1_inset_width': 1.95,
@@ -732,9 +737,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
             },
             2: {  # Jiahui T0941/T1107_site1
-                'signal_xlim': (0.0, self.sim_time_max),
+                'signal_xlim': (0.0, self.sim_time_max()),
                 'ax1_xlim': [0.0, 1.50 - 0.00001],
-                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
+                             self.amplitude_data[:, site_index].max() * self._yaxis_lim],
                 'ax1_inset_xlim': [0.01, 0.02],
                 'ax1_inset_ylim': [-2e-4, 2e-4],
                 'ax1_inset_width': 1.95,
@@ -750,19 +756,20 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
             },
             3: {  # Test for me
-                'signal_xlim': (0.0, self.sim_time_max),
-                'ax1_xlim': [0.0, self.sim_time_max - 0.00001],
-                'ax1_ylim': [self.amplitude_data[:, site_index].min(), self.amplitude_data[:, site_index].max()],
+                'signal_xlim': (0.0, self.sim_time_max()),
+                'ax1_xlim': [0, 4],
+                'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
+                             self.amplitude_data[:, site_index].max() * self._yaxis_lim],
                 'ax1_inset_xlim': [0.01, 0.02],
                 'ax1_inset_ylim': [-2e-4, 2e-4],
                 'ax1_inset_width': 1.95,
                 'ax1_inset_height': 0.775,
                 'ax1_inset_bbox': [0.08, 0.975],
-                'ax2_xlim': [0.0001, 99.9999],
-                'ax2_ylim': [1e-2, 1e1],  # A            B            C            D           E
-                'precursor_xlim': (0.3, 1.2),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
-                'signal_onset_xlim': (0.0, 0.3),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
-                'equilib_xlim': (0.00, 0.00),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'ax2_xlim': [0.0001, 119.9999],
+                'ax2_ylim': [1e-5, 1e1],  # A            B            C            D           E
+                'precursor_xlim': (0.052, 0.95),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
+                'signal_onset_xlim': (1.6, 4.0),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'equilib_xlim': (2.5, 4.0),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
                 'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
@@ -821,7 +828,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)", yscale='log',
                 xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'], )
 
-        self._tick_setter(ax1, 0.5, 0.25, 3, 4, xaxis_num_decimals=1.1,
+        self._tick_setter(ax1, 0.05, 0.01, 3, 4, xaxis_num_decimals=1.2,
                           show_sci_notation=True)
         ax2_xlim_round = round(select_plot_scheme['ax2_xlim'][1], 0)
         self._tick_setter(ax2, int(ax2_xlim_round / 5), int(ax2_xlim_round / 10), 3, None,
@@ -829,7 +836,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         if ax1_xlim_lower > ax1_xlim_upper:
-            exit(0)
+            raise(ValueError(f"Lower limit of x-axis is greater than upper limit: {ax1_xlim_lower} > {ax1_xlim_upper}"))
 
         def convert_norm(val, a=0, b=1):
             # Magic. Don't touch! Normalises precursor region so that both wavepackets and feature can be defined using
@@ -853,9 +860,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             ax1_colour_matte = precursor_colour = shock_colour = equil_colour = selected_scheme['ax1_colour_matte']
         else:
             ax1_colour_matte = selected_scheme['ax1_colour_matte']
-            precursor_colour = selected_scheme['precursor_colour']
-            shock_colour = selected_scheme['shock_colour']
-            equil_colour = selected_scheme['equil_colour']
+            precursor_colour = selected_scheme['signal1_colour']
+            shock_colour = selected_scheme['signal2_colour']
+            equil_colour = selected_scheme['signal3_colour']
 
         ax1.plot(self.time_data[:], self.amplitude_data[:, site_index],
                  ls='-', lw=0.75, color=f'{ax1_colour_matte}', alpha=0.5,
@@ -870,6 +877,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                      self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index],
                      ls='-', lw=0.75, color=f'{shock_colour}', label=f"{self.sites_array[site_index]}",
                      markerfacecolor='black', markeredgecolor='black', zorder=1.1)
+
+            self.find_local_extrema(self.amplitude_data[700:800, site_index], 750, 50,
+                                    max_maxima=10, max_min_tolerance=40)
+
         if not equil_xlim_min == equil_xlim_max:
             ax1.plot(self.time_data[equil_xlim_min:equil_xlim_max],
                      self.amplitude_data[equil_xlim_min:equil_xlim_max, site_index],
@@ -879,25 +890,37 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ########################################
         # Access colour scheme again for FFT of time evolution
         # ax2_colour_matte = selected_scheme['ax2_colour_matte']
-        precursor_colour = selected_scheme['precursor_colour']
-        shock_colour = selected_scheme['shock_colour']
-        equil_colour = selected_scheme['equil_colour']
+        precursor_colour = selected_scheme['signal1_colour']
+        shock_colour = selected_scheme['signal2_colour']
+        equil_colour = selected_scheme['signal3_colour']
 
         if not precursors_xlim_min == precursors_xlim_max:
-            frequencies_precursors, fourier_transform_precursors = (
-                self._fft_data(self.amplitude_data[precursors_xlim_min:precursors_xlim_max, site_index]))
+            frequencies_precursors, fourier_transform_precursors = self._fft_data(
+                self.amplitude_data[precursors_xlim_min:precursors_xlim_max, site_index],
+                fft_window='hamming')
+
             ax2.plot(frequencies_precursors, abs(fourier_transform_precursors),
                      lw=1, color=f"{precursor_colour}", marker='', markerfacecolor='black', markeredgecolor='black',
                      label=data_names[0], zorder=1.5)
+
         if not shock_xlim_min == shock_xlim_max:
-            frequencies_dsw, fourier_transform_dsw = (
-                self._fft_data(self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index]))
+            frequencies_dsw, fourier_transform_dsw = self._fft_data(
+                self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index], fft_window='hamming')
+
+            max_val_in_fft = max(abs(fourier_transform_dsw))
+            max_val_in_fft_index = np.where(abs(fourier_transform_dsw) == max_val_in_fft)
+            print(f",{max_val_in_fft}  )")
+            print(f"\t- FFT | Frequency: {frequencies_dsw[max_val_in_fft_index[0]][0]} (GHz) | Value: {max_val_in_fft}")
+
             ax2.plot(frequencies_dsw, abs(fourier_transform_dsw),
                      lw=1, color=f'{shock_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
                      label=data_names[1], zorder=1.2)
+
         if not equil_xlim_min == equil_xlim_max:
-            frequencies_eq, fourier_transform_eq = (
-                self._fft_data(self.amplitude_data[equil_xlim_min:convert_norm(signal_xlim_max), site_index]))
+            frequencies_eq, fourier_transform_eq = self._fft_data(
+                self.amplitude_data[equil_xlim_min:convert_norm(signal_xlim_max), site_index],
+                fft_window='hamming')
+
             ax2.plot(frequencies_eq, abs(fourier_transform_eq),
                      lw=1, color=f'{equil_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
                      label=data_names[2], zorder=1.1)
@@ -917,11 +940,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ########################################
         if wavepacket_fft:
             wavepacket1_freqs, wavepacket1_fft = self._fft_data(
-                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index])
+                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index], fft_window='hamming')
             wavepacket2_freqs, wavepacket2_fft = self._fft_data(
-                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index])
+                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index], fft_window='hamming')
             wavepacket3_freqs, wavepacket3_fft = self._fft_data(
-                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index])
+                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index], fft_window='hamming')
 
             ax2.plot(wavepacket1_freqs, abs(wavepacket1_fft), marker='', lw=1, color=f'{precursor_colour}',
                      markerfacecolor='black', markeredgecolor='black', ls=':', zorder=1.9)
@@ -1118,7 +1141,112 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig.canvas.mpl_connect('button_press_event', mouse_event)
             plt.show()
 
-        self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
+        #self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
+
+    def find_local_extrema(self, data_to_test, target_idx: int, idx_range_to_search: int, max_maxima: int = None,
+                           max_min_tolerance: int = 0) -> None:
+        range_offset = target_idx - idx_range_to_search
+
+        # Containers to hold min and max index/value pairs
+        local_maxima, local_minima = [], []
+
+        for i in range(1, len(data_to_test) - 1):
+            if data_to_test[i - 1] < data_to_test[i] > data_to_test[i + 1]:
+                # Found a local maxima
+                local_maxima.append((i, data_to_test[i]))
+                if max_maxima and len(local_maxima) >= max_maxima:
+                    print(f"Warning. Maxima limit reached: {max_maxima}")
+                    break
+
+            if data_to_test[i - 1] > data_to_test[i] < data_to_test[i + 1]:
+                # Found a local minima
+                local_minima.append((i, data_to_test[i]))
+
+        # Check for absence of maxima or minima
+        if not local_maxima:
+            raise ValueError("No maxima found in the set range")
+        if not local_minima:
+            raise ValueError("No minima found in the set range")
+
+        # Find the maxima closest to the target index (ensures we select the maximum closest to our desired timestamp)
+        closest_max = min(local_maxima, key=lambda x: abs((x[0] + range_offset) - target_idx))
+        max_idx = closest_max[0]
+        local_max_idx_pos = np.where(local_maxima == closest_max[1])[0][0]
+
+        # Check for adjacent maxima
+        adjacent_maxima = [local_maxima[local_max_idx_pos-1],
+                           local_maxima[local_max_idx_pos],
+                           local_maxima[local_max_idx_pos+1]] #  [m for m in local_maxima if m[0] in [max_idx - 1, max_idx + 1]]
+        maxima_threshold = 1.2  # if adjacents are 20% greater than the target maxima, we select the adjacent maxima
+        if adjacent_maxima[2][1] / local_maxima[1][1] > maxima_threshold:
+            closest_max = adjacent_maxima[2]
+            max_idx = closest_max[0]
+        elif adjacent_maxima[0][1] / local_maxima[1][1] > maxima_threshold:
+            closest_max = adjacent_maxima[0]
+            max_idx = closest_max[0]
+        # if adjacent_maxima:
+        #     # Comparing amplitude with a weighted average of the current maxima and adjacent minima
+        #     ref_val = abs(closest_max[1]) + sum(
+        #         abs(min_val[1]) for min_val in local_minima if abs(min_val[0] - max_idx) <= max_min_tolerance) / len(
+        #         adjacent_maxima)
+        #     for adj_max in adjacent_maxima:
+        #         if abs(adj_max[1]) > ref_val:
+        #             closest_max = adj_max  # Update to a more prominent adjacent maxima if it surpasses the reference value
+
+        max_idx_global = max_idx + range_offset
+
+        # Find the minima closest to this maxima (we want adjacent minima and maxima)
+        if max_min_tolerance > 0:
+            # Refine the search for minima considering the tolerance and closeness to both maxima and target_idx
+            is_scoring_needed = True
+
+            minima_below = [(idx, val) for idx, val in local_minima if idx <= max_idx]
+            minima_above = [(idx, val) for idx, val in local_minima if idx > max_idx]
+
+            if not minima_below or not minima_above:
+                raise ValueError("Not enough minima found around the maxima")
+
+                # Find closest minima below and above
+            closest_min_below = min(minima_below, key=lambda x: abs(x[0] - max_idx))
+            closest_min_above = min(minima_above, key=lambda x: abs(x[0] - max_idx))
+            # Prepare the minima list for scoring, applying the tolerance check
+            viable_minima = []
+            for minima in [closest_min_below, closest_min_above]:
+                if abs(minima[0] - max_idx) <= max_min_tolerance:
+                    viable_minima.append(minima)
+
+            if not viable_minima:
+                raise ValueError("No viable minima within tolerance found")
+
+            # Scoring minima based on proximity to closest_max and target_idx
+            if is_scoring_needed or not is_scoring_needed:
+                scores = []
+                for min_idx, val in viable_minima:
+                    score = 0
+                    score += 1 if min_idx == min(viable_minima, key=lambda x: abs(x[0] - max_idx))[0] else 0
+                    score += 2 if min_idx == min(viable_minima, key=lambda x: abs(x[0] + range_offset - target_idx))[0] else 0
+                    scores.append((score, min_idx, val))
+
+                # Select minima with the highest score and turn back into index/value pair
+                scores.sort(reverse=True, key=lambda x: x[0])
+                closest_min = scores[0][1:]
+                min_idx_global = closest_min[0] + range_offset
+
+        else:
+            closest_min = min(local_minima, key=lambda x: abs(x[0] - closest_max[0]))
+            min_idx_global = closest_min[0] + range_offset
+            exit(1)
+
+        # Calculate times from indices
+        max_time = max_idx_global * self.sim_time_max() / self.num_dp_per_site()
+        min_time = min_idx_global * self.sim_time_max() / self.num_dp_per_site()
+
+        # Print the results
+        print(f"Key Values\n"
+              f"\t- Maxima | Index: {max_idx_global} | Time: {max_time} ns | Value: {closest_max[1]}\n"
+              f"\t- Minima | Index: {min_idx_global} | Time: {min_time} ns | Value: {closest_min[1]}\n"
+              f"\t\t(  {closest_min[1]},{closest_max[1]}", end=''
+              )
 
     def plot_heaviside_and_dispersions(self, dispersion_relations: bool = True, use_dual_signal_inset: bool = False,
                                        show_group_velocity_cases: bool = False, dispersion_inset: bool = False,
