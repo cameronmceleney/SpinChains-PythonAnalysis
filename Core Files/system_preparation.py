@@ -63,7 +63,8 @@ class SystemSetup:
         self.input_dir_name = ''
         self.output_dir_name = ''
 
-    def detect_os(self, use_default=True, custom_input_dir_name='', custom_output_dir_name=''):
+    def detect_os(self, use_default=True, download_for_onedrive: bool = False,
+                  custom_input_dir_name='', custom_output_dir_name=''):
         """
         Detect the user's operating system.
 
@@ -84,19 +85,25 @@ class SystemSetup:
             raise SystemError("Detected Linux, which is not yet supported.")
 
         elif sys.platform == "darwin":
-            if platform.processor() == 'arm':
-                # This is my M3 Pro Macbook
-                mac_dir_root = "/Users/cameronmceleney/Data/"
+            if download_for_onedrive:
+                mac_dir_root_in = "/Users/cameronmceleney/OneDrive - University of Glasgow/Data/2024/"
+                mac_dir_root_out = "/Users/cameronmceleney/Data/"
             else:
-                # OS X. This is the permanent location on my Intel Macbook
-                mac_dir_root = "/Users/cameronaidanmceleney/CLionProjects/Data/"
+                if platform.processor() == 'arm':
+                    # This is my M3 Pro Macbook
+                    mac_dir_root_in = "/Users/cameronmceleney/Data/"
+                    mac_dir_root_out = "/Users/cameronmceleney/Data/"
+                else:
+                    # OS X. This is the permanent location on my Intel Macbook
+                    mac_dir_root_in = "/Users/cameronaidanmceleney/CLionProjects/Data/"
+                    mac_dir_root_out = "/Users/cameronaidanmceleney/CLionProjects/Data/"
 
             if not self.has_target_dir_been_found:
-                self._create_directory(mac_dir_root, self.input_dir_name)
+                self._create_directory(mac_dir_root_in, self.input_dir_name)
 
-            self.input_data_directory = f"{mac_dir_root}{self.input_dir_name}/Simulation_Data/"
-            self.output_data_directory = f"{mac_dir_root}{self.output_dir_name}/Outputs/"
-            self.logging_directory = f"{mac_dir_root}{self.input_dir_name}/Logs/"
+            self.input_data_directory = f"{mac_dir_root_in}{self.input_dir_name}/Simulation_Data/"
+            self.output_data_directory = f"{mac_dir_root_out}{self.output_dir_name}/Outputs/"
+            self.logging_directory = f"{mac_dir_root_out}{self.output_dir_name}/Logs/"
 
         elif sys.platform == "win32" or sys.platform == "win64":
             # Windows. This is the permanent location on my desktop
