@@ -666,7 +666,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         # Setup figure environment
         if self._fig is None:
-            self._fig = plt.figure(figsize=(4.5*2, 3*3.375))
+            self._fig = plt.figure(figsize=(4.5, 3.375))
 
         num_rows = 2
         num_cols = 3
@@ -677,6 +677,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                rowspan=num_rows, colspan=num_cols, fig=self._fig)
 
         self._fig.subplots_adjust(wspace=1, hspace=0.35)
+        self.sim_time_max *= 1e9
 
         ax1.xaxis.labelpad = -1
         ax2.xaxis.labelpad = -1
@@ -693,8 +694,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         select_colour_scheme = 2
         is_colour_matte = False
         selected_scheme = colour_schemes[select_colour_scheme]
-        prev_max_t = self.sim_time_max() * 1e9
-        self.sim_time_max.update(prev_max_t)
 
         ########################################
         # All times in nanoseconds (ns)
@@ -797,9 +796,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'wp3_xlim': (0.442, 0.4605)
             },
             2: {  # mceleney2023dispersive Fig. 3a-b [2022-08-08/T1400_site3000]
-                'wp1_xlim': (0.01, 0.02),
-                'wp2_xlim': (0.02, 0.03),
-                'wp3_xlim': (0.03, 0.04)
+                'wp1_xlim': (0.01, 0.01),
+                'wp2_xlim': (0.02, 0.02),
+                'wp3_xlim': (0.03, 0.03)
             }
             # ... add more wavepacket schemes as needed
         }

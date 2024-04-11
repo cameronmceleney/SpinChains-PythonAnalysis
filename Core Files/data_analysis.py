@@ -1185,7 +1185,7 @@ class CallMethods:
                             #                                          publication_details=False,
                             #                                          interactive_plot=self.interactive_mode)
 
-                            paper_fig.find_degenerate_modes(find_modes=True, use_demag=True,
+                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=True,
                                                             interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 
