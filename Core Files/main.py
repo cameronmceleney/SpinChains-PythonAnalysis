@@ -43,10 +43,10 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = True
     _has_numeric_suffix = True
-    filename_base = "0231"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1637"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, "2024-04-08", "2024-04-08")
+    system_setup.detect_os(False, True, "2024-03-22", "2024-03-22")
 
     def generate_filenames():
         if _has_numeric_suffix:
@@ -66,9 +66,9 @@ if __name__ == '__main__':
                                        output_dir_path=system_setup.output_dir(), file_prefix="rk2",
                                        file_component='mx', file_identifier="T", auto_run=True)
             analyseDataset.process_data()
-            analyseDataset.call_methods(override_function="te", override_method="pf", override_site=5701,
+            analyseDataset.call_methods(override_function="te", override_method="pf", override_site=3501,
                                         early_exit=True, loop_function=True, mass_produce=True,
-                                        interactive_mode=True)
+                                        interactive_mode=False)
 
             suffix = increment_suffix(suffix, _has_numeric_suffix)
 
@@ -107,8 +107,8 @@ if __name__ == '__main__':
                                  output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
                                  file_identifier="T", auto_run=True)
             dataset1.process_data()
-            dataset1.call_methods(override_method="pf", override_function="te", override_site=3501, early_exit=True,
-                                  loop_function=True, mass_produce=False, interactive_mode=True)
+            dataset1.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True,
+                                  loop_function=True, mass_produce=False, interactive_mode=False)
             exit(0)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())

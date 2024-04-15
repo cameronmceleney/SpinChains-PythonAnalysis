@@ -453,7 +453,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax2_xlim': [0.0, 0.15],
                 'ax2_ylim': [1e-4, 1e2],
                 'ax3_xlim': [-0.15, 0.15],
-                'ax3_ylim': [0, 25],
+                'ax3_ylim': [10, 40],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
                                  int(self.driving_region_lhs - 1)],
                 'signal2_xlim': [int(self.driving_region_rhs + 1),
@@ -756,7 +756,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             },
             3: {  # Test for me
                 'signal_xlim': (0.0, self.sim_time_max()),
-                'ax1_xlim': [0, 4],
+                'ax1_xlim': [0.0, self.sim_time_max()],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
                              self.amplitude_data[:, site_index].max() * self._yaxis_lim],
                 'ax1_inset_xlim': [0.01, 0.02],
@@ -767,7 +767,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax2_xlim': [0.0001, 119.9999],
                 'ax2_ylim': [1e-5, 1e1],  # A            B            C            D           E
                 'precursor_xlim': (0.052, 0.95),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
-                'signal_onset_xlim': (1.6, 4.0),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'signal_onset_xlim': (1.6, 20),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
                 'equilib_xlim': (2.5, 4.0),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
@@ -877,8 +877,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                      ls='-', lw=0.75, color=f'{shock_colour}', label=f"{self.sites_array[site_index]}",
                      markerfacecolor='black', markeredgecolor='black', zorder=1.1)
 
-            self.find_local_extrema(self.amplitude_data[700:800, site_index], 750, 50,
-                                    max_maxima=10, max_min_tolerance=40)
+            self.find_significant_wave(target_idx=[175, site_index], search_range=[162, 188])
+            #self.find_local_extrema(self.amplitude_data[700:800, site_index], 750, 50,
+            #                        max_maxima=10, max_min_tolerance=40)
 
         if not equil_xlim_min == equil_xlim_max:
             ax1.plot(self.time_data[equil_xlim_min:equil_xlim_max],
@@ -908,8 +909,38 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
             max_val_in_fft = max(abs(fourier_transform_dsw))
             max_val_in_fft_index = np.where(abs(fourier_transform_dsw) == max_val_in_fft)
-            print(f",{max_val_in_fft}  )")
-            print(f"\t- FFT | Frequency: {frequencies_dsw[max_val_in_fft_index[0]][0]} (GHz) | Value: {max_val_in_fft}")
+            match_freq_for_max_val = frequencies_dsw[max_val_in_fft_index[0]][0]
+            placeholder_dsw_fft = []
+
+            if match_freq_for_max_val < round(29.2 * self.bias_zeeman_static(), 0):
+                placeholder_dsw_fft = [max_val_in_fft_index, match_freq_for_max_val, max_val_in_fft]
+
+                abs_fft_vals = abs(fourier_transform_dsw)
+                sorted_fft_vals = np.sort(abs_fft_vals)
+                reversed_fft_vals = sorted_fft_vals[::-1]
+
+                for val in reversed_fft_vals:
+                    idx_of_valid_freq = np.where(abs(fourier_transform_dsw) == val)
+                    match_freq_val = frequencies_dsw[idx_of_valid_freq[0]][0]
+
+                    if match_freq_val > round(29.2 * self.bias_zeeman_static(), 0):
+                        max_val_in_fft = val
+                        max_val_in_fft_index = np.where(abs(fourier_transform_dsw) == max_val_in_fft)
+                        match_freq_for_max_val = frequencies_dsw[max_val_in_fft_index[0]][0]
+                        break
+
+                print(f",{max_val_in_fft}  )")
+                print(f'\n[Warning: Global max is invalid (Freq: {placeholder_dsw_fft[1]: .4f} | Mag.: {placeholder_dsw_fft[2]:.4f})\n'
+                      f'\t- Using first valid value (Freq: {match_freq_for_max_val: .4f} | Mag.: {max_val_in_fft: .4f})]\n')
+            else:
+                print(f",{max_val_in_fft}  )")
+            print(f"\t- FFT | Frequency: {match_freq_for_max_val: .4f} (GHz) | Value: {max_val_in_fft: .4f}")
+
+            with (open(f"/Users/cameronmceleney/Data/2024-03-22/T1637_key_details_lhs.txt", 'a') as file):
+                # Write the data to the file
+                data_to_write = (f"{max_val_in_fft}")
+                file.write(data_to_write + '\n')  # Assuming 'data' is a string with two columns separated by a comma
+                file.close()
 
             ax2.plot(frequencies_dsw, abs(fourier_transform_dsw),
                      lw=1, color=f'{shock_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
@@ -1141,6 +1172,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             plt.show()
 
         #self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
+        plt.close(self._fig)
 
     def find_local_extrema(self, data_to_test, target_idx: int, idx_range_to_search: int, max_maxima: int = None,
                            max_min_tolerance: int = 0) -> None:
@@ -1246,6 +1278,63 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
               f"\t- Minima | Index: {min_idx_global} | Time: {min_time} ns | Value: {closest_min[1]}\n"
               f"\t\t(  {closest_min[1]},{closest_max[1]}", end=''
               )
+
+    def find_significant_wave(self, target_idx, search_range):
+        # Peaks and troughs detection in the subset
+        peaks, properties = sp.signal.find_peaks(self.amplitude_data[search_range[0]:search_range[1], target_idx[1]],
+                                                 height=0, prominence=(None, None))
+        troughs, _ = sp.signal.find_peaks(-self.amplitude_data[search_range[0]:search_range[1], target_idx[1]],
+                                          height=0, prominence=(None, None))  # Finding minima by inverting data
+
+        if len(peaks) == 0 or len(troughs) == 0:
+            raise ValueError("No peaks or troughs found in the subset data.")
+
+            # Finding closest peak and neighbors
+        closest_peak_index = np.argmin(abs(peaks - (target_idx[0] - search_range[0])))
+        peak_indices = [max(0, closest_peak_index - 1), closest_peak_index, min(len(peaks) - 1, closest_peak_index + 1)]
+
+        # Evaluate amplitudes for the selected peaks and their nearest troughs
+        peak_trough_pairs = []
+        for index in peak_indices:
+            peak = peaks[index]
+            # Finding adjacent troughs for each peak
+            troughs_before = troughs[troughs < peak]
+            troughs_after = troughs[troughs > peak]
+            if troughs_before.size == 0 or troughs_after.size == 0:
+                continue  # Skip this peak if no adjacent troughs
+
+            closest_trough_before = troughs_before[-1]
+            closest_trough_after = troughs_after[0]
+
+            # Calculate amplitude for both trough combinations and select the higher one∫
+            amplitude_before = abs(self.amplitude_data[peak + search_range[0], target_idx[1]] - self.amplitude_data[closest_trough_before + search_range[0], target_idx[1]])
+            amplitude_after = abs(self.amplitude_data[peak + search_range[0], target_idx[1]] - self.amplitude_data[closest_trough_after + search_range[0], target_idx[1]])
+            if amplitude_before > amplitude_after:
+                peak_trough_pairs.append((peak, closest_trough_before, amplitude_before))
+            else:
+                peak_trough_pairs.append((peak, closest_trough_after, amplitude_after))
+
+        # Select the peak/trough pair with the largest amplitude
+        if not peak_trough_pairs:
+            raise ValueError("No valid peak/trough pairs found.")
+        #print(peak_trough_pairs)
+        significant_peak, significant_trough, max_amplitude = max(peak_trough_pairs, key=lambda x: x[2])
+
+        # Compile results into single array; more readable
+        key_peak = [significant_peak + search_range[0], self.amplitude_data[significant_peak + search_range[0], target_idx[1]]]
+        key_trough = [significant_trough + search_range[0], self.amplitude_data[significant_trough + search_range[0], target_idx[1]]]
+
+        print(f"Key Values\n"
+              f"\t- Maxima | Index: {key_peak[0]} | Time: {self.time_data[key_peak[0]]:.3f} ns | Value: {key_peak[1]}\n"
+              f"\t- Minima | Index: {key_trough[0]} | Time: {self.time_data[key_trough[0]]:.3f} ns | Value: {key_trough[1]}\n"
+              f"\t\t(  {key_peak[1]},{key_trough[1]}", end=''
+              )
+
+        with (open(f"/Users/cameronmceleney/Data/2024-03-22/T1637_key_details_lhs.txt", 'a') as file):
+            # Write the data to the file
+            data_to_write = (f"{key_peak[1]},{key_trough[1]}")
+            file.write(data_to_write + ',')
+            file.close()
 
     def plot_heaviside_and_dispersions(self, dispersion_relations: bool = True, use_dual_signal_inset: bool = False,
                                        show_group_velocity_cases: bool = False, dispersion_inset: bool = False,
@@ -2559,10 +2648,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             exit(0)
 
         else:
-            print(f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} |"
-                  f" Exchange field [T]: {exchange_field} | External field [T]: {external_field} |"
-                  f" Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9} | System length [um]: {system_len * 1e6} |"
-                  f" Sites: {round(system_len / lattice_constant)}")
+            print(f"Lattice constant [nm]: {lattice_constant * 1e9:.2f} | DMI constant [T]: +/- {dmi_val_const:.2f} |"
+                  f" Exchange field [T]: {exchange_field:.2f} | External field [T]: {external_field:.2f} |"
+                  f" Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9:.2f} | System length [um]: {system_len * 1e6:.2f} |"
+                  f" Sites: {round(system_len / lattice_constant):.2f}")
 
             # Plot dispersion relations
             self._fig.suptitle('Dispersion Relation')
@@ -2582,7 +2671,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                          label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
                 ax1.set(xlabel="Wavevector (nm$^{-1}$)",
-                        ylabel='Frequency (GHz)', xlim=[-0.4, 0.4], ylim=[8, 30])
+                        ylabel='Frequency (GHz)', xlim=[-0.4, 0.4], ylim=[0, 30])
                 self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
                                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
 
