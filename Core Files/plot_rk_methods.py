@@ -330,7 +330,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
         wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
 
-        if (self.has_dmi and self.is_dmi_only_within_map and self.has_dmi_map
+        if (self.has_dmi and (isinstance(self.is_dmi_only_within_map(), bool) and self.is_dmi_only_within_map()) and
+                isinstance((self.has_dmi_map, bool) and self.has_dmi_map())
                 and (signal_xlims[0] < self.driving_region_lhs() or signal_xlims[1] > self.driving_region_rhs())):
             # If the system has a valid DMI map which this region is out with then set the DMI to zero
             region_dmi = 0.0
@@ -384,7 +385,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         scatter_x = -wavevectors if negative_wavevector else wavevectors
         ax[2].scatter(scatter_x, frequencies,
-                      c=scalar_map.to_rgba(fourier_transform), s=12, marker='.',
+                      c=scalar_map.to_rgba(fourier_transform/0.0053), s=12, marker='.',
                       label=f"Segment {signal_index}", zorder=zorder_to_use)
 
     def _plot_cleanup(self, axis=None):
@@ -439,9 +440,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         for i in range(0, 3):
             ax_subplots.append(plt.subplot2grid((num_rows, num_cols), (i, 0), rowspan=1,
                                                 colspan=num_cols, fig=self._fig))
-
+        self.amplitude_data *= 1e2
         self._fig.subplots_adjust(wspace=1, hspace=0.4, bottom=0.2)
-
+        self.driving_region_lhs += 300
+        self.driving_region_rhs += 300
         ########################################
         # Nested Dict to enable many cases (different plots and papers)
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
@@ -450,10 +452,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'signal_rescale': [-int(self.num_sites_total() / 2), int(self.num_sites_total() / 2)],
                 'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
                                    'um'],
-                'ax2_xlim': [0.0, 0.15],
-                'ax2_ylim': [1e-4, 1e2],
-                'ax3_xlim': [-0.15, 0.15],
-                'ax3_ylim': [10, 40],
+                'ax2_xlim': [0.0, 0.25],
+                'ax2_ylim': [1e-5, 1e-1],
+                'ax3_xlim': [-0.25, 0.25],
+                'ax3_ylim': [0, 40],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
                                  int(self.driving_region_lhs - 1)],
                 'signal2_xlim': [int(self.driving_region_rhs + 1),
@@ -466,7 +468,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             }
         }
 
-        if self.is_dmi_only_within_map() and self.has_dmi_map():
+        if isinstance(self.is_dmi_only_within_map(), bool) and self.is_dmi_only_within_map() and self.has_dmi_map():
             plot_schemes[0]['signal1_xlim'] = [int(self.num_sites_abc + 1 - self.dmi_region_offset()),
                                                int(self.driving_region_lhs - 1)]
             plot_schemes[0]['signal2_xlim'] = [int(self.driving_region_rhs + 1 + self.dmi_region_offset()),
@@ -767,7 +769,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax2_xlim': [0.0001, 119.9999],
                 'ax2_ylim': [1e-5, 1e1],  # A            B            C            D           E
                 'precursor_xlim': (0.052, 0.95),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
-                'signal_onset_xlim': (1.6, 20),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'signal_onset_xlim': (1.6, self.sim_time_max()),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
                 'equilib_xlim': (2.5, 4.0),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
@@ -877,7 +879,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                      ls='-', lw=0.75, color=f'{shock_colour}', label=f"{self.sites_array[site_index]}",
                      markerfacecolor='black', markeredgecolor='black', zorder=1.1)
 
-            self.find_significant_wave(target_idx=[175, site_index], search_range=[162, 188])
+            self.find_significant_wave(target_idx=[700, site_index], search_range=[650, 750])
             #self.find_local_extrema(self.amplitude_data[700:800, site_index], 750, 50,
             #                        max_maxima=10, max_min_tolerance=40)
 
@@ -936,7 +938,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 print(f",{max_val_in_fft}  )")
             print(f"\t- FFT | Frequency: {match_freq_for_max_val: .4f} (GHz) | Value: {max_val_in_fft: .4f}")
 
-            with (open(f"/Users/cameronmceleney/Data/2024-03-22/T1637_key_details_lhs.txt", 'a') as file):
+            with (open(f"/Users/cameronmceleney/Data/2024-04-12/T1109_5_key_details_lhs.txt", 'a') as file):
                 # Write the data to the file
                 data_to_write = (f"{max_val_in_fft}")
                 file.write(data_to_write + '\n')  # Assuming 'data' is a string with two columns separated by a comma
@@ -1330,7 +1332,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
               f"\t\t(  {key_peak[1]},{key_trough[1]}", end=''
               )
 
-        with (open(f"/Users/cameronmceleney/Data/2024-03-22/T1637_key_details_lhs.txt", 'a') as file):
+        with (open(f"/Users/cameronmceleney/Data/2024-04-12/T1109_5_key_details_lhs.txt", 'a') as file):
             # Write the data to the file
             data_to_write = (f"{key_peak[1]},{key_trough[1]}")
             file.write(data_to_write + ',')
@@ -1938,7 +1940,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # plt.show()
         fig.savefig(f"{self.output_filepath}_site{spin_site}_fft.png", bbox_inches="tight")
 
-    def _fft_data(self, input_data, spatial_spacing: bool = None, fft_window: str = False):
+    def _fft_data(self, input_data, spatial_spacing: bool | float = None, fft_window: str = False):
         """
         Computes the discrete Fourier transform (DFT) of a given 1-D signal using FFT algorithms.
 
@@ -2096,7 +2098,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 # Set xlims to exclude the first and last value
                 ax.set_xlim([all_new_xdata_sorted[0], all_new_xdata_sorted[-1] + rescaled_dif])
 
-                ax.set(xlabel=r'Position, $d$ (' + x_scaled_labels[2] + ')')
+                ax.set(xlabel=r'Length, $L$ (' + x_scaled_labels[2] + ')')
                 x_major /= x_major_scaled
                 x_minor /= x_major_scaled
 
@@ -2295,7 +2297,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
-        external_field_moon = 0.2  # exchange_field = [8.125, 32.5]  # [T]
+        external_field_moon = 0.4  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 29.2e9  # 28.8e9
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
         system_len_moon = 9.2e-6  # metres 4e-6
