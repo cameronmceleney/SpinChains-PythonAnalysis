@@ -41,12 +41,12 @@ if __name__ == '__main__':
     log.info(f"Program start...")
 
     _should_use_eigens = False
-    _mass_produce = True
+    _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1637"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "2115as"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, True, "2024-03-22", "2024-03-22")
+    system_setup.detect_os(False, False, "2024-01-31", "2024-01-31")
 
     def generate_filenames():
         if _has_numeric_suffix:
@@ -107,8 +107,8 @@ if __name__ == '__main__':
                                  output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
                                  file_identifier="T", auto_run=True)
             dataset1.process_data()
-            dataset1.call_methods(override_method="pf", override_function="se", override_site=100, early_exit=True,
-                                  loop_function=True, mass_produce=False, interactive_mode=False)
+            dataset1.call_methods(override_method="pf", override_function="sfft", override_site=40, early_exit=True,
+                                  loop_function=True, mass_produce=False, interactive_mode=True)
             exit(0)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
