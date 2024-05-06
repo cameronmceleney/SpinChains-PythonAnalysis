@@ -2300,7 +2300,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         external_field_moon = 0.4  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 29.2e9  # 28.8e9
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 9.2e-6  # metres 4e-6
+        system_len_moon = 9e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
         exc_stiff_moon = 1.6 * 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
@@ -2315,7 +2315,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
         system_len = system_len_moon  # metres
         dmi_val_const = (2 * dmi_val_const_moon) / (sat_mag_moon * lattice_constant_moon)  # 1.9416259130841862  # 2.5
-        dmi_vals = [0, -dmi_val_const, dmi_val_const]  # J/m^2
+        dmi_vals = [dmi_val_const]  # J/m^2
 
         dec.getcontext().prec = 30
 
@@ -2656,34 +2656,135 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                   f" Sites: {round(system_len / lattice_constant):.2f}")
 
             # Plot dispersion relations
-            self._fig.suptitle('Dispersion Relation')
+
+            freq_set = 40
+            driving_width = 200e-9
+            self._fig.suptitle(f'Dispersion Relation ({freq_set} [GHz])')
             for dmi_val in dmi_vals:
                 max_len = round(system_len / lattice_constant)
-                num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
-                wave_number_array = (2 * num_spins_array * np.pi) / system_len
-                # old: wave_number_array = (2*num_spins_array*np.pi)/ ((len(num_spins_array) - 1) * lattice_constant)
+                solve_for_k = True
+                if solve_for_k:
+                    num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
+                    wave_number_array = (2 * num_spins_array * np.pi) / system_len
+                    # old: wave_number_array = (2*num_spins_array*np.pi)/ ((len(num_spins_array) - 1) * lattice_constant)
 
-                freq_array = gyromag_ratio * (
-                        round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
-                        + external_field
-                        + (dmi_val * lattice_constant * wave_number_array))
-                # + (((2 * dmi_val) / (sat_mag_moon)) * wave_number_array))
+                    freq_array = gyromag_ratio * (
+                           round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
+                           + external_field
+                           + (dmi_val * lattice_constant * wave_number_array))
+                    #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
 
-                ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
-                         label=f'D = {dmi_val}', marker='o', markersize=1.5)
+                    # external_field_array = np.full_like(num_spins_array, external_field)
+                    #freq_array = np.full_like(external_field_array, freq_set * 1e9)
+                    # dmi_val *= lattice_constant
+                    # wave_number_array = ((dmi_val + np.sqrt(dmi_val**2 - 4 * (exchange_field * lattice_constant**2) *
+                    #                                       (external_field_array - freq_array / gyromag_ratio)))
+                    #                     / (4 * exc_stiff_moon))
+                    #wave_number_array = ((-dmi_val + np.sqrt(dmi_val**2 - 4 * exchange_field
+                    #                                        * (external_field_array - freq_array / gyromag_ratio)))
+                    #                     / (2 * exchange_field * lattice_constant))
+                    # + (((2 * dmi_val) / (sat_mag_moon)) * wave_number_array))
 
-                ax1.set(xlabel="Wavevector (nm$^{-1}$)",
-                        ylabel='Frequency (GHz)', xlim=[-0.4, 0.4], ylim=[0, 30])
-                self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
-                                  xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
+                             label=f'D = {dmi_val}', marker='o', markersize=1.5)
+                    ax1.axvline(x=-0.0104, color='black', linestyle='-', lw=3, alpha=0.75, zorder=1.999)
+
+                    for freq_val in freq_array:
+                        for p_sign in [-1, 1]:
+                            if freq_val <= 50e9:
+                                num_modes = (driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + p_sign * np.sqrt(dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * lattice_constant ** 2 * (external_field - freq_val / gyromag_ratio))) / (2 * exchange_field * lattice_constant ** 2))
+
+                                if np.isclose(np.fmod(num_modes, 0.5), 0, atol=1e-2) or np.isclose(
+                                        np.fmod(num_modes, 0.5), 0.5, atol=1e-2):
+                                    if num_modes < 0:
+                                        test_range = [0.0, 0.47]
+                                    else:
+                                        test_range = [0.47, 1.0]
+
+                                    if np.isclose(np.fmod(num_modes, 1.0), 0, atol=1e-2) or np.isclose(
+                                            np.fmod(num_modes, 1.0), 1.0, atol=1e-2):
+                                        # If full int then print solid line
+                                        ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
+                                                    color='black', linestyle='-', lw=1.5, alpha=0.75, zorder=1.22)
+                                        print(f'Whole: {num_modes}')
+                                    else:
+                                        # Otherwise, must be a half-int; use a dashed line
+                                        ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
+                                                    color='black', linestyle='--', lw=1.5,
+                                                    alpha=0.75, zorder=1.99)
+                                        print(f'Half: {num_modes}')
+
+                    #ax1.set(xlabel=r"Wavevector, $k$ (nm$^{-1})$",
+                    #        ylabel=r"External Static Field, $H^{0}$ (T)" , xlim=[-0.2, 0.2], ylim=[5, 40])
+                    self._tick_setter(ax1, 0.05, 0.01, 5, 2, is_fft_plot=False,
+                                      xaxis_num_decimals=.2, yaxis_num_decimals=2.2, yscale_type='plain')
+
+                    if dmi_val == 0:
+                        ax2 = ax1.twiny()
+                        wavelengths_array = (2 * np.pi) / (wave_number_array * hz_2_GHz)
+
+                        #ax2.plot(wavelengths_array, external_field_array, lw=0., ls='-', marker='o', markersize=1.5,
+                        #         alpha=0)
+                        #ax2.set(xlabel=r"Wavelength, $\lambda$ (nm)")  # , xlim=[0, 0.5], ylim=[0, 30])
+                        ax2.set_xlim(ax1.get_xlim())  # Match the limits of the primary x-axis
+
+                        # Custom labels for the secondary x-axis
+                        new_labels = [f'{(2 * np.pi) / x:.1f}' if x != 0 else 'Inf.' for x in ax2.get_xticks()]
+                        ax2.set_xticks(ax2.get_xticks())  # Set the ticks
+                        ax2.set_xticklabels(new_labels)  # Set the new labels
+                        ax2.set_xlabel(r"Wavelength, $\lambda$ (nm)")
+                        #ax2.set_xlim(np.max(wavelengths_array), np.min(wavelengths_array))
+                        self._tick_setter(ax2, 5, 1, 5, 2, is_fft_plot=False,
+                                          xaxis_num_decimals=.2, yaxis_num_decimals=2.2, yscale_type='plain')
+
+                    # ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
+                    #          label=f'D = {dmi_val}', marker='o', markersize=1.5)
+
+                    ax1.set(xlabel="Wavevector (nm$^{-1}$)",
+                            ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[5, 40])
+                    # self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
+                    #                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
+                else:
+                    #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
+                    #freq_array = np.full_like(external_field_array, freq_set * 1e9)
+
+                    freq_array = np.linspace(15, 40, 1000) * 1e9
+                    external_field_array = np.full_like(freq_array, 0.4)
+
+                    num_modes_pos = (driving_width / (2*np.pi)) * ((-dmi_val*lattice_constant + np.sqrt(dmi_val**2 * lattice_constant**2 - 4 * exchange_field * lattice_constant**2
+                                                                                   * (external_field_array -
+                                                                                      freq_array / gyromag_ratio)))
+                                                               / (2 * exchange_field * lattice_constant**2))
+
+                    num_modes_neg = (driving_width / (2*np.pi)) * ((-dmi_val*lattice_constant - np.sqrt(dmi_val**2 * lattice_constant**2 - 4 * exchange_field * lattice_constant**2
+                                                                                   * (external_field_array -
+                                                                                      freq_array / gyromag_ratio)))
+                                                               / (2 * exchange_field * lattice_constant**2))
+
+                    ## Test from 06 May 24
+                    #num_modes = (driving_width / np.pi) * ((dmi_val / sat_mag_moon) + p_sign * np.sqrt((dmi_val/sat_mag_moon**2) - 4 * exchange_field * lattice_constant**2 * (external_field)))
+
+                    # ax1.plot(external_field_array, num_modes, lw=0., ls='-',
+                    #          label=f'D = {dmi_val}', marker='o', markersize=1.5)
+                    # ax1.set(xlabel=r"External Static Field, $H^{0}$ (T)",
+                    #         ylabel=r'Number of modes, $n$')  # , xlim=[0, 0.5], ylim=[0, 30])
+                    ax1.plot(freq_array * hz_2_GHz, num_modes_pos, lw=0., ls='-',
+                             label=f'+D = {dmi_val}', marker='o', markersize=1.5)
+                    ax1.plot(freq_array * hz_2_GHz, -1*num_modes_neg, lw=0., ls='-',
+                             label=f'-D = {dmi_val}', marker='o', markersize=1.5)
+                    for i in range(int(np.floor(ax1.get_ylim()[0])), int(np.ceil(ax1.get_ylim()[1]))):
+                        ax1.axhline(y=i + 0.5, color='black', linestyle='--', lw=0.5, alpha=0.75)
+                        ax1.axhline(y=i, color='black', linestyle='-', lw=0.5, alpha=0.75)
+                    ax1.set(xlabel=r"Frequency, $f$ (GHz)",
+                            ylabel=r'Number of modes, $n$')  # , xlim=[0, 0.5], ylim=[0, 30])
 
                 ax1.margins(0)
                 ax1.xaxis.labelpad = -2
-                ax1.legend(title=f'Mine - D [T]\n(H_ex = {exchange_field:2.3f}[T])',
-                           title_fontsize=self._fontsizes["smaller"],
-                           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
+                #ax1.legend(title=f'Mine - D [T]\n(H_ex = {exchange_field:2.3f}[T])',
+                #           title_fontsize=self._fontsizes["smaller"],
+                #           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
-                # file_name = 'D:/Data/2024-02-14/disp_data1.csv'
+                # file_name = 'D:/Data/2024-02-14/disp_data1.csv' v v                                                                                                 gf
             #
             # # Writing to the file
             # with open(file_name, 'w', newline='') as csvfile:
@@ -2733,11 +2834,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             #         transform=ax2.transAxes, fontsize=self._fontsizes["smaller"])
 
         for ax in self._fig.axes:
-            ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
+            #ax.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, zorder=1.99)
             ax.set_facecolor("white")
-            ax.set_axisbelow(False)
-
-        if interactive_plot:
+            #ax.set_axisbelow(False)
+        plt.show()
+        if interactive_plot is False:
             # For interactive plots
             def mouse_event(event: Any):
                 if event.xdata is not None and event.ydata is not None:
@@ -2751,7 +2852,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             # Hide the arrow in the callback
             @cursor.connect("add")
             def on_add(sel):
-                sel.annotation.get_bbox_patch().set(fc="white")  # Change background color
+                sel.annotation.get_bbox_patch().set(fc="white")  # Change background colorf
                 sel.annotation.arrow_patch.set_alpha(0)  # Make the arrow invisible
 
             self._fig.tight_layout()  # has to be here
