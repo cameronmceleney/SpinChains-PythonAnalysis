@@ -1109,7 +1109,8 @@ class CallMethods:
 
                         if target_site < min_site or target_site > max_site:
                             # Manually raise IndexError if target_site is out of the allowed range
-                            raise IndexError
+                            # raise IndexError
+                            pass
 
                     except ValueError:
                         if target_site.upper() == pf_keywords["Prev. Menu"][0]:
@@ -1128,10 +1129,10 @@ class CallMethods:
                             print(f"Generating temporal evolution plot for [#{target_site}]...")
 
                             log.info(f"Generating PF-TV plot for Spin Site [#{target_site}]")
-                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=False, visualise_wavepackets=False,
-                                                         annotate_precursors_fft=False, annotate_signal=False,
-                                                         wavepacket_inset=False, add_key_params=False,
-                                                         add_signal_backgrounds=False, publication_details=False,
+                            paper_fig.plot_site_temporal(target_site, wavepacket_fft=True, visualise_wavepackets=False,
+                                                         annotate_precursors_fft=True, annotate_signal=True,
+                                                         wavepacket_inset=True, add_key_params=False,
+                                                         add_signal_backgrounds=False, publication_details=True,
                                                          interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PF-TV of Spin Site [#{target_site}]. Continuing...")
 
@@ -1185,7 +1186,7 @@ class CallMethods:
                             #                                          publication_details=False,
                             #                                          interactive_plot=self.interactive_mode)
 
-                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=False,
+                            paper_fig.find_degenerate_modes(find_modes=False, use_demag=True,
                                                             interactive_plot=self.interactive_mode)
                             log.info(f"Finished plotting PF-HD of Spin Site [#{target_site}]. Continuing...")
 

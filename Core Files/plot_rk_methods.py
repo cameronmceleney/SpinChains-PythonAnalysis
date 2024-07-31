@@ -29,6 +29,61 @@ from typing import TypedDict, Any, Dict, List, Optional, Union
 
 # My full modules
 
+def calculate_demag_factor_uniform_prism(length, width, thickness, alignment='z'):
+    demag_factors = {'N_x': -1, 'N_y': -1, 'N_z': -1}
+
+    def _calculate_demag_factor(a, b, c):
+        r = a**2 + b**2 + c**2
+
+        demag_factor = ((b ** 2 - c ** 2) / (2 * b * c)) * np.log((np.sqrt(r) - a)
+                                                                  / (np.sqrt(r) + a))
+
+        demag_factor += ((a ** 2 - c ** 2) / (2 * a * c)) * np.log((np.sqrt(r) - b)
+                                                                   / (np.sqrt(r) + b))
+
+        demag_factor += (b / (2 * c)) * np.log((np.sqrt(a ** 2 + b ** 2) + a)
+                                               / (np.sqrt(a ** 2 + b ** 2) - a))
+
+        demag_factor += (a / (2 * c)) * np.log((np.sqrt(a ** 2 + b ** 2) + b)
+                                               / (np.sqrt(a ** 2 + b ** 2) - b))
+
+        demag_factor += (c / (2 * a)) * np.log((np.sqrt(b ** 2 + c ** 2) - b)
+                                               / (np.sqrt(b ** 2 + c ** 2) + b))
+
+        demag_factor += (c / (2 * b)) * np.log((np.sqrt(a ** 2 + c ** 2) - a)
+                                               / (np.sqrt(a ** 2 + c ** 2) + a))
+
+        demag_factor += 2 * np.arctan((a * b) / (c * np.sqrt(r)))
+
+        demag_factor += (a ** 3 + b ** 3 - 2 * c ** 3) / (3 * a * b * c)
+
+        demag_factor += ((a ** 2 + b ** 2 - 2 * c ** 2) / (3 * a * b * c)) * np.sqrt(r)
+
+        demag_factor += (c / (a * b)) * (np.sqrt(a ** 2 + c ** 2) + np.sqrt(b ** 2 + c ** 2))
+
+        demag_factor -= ((np.power((a ** 2 + b ** 2), 3 / 2) + np.power((b ** 2 + c ** 2), 3 / 2) + np.power(
+            (c ** 2 + a ** 2), 3 / 2))
+                         / (3 * a * b * c))
+
+        demag_factor /= np.pi
+
+        return demag_factor
+
+    if alignment.upper() == 'Z':
+        demag_factors['N_z'] = _calculate_demag_factor(length, width, thickness)
+        demag_factors['N_y'] = _calculate_demag_factor(thickness, length, width)
+        demag_factors['N_x'] = _calculate_demag_factor(width, thickness, length)
+    else:
+        raise ("custom_physics_equations.py -> calculate_demag_factor_uniform_prism -> _calculate_demag_factor: "
+               "Unknown parameter [alignment] was passed")
+
+    N_total = 0
+    for k, v in demag_factors.items():
+        N_total += v
+    if N_total >= 1 + 1e-4:
+        exit(1)
+
+    return demag_factors
 
 # Specific functions from my modules
 from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
@@ -105,7 +160,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Attributes for plots
         self._fig = None
         self._axes = None
-        self._yaxis_lim = 1.1  # Add a 10% margin to the y-axis.
+        self._yaxis_lim = 1.3 # Add a 10% margin to the y-axis.
         self._yaxis_lim_fix = 8e-3
 
         self.track_zorder = [[], []]
@@ -323,16 +378,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Take FFT of the signal
         wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
                                                         signal_xlim_min:signal_xlim_max],
-                                                        spatial_spacing=self.lattice_constant(), fft_window='hamming')
+                                                        spatial_spacing=self.lattice_constant(), fft_window='bb')
 
         ########################################
         # Obtain frequencies: default is 'angular' when γ in [rad * s^-1 * T^-1]
         # Need to flip negative wavevectors to ensure all values can be shown on single side of plot
         wavevectors *= -hz_pi_to_norm if negative_wavevector else hz_pi_to_norm
 
-        if (self.has_dmi and (isinstance(self.is_dmi_only_within_map(), bool) and self.is_dmi_only_within_map()) and
-                isinstance((self.has_dmi_map, bool) and self.has_dmi_map())
-                and (signal_xlims[0] < self.driving_region_lhs() or signal_xlims[1] > self.driving_region_rhs())):
+        if True:
             # If the system has a valid DMI map which this region is out with then set the DMI to zero
             region_dmi = 0.0
         else:
@@ -384,9 +437,88 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                    label=f"Segment {signal_index}", zorder=zorder_to_use)
 
         scatter_x = -wavevectors if negative_wavevector else wavevectors
-        ax[2].scatter(scatter_x, frequencies,
-                      c=scalar_map.to_rgba(fourier_transform/0.0053), s=12, marker='.',
-                      label=f"Segment {signal_index}", zorder=zorder_to_use)
+        if signal_index >= 2 or signal_index == 4:
+            #fig5, ax = plt.subplots(nrows=1, ncols=1)
+            times = self.time_data
+            x = self.amplitude_data[:, 300:self.num_sites_total() - 300]
+
+            # Check shapes of the arrays
+            #print(f"Shape of times: {times.shape}")
+            #print(f"Shape of x: {x.shape}")
+
+            # Create Hanning windows
+            times_filter = np.hanning(times.shape[0])
+            x_filter = np.hanning(x.shape[1])
+
+            # Reshape Hanning windows for broadcasting
+            times_filter = times_filter.reshape(-1, 1)  # Column vector for broadcasting along rows
+            x_filter = x_filter.reshape(1, -1)
+
+            # Apply the Hanning window to the data
+            window = np.outer(times_filter, x_filter)
+            data_mx_windowed = x * times_filter * x_filter
+
+            # Check the shape of the windowed data
+            #print(f"Shape of data_mx_windowed: {data_mx_windowed.shape}")
+
+            fft_data = np.fft.fft2(data_mx_windowed)
+            fft_data = abs(np.fft.fftshift(fft_data))
+            log_fft_data = np.log10(fft_data ** 2)
+
+            freqs = np.fft.fftfreq(n=times.shape[0], d=(times[1] - times[0]))
+            freqs = np.fft.fftshift(freqs)
+
+            k = np.fft.fftfreq(n=x.shape[1], d=1e-9) * 1e-9
+            k = np.fft.fftshift(k) * 2 * np.pi
+            ax[2].imshow(log_fft_data, extent=[k[0], k[-1], freqs[0], freqs[-1]],
+                      vmin=log_fft_data.min() / 10, vmax=log_fft_data.max(),
+                      aspect='auto', interpolation='none',
+                      cmap='magma_r')
+
+            mu_0 = 1.256637e-6
+
+            def Omega_generalised(H0, Ms, A, D, k, d, gamma, p=1, has_demag=1, has_dmi=1):
+                A = (A * d**2 * Ms / 2)  # my conversion
+                J = 2 * A / (mu_0 * Ms)
+
+                D = (D * d * Ms / 2)  # my conversion
+                DM = 2 * D / (mu_0 * Ms)
+                gamma /= (2 * np.pi * 1e9)
+
+                demag_factors = calculate_demag_factor_uniform_prism(self.num_sites_total - 2,
+                                                                     2, 8)
+
+                om = np.sqrt((H0 + J * (k ** 2) + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z']))
+                             * (H0 + J * (k ** 2) + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z']))
+                             )
+
+                om += p * DM * k * has_dmi
+
+                # the mu0 factor shown in the paper is not necessary if we use gamma
+                # in Hz / (A / m)
+                om *= (gamma * mu_0)
+
+                return om
+
+            kmax = 0.8 * 1e9
+            ks = np.linspace(1e-10, kmax, int(round(self.num_sites_total / 2)))
+            ks_n = np.linspace(-kmax, 1e-10, int(round(self.num_sites_total / 2)))
+            oms_g = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, 68,
+                                      self.exchange_dmi_constant, ks, self.lattice_constant, self.gyro_mag, p=1,
+                                      has_demag=1, has_dmi=1)
+            oms_g_n = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, 68,
+                                        self.exchange_dmi_constant, ks_n, self.lattice_constant, self.gyro_mag, p=1,
+                                        has_demag=1, has_dmi=1)
+            ax[2].plot(ks * 1e-9, oms_g, lw=1.5, ls='-.', color=signal_colour, alpha=0.9, label='Theory')
+            ax[2].plot(ks_n * 1e-9, oms_g_n, lw=1.5, ls='-.', alpha=0.9, color=signal_colour)
+            ax[2].set(ylim=(10, 30), xlim=(-0.15, 0.15))
+
+            np.savez('/Users/cameronmceleney/Data/2024-07-29/data.npz', ks=ks, ks_n=ks_n, oms_g=oms_g, oms_g_n=oms_g_n)
+
+            #np.savetxt(f'/Users/cameronmceleney/Data/2024-07-26/wavevectors_frequencies_{signal_index}.csv', np.column_stack((scatter_x, frequencies)), delimiter=',')
+        #ax[2].scatter(scatter_x, frequencies,
+        #              c=scalar_map.to_rgba(fourier_transform/0.0053), s=12, marker='.',
+        #              label=f"Segment {signal_index}", zorder=zorder_to_use)
 
     def _plot_cleanup(self, axis=None):
         if axis is None:
@@ -440,10 +572,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         for i in range(0, 3):
             ax_subplots.append(plt.subplot2grid((num_rows, num_cols), (i, 0), rowspan=1,
                                                 colspan=num_cols, fig=self._fig))
-        self.amplitude_data *= 1e2
+        #self.amplitude_data *= 1e2
         self._fig.subplots_adjust(wspace=1, hspace=0.4, bottom=0.2)
-        self.driving_region_lhs += 300
-        self.driving_region_rhs += 300
+        #self.driving_region_lhs += 300
+        #self.driving_region_rhs += 300
         ########################################
         # Nested Dict to enable many cases (different plots and papers)
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
@@ -453,7 +585,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
                                    'um'],
                 'ax2_xlim': [0.0, 0.25],
-                'ax2_ylim': [1e-5, 1e-1],
+                'ax2_ylim': [1e-3, 1e0],
                 'ax3_xlim': [-0.25, 0.25],
                 'ax3_ylim': [0, 40],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
@@ -550,6 +682,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ax_subplots[0].legend(handles=ax_subplots_zero_handles, ncol=3, **legend_kwargs)
         ax_subplots[1].legend(ncol=2, **legend_kwargs)
+        ax_subplots[2].legend(loc='best', labelcolor='black', fontsize=self._fontsizes["tiny"],
+                              fancybox=False, frameon=False,
+                              edgecolor=None, facecolor=None)
         # ax3.legend(ncol=1, loc='upper center', fontsize=self._fontsizes["small"], frameon=False, fancybox=True,
         #           facecolor=None, edgecolor=None)
         plt.tight_layout(w_pad=0.2, h_pad=0.25)
@@ -557,7 +692,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         self._fig.savefig(f"{self.output_filepath}_row{row_index}_ft.png", bbox_inches="tight")
-        output_text_to_file = True
+        output_text_to_file = False
         if output_text_to_file:
             try:
                 # Open the file in append mode
@@ -735,11 +870,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'equilib_xlim': (0.99, 1.5),  # 1.23, 1.5
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
-                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
+                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 1.4)
             },
             2: {  # Jiahui T0941/T1107_site1
                 'signal_xlim': (0.0, self.sim_time_max()),
-                'ax1_xlim': [0.0, 1.50 - 0.00001],
+                'ax1_xlim': [0.0, self.sim_time_max()],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
                              self.amplitude_data[:, site_index].max() * self._yaxis_lim],
                 'ax1_inset_xlim': [0.01, 0.02],
@@ -761,19 +896,19 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_xlim': [0.0, self.sim_time_max()],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
                              self.amplitude_data[:, site_index].max() * self._yaxis_lim],
-                'ax1_inset_xlim': [0.01, 0.02],
+                'ax1_inset_xlim': [0.7, 2.6],
                 'ax1_inset_ylim': [-2e-4, 2e-4],
                 'ax1_inset_width': 1.95,
-                'ax1_inset_height': 0.775,
-                'ax1_inset_bbox': [0.08, 0.975],
+                'ax1_inset_height': 0.5,
+                'ax1_inset_bbox': [0.04, 0.675],
                 'ax2_xlim': [0.0001, 119.9999],
                 'ax2_ylim': [1e-5, 1e1],  # A            B            C            D           E
-                'precursor_xlim': (0.052, 0.95),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
-                'signal_onset_xlim': (1.6, self.sim_time_max()),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
-                'equilib_xlim': (2.5, 4.0),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'precursor_xlim': (0.0, 2.59),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
+                'signal_onset_xlim': (2.6, 3.79),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
+                'equilib_xlim': (3.8, 5.0),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
-                'ax1_line_height': int(self.amplitude_data[:, site_index].min() * 0.9)
+                'ax1_line_height': self.amplitude_data[:, site_index].min() * 0.9
             }
         }
 
@@ -790,7 +925,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             0: {  # mceleney2023dispersive Fig. 1b-c [2022-08-29/T1337_site3000]
                 'wp1_xlim': (1.75, precursors_xlim_max_raw),
                 'wp2_xlim': (1.3, 1.7),
-                'wp3_xlim': (1.05, 1.275)
+                'wp3_xlim': (1.03, 1.275)
             },
             1: {  # mceleney2023dispersive Fig. 3a-b [2022-08-08/T1400_site3000]
                 'wp1_xlim': (0.481, 0.502),
@@ -804,7 +939,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             }
             # ... add more wavepacket schemes as needed
         }
-        select_wp_vals = wavepacket_schemes[2]
+        select_wp_vals = wavepacket_schemes[0]
         wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = select_wp_vals['wp1_xlim']
         wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = select_wp_vals['wp2_xlim']
         wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = select_wp_vals['wp3_xlim']
@@ -829,7 +964,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ax2.set(xlabel=f"Frequency (GHz)", ylabel=f"Amplitude (arb. units)", yscale='log',
                 xlim=select_plot_scheme['ax2_xlim'], ylim=select_plot_scheme['ax2_ylim'], )
 
-        self._tick_setter(ax1, 0.05, 0.01, 3, 4, xaxis_num_decimals=1.2,
+        self._tick_setter(ax1, 2.5, 0.5, 3, 4, xaxis_num_decimals=1.2,
                           show_sci_notation=True)
         ax2_xlim_round = round(select_plot_scheme['ax2_xlim'][1], 0)
         self._tick_setter(ax2, int(ax2_xlim_round / 5), int(ax2_xlim_round / 10), 3, None,
@@ -879,7 +1014,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                      ls='-', lw=0.75, color=f'{shock_colour}', label=f"{self.sites_array[site_index]}",
                      markerfacecolor='black', markeredgecolor='black', zorder=1.1)
 
-            self.find_significant_wave(target_idx=[700, site_index], search_range=[650, 750])
+            #self.find_significant_wave(target_idx=[700, site_index], search_range=[650, 750])
             #self.find_local_extrema(self.amplitude_data[700:800, site_index], 750, 50,
             #                        max_maxima=10, max_min_tolerance=40)
 
@@ -899,7 +1034,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         if not precursors_xlim_min == precursors_xlim_max:
             frequencies_precursors, fourier_transform_precursors = self._fft_data(
                 self.amplitude_data[precursors_xlim_min:precursors_xlim_max, site_index],
-                fft_window='hamming')
+                fft_window='bb')
 
             ax2.plot(frequencies_precursors, abs(fourier_transform_precursors),
                      lw=1, color=f"{precursor_colour}", marker='', markerfacecolor='black', markeredgecolor='black',
@@ -907,7 +1042,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         if not shock_xlim_min == shock_xlim_max:
             frequencies_dsw, fourier_transform_dsw = self._fft_data(
-                self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index], fft_window='hamming')
+                self.amplitude_data[shock_xlim_min:shock_xlim_max, site_index], fft_window='bb')
 
             max_val_in_fft = max(abs(fourier_transform_dsw))
             max_val_in_fft_index = np.where(abs(fourier_transform_dsw) == max_val_in_fft)
@@ -951,7 +1086,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         if not equil_xlim_min == equil_xlim_max:
             frequencies_eq, fourier_transform_eq = self._fft_data(
                 self.amplitude_data[equil_xlim_min:convert_norm(signal_xlim_max), site_index],
-                fft_window='hamming')
+                fft_window='bb')
 
             ax2.plot(frequencies_eq, abs(fourier_transform_eq),
                      lw=1, color=f'{equil_colour}', marker='', markerfacecolor='black', markeredgecolor='black',
@@ -972,11 +1107,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ########################################
         if wavepacket_fft:
             wavepacket1_freqs, wavepacket1_fft = self._fft_data(
-                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index], fft_window='hamming')
+                self.amplitude_data[wavepacket1_xlim_min:wavepacket1_xlim_max, site_index], fft_window='bb')
             wavepacket2_freqs, wavepacket2_fft = self._fft_data(
-                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index], fft_window='hamming')
+                self.amplitude_data[wavepacket2_xlim_min:wavepacket2_xlim_max, site_index], fft_window='bb')
             wavepacket3_freqs, wavepacket3_fft = self._fft_data(
-                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index], fft_window='hamming')
+                self.amplitude_data[wavepacket3_xlim_min:wavepacket3_xlim_max, site_index], fft_window='bb')
 
             ax2.plot(wavepacket1_freqs, abs(wavepacket1_fft), marker='', lw=1, color=f'{precursor_colour}',
                      markerfacecolor='black', markeredgecolor='black', ls=':', zorder=1.9)
@@ -988,11 +1123,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         if annotate_precursors_fft:
             arrow_ax2_props = {"arrowstyle": '-|>', "connectionstyle": "angle3,angleA=0,angleB=90", "color": "black"}
 
-            ax2.annotate(wavepacket_labels[0], xy=(26, 1.8e1), xytext=(34.1, 2.02e2), va='center', ha='center',
+            ax2.annotate(wavepacket_labels[0], xy=(24, 1.8e-1), xytext=(34.1, 2.020), va='center', ha='center',
                          arrowprops=arrow_ax2_props, fontsize=self._fontsizes["smaller"])
-            ax2.annotate(wavepacket_labels[1], xy=(48.78, 4.34e0), xytext=(56.0, 5.37e1), va='center', ha='center',
+            ax2.annotate(wavepacket_labels[1], xy=(48.78, 4.34e-2), xytext=(56.0, 5.37e-1), va='center', ha='center',
                          arrowprops=arrow_ax2_props, fontsize=self._fontsizes["smaller"])
-            ax2.annotate(wavepacket_labels[2], xy=(78.29, 1.25e0), xytext=(83.9, 7.5), va='center', ha='center',
+            ax2.annotate(wavepacket_labels[2], xy=(78.29, 1.25e-2), xytext=(83.9, 7.5e-1), va='center', ha='center',
                          arrowprops=arrow_ax2_props, fontsize=self._fontsizes["smaller"])
 
         if visualise_wavepackets:
@@ -1014,7 +1149,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         if annotate_signal:
             # Leave these alone!
-            label_height = select_plot_scheme['ax1_line_height'] - 3 * 0.25 * -3
+            label_height = select_plot_scheme['ax1_line_height'] + select_plot_scheme['ax1_line_height'] * 0.3
             precursor_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{precursor_colour}",
                                      'lw': 1.0}
             shock_label_props = {"arrowstyle": '|-|, widthA =0.4, widthB=0.4', "color": f"{shock_colour}", 'lw': 1.0}
@@ -1977,8 +2112,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         if fft_window is not None:
             if isinstance(fft_window, str):
                 # For valid windows, see https://docs.scipy.org/doc/scipy/reference/signal.windows.html
-                window_func = getattr(sp.signal.windows, fft_window, "hann")
-                window = window_func(n_total)
+                if fft_window == 'bb':
+                    window = 1
+                else:
+                    window_func = getattr(sp.signal.windows, fft_window, "hann")
+                    window = window_func(n_total)
             elif callable(fft_window):
                 # Incase the user wants a custom window function
                 window = sp.signal.fft_window(n_total)
@@ -2297,14 +2435,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
-        external_field_moon = 0.4  # exchange_field = [8.125, 32.5]  # [T]
+        external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 29.2e9  # 28.8e9
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 9e-6  # metres 4e-6
+        system_len_moon = 9.1e-6  # metres 4e-6
         sat_mag_moon = 800e3  # A/m
-        exc_stiff_moon = 1.6 * 1.3e-11  # J/m
+        exc_stiff_moon = 5.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 0.4e-3  # 1.0e-3
+        dmi_val_const_moon = 0e-3  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
@@ -2657,7 +2795,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
             # Plot dispersion relations
 
-            freq_set = 40
+            freq_set = 15
             driving_width = 200e-9
             self._fig.suptitle(f'Dispersion Relation ({freq_set} [GHz])')
             for dmi_val in dmi_vals:
@@ -2690,29 +2828,35 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     ax1.axvline(x=-0.0104, color='black', linestyle='-', lw=3, alpha=0.75, zorder=1.999)
 
                     for freq_val in freq_array:
-                        for p_sign in [-1, 1]:
-                            if freq_val <= 50e9:
-                                num_modes = (driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + p_sign * np.sqrt(dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * lattice_constant ** 2 * (external_field - freq_val / gyromag_ratio))) / (2 * exchange_field * lattice_constant ** 2))
+                        num_modes = []
+                        if freq_val <= 50e9:
+                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + np.sqrt(dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * lattice_constant ** 2 * (external_field - freq_val / gyromag_ratio))) / (2 * exchange_field * lattice_constant ** 2)))
+                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant - np.sqrt(dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * lattice_constant ** 2 * (external_field - freq_val / gyromag_ratio))) / (2 * exchange_field * lattice_constant ** 2)))
 
-                                if np.isclose(np.fmod(num_modes, 0.5), 0, atol=1e-2) or np.isclose(
-                                        np.fmod(num_modes, 0.5), 0.5, atol=1e-2):
-                                    if num_modes < 0:
+                            for i, mode in enumerate(num_modes):
+                                if np.isclose(np.fmod(mode, 0.5), 0, atol=1e-2) or np.isclose(
+                                        np.fmod(mode, 0.5), 0.5, atol=1e-2):
+                                    if mode < 0:
                                         test_range = [0.0, 0.47]
                                     else:
                                         test_range = [0.47, 1.0]
 
-                                    if np.isclose(np.fmod(num_modes, 1.0), 0, atol=1e-2) or np.isclose(
-                                            np.fmod(num_modes, 1.0), 1.0, atol=1e-2):
+                                    print(f'Freq: {freq_val * hz_2_GHz}', end=' | ')
+                                    if np.isclose(np.fmod(mode, 1.0), 0, atol=1e-2) or np.isclose(
+                                            np.fmod(mode, 1.0), 1.0, atol=1e-2):
                                         # If full int then print solid line
                                         ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
                                                     color='black', linestyle='-', lw=1.5, alpha=0.75, zorder=1.22)
-                                        print(f'Whole: {num_modes}')
+                                        print(f'Whole: {mode}')
                                     else:
                                         # Otherwise, must be a half-int; use a dashed line
                                         ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
                                                     color='black', linestyle='--', lw=1.5,
                                                     alpha=0.75, zorder=1.99)
-                                        print(f'Half: {num_modes}')
+                                        print(f'Half: {mode}')
+
+                                    if i == 1:
+                                        print(num_modes[0], num_modes[1], end='\n\n\n')
 
                     #ax1.set(xlabel=r"Wavevector, $k$ (nm$^{-1})$",
                     #        ylabel=r"External Static Field, $H^{0}$ (T)" , xlim=[-0.2, 0.2], ylim=[5, 40])
