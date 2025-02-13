@@ -63,7 +63,7 @@ class SystemSetup:
         self.input_dir_name = ''
         self.output_dir_name = ''
 
-    def detect_os(self, use_default=True, download_for_onedrive: bool = False,
+    def detect_os(self, use_default=True, download_for_onedrive: bool = False, download_for_pcloud: bool = False,
                   custom_input_dir_name='', custom_output_dir_name=''):
         """
         Detect the user's operating system.
@@ -88,6 +88,9 @@ class SystemSetup:
             if download_for_onedrive:
                 mac_dir_root_in = "/Users/cameronmceleney/OneDrive - University of Glasgow/Data/2024/"
                 mac_dir_root_out = "/Users/cameronmceleney/Data/"
+            elif download_for_pcloud:
+                mac_dir_root_in = "/Users/cameronmceleney/pCloud Drive/Data/2024/"
+                mac_dir_root_out = "/Users/cameronmceleney/pCloud Drive/Data/2024/"
             else:
                 if platform.processor() == 'arm':
                     # This is my M3 Pro Macbook

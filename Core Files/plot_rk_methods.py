@@ -27,13 +27,14 @@ import scipy as sp
 # Specific functions from packages
 from typing import TypedDict, Any, Dict, List, Optional, Union
 
+
 # My full modules
 
 def calculate_demag_factor_uniform_prism(length, width, thickness, alignment='z'):
     demag_factors = {'N_x': -1, 'N_y': -1, 'N_z': -1}
 
     def _calculate_demag_factor(a, b, c):
-        r = a**2 + b**2 + c**2
+        r = a ** 2 + b ** 2 + c ** 2
 
         demag_factor = ((b ** 2 - c ** 2) / (2 * b * c)) * np.log((np.sqrt(r) - a)
                                                                   / (np.sqrt(r) + a))
@@ -84,6 +85,7 @@ def calculate_demag_factor_uniform_prism(length, width, thickness, alignment='z'
         exit(1)
 
     return demag_factors
+
 
 # Specific functions from my modules
 from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
@@ -160,7 +162,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Attributes for plots
         self._fig = None
         self._axes = None
-        self._yaxis_lim = 1.3 # Add a 10% margin to the y-axis.
+        self._yaxis_lim = 1.3  # Add a 10% margin to the y-axis.
         self._yaxis_lim_fix = 8e-3
 
         self.track_zorder = [[], []]
@@ -278,9 +280,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 exchange_string = f"J$_{{min}}$ = {self.exchange_heisenberg_min()} (T) | J$_{{max}}$ = " \
                                   f"{self.exchange_heisenberg_min()} (T)"
 
-            parameters_textbody = (f"H$_{{0}}$ = {self.bias_zeeman_static()} (T) | N = {self.num_sites_chain()} | " + r"$\alpha$" +
-                                   f" = {self.gilbert_chain(): 2.2e}\nH$_{{D1}}$ = {self.bias_zeeman_oscillating_1(): 2.2e} (T) | "
-                                   f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2(): 2.2e} (T) \n{exchange_string}")
+            parameters_textbody = (
+                        f"H$_{{0}}$ = {self.bias_zeeman_static()} (T) | N = {self.num_sites_chain()} | " + r"$\alpha$" +
+                        f" = {self.gilbert_chain(): 2.2e}\nH$_{{D1}}$ = {self.bias_zeeman_oscillating_1(): 2.2e} (T) | "
+                        f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2(): 2.2e} (T) \n{exchange_string}")
 
             parameters_text_props = dict(boxstyle='round', facecolor='gainsboro', alpha=0.5)
             self._axes.text(0.05, 1.2, parameters_textbody, transform=self._axes.transAxes, fontsize=12,
@@ -343,7 +346,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         signal_xlims = plot_scheme[f'signal{signal_index}_xlim']
         system_xlims = plot_scheme['signal_xlim']
-        system_xlim_rescale = plot_scheme['signal_rescale']
+        if 'signal_rescale' in plot_scheme:
+            system_xlim_rescale = plot_scheme['signal_rescale']
         signal_xlim_min, signal_xlim_max = signal_xlims[0], signal_xlims[1]
         if signal_xlim_min == signal_xlim_max:
             # Escape case
@@ -376,6 +380,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         # Take FFT of the signal
+        if signal_xlim_max - signal_xlim_min < 0:
+            raise ValueError("PaperFigures -> _process_signal: [signal_xlim_min - signal_xlim_max < 0] so FFT will "
+                             "return `n_padded_total < 0` which is invalid")
+
         wavevectors, fourier_transform = self._fft_data(self.amplitude_data[row_index,
                                                         signal_xlim_min:signal_xlim_max],
                                                         spatial_spacing=self.lattice_constant(), fft_window='bb')
@@ -437,10 +445,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                    label=f"Segment {signal_index}", zorder=zorder_to_use)
 
         scatter_x = -wavevectors if negative_wavevector else wavevectors
-        if signal_index >= 2 or signal_index == 4:
+
+        if signal_index == 4:
             #fig5, ax = plt.subplots(nrows=1, ncols=1)
             times = self.time_data
-            x = self.amplitude_data[:, 300:self.num_sites_total() - 300]
+            x = self.amplitude_data[:, self.num_sites_abc():self.num_sites_total - self.num_sites_abc]
 
             # Check shapes of the arrays
             #print(f"Shape of times: {times.shape}")
@@ -471,14 +480,16 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             k = np.fft.fftfreq(n=x.shape[1], d=1e-9) * 1e-9
             k = np.fft.fftshift(k) * 2 * np.pi
             ax[2].imshow(log_fft_data, extent=[k[0], k[-1], freqs[0], freqs[-1]],
-                      vmin=log_fft_data.min() / 10, vmax=log_fft_data.max(),
-                      aspect='auto', interpolation='none',
-                      cmap='magma_r')
+                         vmin=log_fft_data.min() / 10, vmax=log_fft_data.max(),
+                         aspect='auto', interpolation='none',
+                         cmap='magma_r')
 
             mu_0 = 1.256637e-6
 
-            def Omega_generalised(H0, Ms, A, D, k, d, gamma, p=1, has_demag=1, has_dmi=1):
-                A = (A * d**2 * Ms / 2)  # my conversion
+            def Omega_generalised(H0, Ms, A, D, k, d, gamma, p=1,
+                                  has_demag=int(self.has_demag_intense) or int(self.has_demag_fft),
+                                  has_dmi=int(self.has_dmi)):
+                A = (A * d ** 2 * Ms / 2)  # my conversion
                 J = 2 * A / (mu_0 * Ms)
 
                 D = (D * d * Ms / 2)  # my conversion
@@ -503,17 +514,19 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             kmax = 0.8 * 1e9
             ks = np.linspace(1e-10, kmax, int(round(self.num_sites_total / 2)))
             ks_n = np.linspace(-kmax, 1e-10, int(round(self.num_sites_total / 2)))
-            oms_g = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, 68,
+            oms_g = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, self.exchange_heisenberg_min,
                                       self.exchange_dmi_constant, ks, self.lattice_constant, self.gyro_mag, p=1,
-                                      has_demag=1, has_dmi=1)
-            oms_g_n = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, 68,
+                                      has_demag=int(self.has_demag_intense) or int(self.has_demag_fft),
+                                      has_dmi=int(self.has_dmi))
+            oms_g_n = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, self.exchange_heisenberg_min,
                                         self.exchange_dmi_constant, ks_n, self.lattice_constant, self.gyro_mag, p=1,
-                                        has_demag=1, has_dmi=1)
+                                        has_demag=int(self.has_demag_intense) or int(self.has_demag_fft),
+                                        has_dmi=int(self.has_dmi))
             ax[2].plot(ks * 1e-9, oms_g, lw=1.5, ls='-.', color=signal_colour, alpha=0.9, label='Theory')
             ax[2].plot(ks_n * 1e-9, oms_g_n, lw=1.5, ls='-.', alpha=0.9, color=signal_colour)
-            ax[2].set(ylim=(10, 30), xlim=(-0.15, 0.15))
+            #ax[2].set(ylim=(10, 30), xlim=(-0.15, 0.15))
 
-            np.savez('/Users/cameronmceleney/Data/2024-07-29/data.npz', ks=ks, ks_n=ks_n, oms_g=oms_g, oms_g_n=oms_g_n)
+            #np.savez('/Users/cameronmceleney/Data/2024-07-29/data.npz', ks=ks, ks_n=ks_n, oms_g=oms_g, oms_g_n=oms_g_n)
 
             #np.savetxt(f'/Users/cameronmceleney/Data/2024-07-26/wavevectors_frequencies_{signal_index}.csv', np.column_stack((scatter_x, frequencies)), delimiter=',')
         #ax[2].scatter(scatter_x, frequencies,
@@ -574,8 +587,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                                 colspan=num_cols, fig=self._fig))
         #self.amplitude_data *= 1e2
         self._fig.subplots_adjust(wspace=1, hspace=0.4, bottom=0.2)
-        #self.driving_region_lhs += 300
-        #self.driving_region_rhs += 300
+        self.driving_region_lhs += 300
+        self.driving_region_rhs += 300
         ########################################
         # Nested Dict to enable many cases (different plots and papers)
         plot_schemes: Dict[int, PaperFigures.PlotScheme] = {
@@ -585,9 +598,29 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
                                    'um'],
                 'ax2_xlim': [0.0, 0.25],
-                'ax2_ylim': [1e-3, 1e0],
+                'ax2_ylim': [1e-4, 1e0],
                 'ax3_xlim': [-0.25, 0.25],
                 'ax3_ylim': [0, 40],
+                'signal1_xlim': [int(self.num_sites_abc + 1),
+                                 int(self.driving_region_lhs - 1)],
+                'signal2_xlim': [int(self.driving_region_rhs + 1),
+                                 int(self.num_sites_total - self.num_sites_abc + 1)],
+                'signal3_xlim': [0, 0],
+                'ax1_label': '(a)',
+                'ax2_label': '(b)',
+                'ax3_label': '(c)',
+                'ax1_line_height': 3.15e-3
+            },
+            1: {
+                'signal_xlim': [0, self.num_sites_total()],  # Example value, replace 100 with self._total_num_spins()
+                'signal_rescale': [0, self.num_sites_total()],
+                'rescale_extras': [self.lattice_constant() if self.lattice_constant.dtype is not None else 1, 1e-6,
+                                   'um'],
+                'ax2_xlim': [0.0, 0.40],
+                'ax2_ylim': [1e-5, 1e-1],
+                'ax3_xlim': [-0.12, 0.12],
+                'ax3_ylim': [0, 40],
+                #'signal1_xlim': [int(self.num_sites_abc + 1), int(self.num_sites_total - self.num_sites_abc + 1)],
                 'signal1_xlim': [int(self.num_sites_abc + 1),
                                  int(self.driving_region_lhs - 1)],
                 'signal2_xlim': [int(self.driving_region_rhs + 1),
@@ -600,15 +633,20 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             }
         }
 
-        if isinstance(self.is_dmi_only_within_map(), bool) and self.is_dmi_only_within_map() and self.has_dmi_map():
-            plot_schemes[0]['signal1_xlim'] = [int(self.num_sites_abc + 1 - self.dmi_region_offset()),
-                                               int(self.driving_region_lhs - 1)]
-            plot_schemes[0]['signal2_xlim'] = [int(self.driving_region_rhs + 1 + self.dmi_region_offset()),
-                                               int(self.num_sites_total - self.num_sites_abc + 1)]
-
         ########################################
         # Accessing the selected colour scheme and create a colourbar
-        select_plot_scheme = plot_schemes[0]
+        select_plot_scheme = plot_schemes[1]
+
+        if self.is_drive_centre:
+            #select_plot_scheme['signal_rescale'] = [-int(self.num_sites_total() / 2), int(self.num_sites_total() _ft/ 2)]
+            pass
+
+        if isinstance(self.is_dmi_only_within_map(),
+                      bool) and self.is_dmi_only_within_map() and self.has_dmi_map() and self.has_dmi():
+            select_plot_scheme['signal1_xlim'] = [int(self.num_sites_abc + 1 - self.dmi_region_offset()),
+                                                  int(self.driving_region_lhs - 1)]
+            select_plot_scheme['signal2_xlim'] = [int(self.driving_region_rhs + 1 + self.dmi_region_offset()),
+                                                  int(self.num_sites_total - self.num_sites_abc + 1)]
 
         #for term in ['signal1_xlim', 'signal2_xlim', 'signal_xlim']:
         #    select_plot_scheme[term] *= self.lattice_constant()
@@ -642,15 +680,22 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ax_subplots[2].invert_yaxis()
         ########################################
         # Process each signal
+
         self._draw_figure(row_index, axes=ax_subplots[0], draw_regions_of_interest=False, static_ylim=fixed_ylim)
 
-        self._process_signal(ax_subplots, row_index, 1, sm, select_plot_scheme, [2, False], True)
-        self._process_signal(ax_subplots, row_index, 2, sm, select_plot_scheme, [2, False])
-        self._process_signal(ax_subplots, row_index, 3, sm, select_plot_scheme, [2, False])
+        if select_plot_scheme['signal1_xlim'][0] != select_plot_scheme['signal1_xlim'][1]:
+            self._process_signal(ax_subplots, row_index, 1, sm, select_plot_scheme, [2, False], True)
+
+        if select_plot_scheme['signal2_xlim'][0] != select_plot_scheme['signal2_xlim'][1]:
+            self._process_signal(ax_subplots, row_index, 2, sm, select_plot_scheme, [2, False])
+
+        if select_plot_scheme['signal3_xlim'][0] != select_plot_scheme['signal3_xlim'][1]:
+            self._process_signal(ax_subplots, row_index, 3, sm, select_plot_scheme, [2, False])
 
         ########################################
-        self._tick_setter(ax_subplots[0], int(self.num_sites_total()/4), int(self.num_sites_total()/8), 3, 4,
-                          yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant())
+        self._tick_setter(ax_subplots[0], int(self.num_sites_total() / 4), int(self.num_sites_total() / 8), 3, 4,
+                          yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant(),
+                          xaxis_shift=False)
 
         self._tick_setter(ax_subplots[1], select_plot_scheme['ax2_xlim'][1] / 2, select_plot_scheme['ax2_xlim'][1] / 8,
                           4, None, xaxis_num_decimals=1.2, is_fft_plot=True)
@@ -700,10 +745,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     # Write the data to the file
                     data_to_write = (f"{self.output_filepath}"
                                      f","
-                                     f"{self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6/1e-9))]}"
+                                     f"{self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6 / 1e-9))]}"
                                      f","
-                                     f"{self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6/1e-9))]}")
-                    file.write(data_to_write + '\n')  # Assuming 'data' is a string with two columns separated by a comma
+                                     f"{self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6 / 1e-9))]}")
+                    file.write(
+                        data_to_write + '\n')  # Assuming 'data' is a string with two columns separated by a comma
                     file.close()
             except IOError:
                 print("Error: Unable to append data to the file.")
@@ -712,6 +758,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                       f"\t- Before: {self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6 / 1e-9))]}\n"
                       f"\t- After : {self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6 / 1e-9))]}"
                       )
+        del self.amplitude_data
+        del self.time_data
 
         # All additional functionality should be after here
         if interactive_plot:
@@ -736,7 +784,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         self._draw_figure(row_index, False, draw_regions_of_interest=False, publish_plot=False,
                           static_ylim=has_static_ylim)
 
-        self._tick_setter(self._axes, int(self.num_sites_total()/4), int(self.num_sites_total()/8), 3, 4,
+        self._tick_setter(self._axes, int(self.num_sites_total() / 4), int(self.num_sites_total() / 8), 3, 4,
                           yaxis_num_decimals=1.1, show_sci_notation=False, xaxis_rescale=self.lattice_constant())
 
         self._axes.text(1.0, -0.095, f"{self.time_data[row_index]: .2f} ns", va='center',
@@ -896,16 +944,16 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 'ax1_xlim': [0.0, self.sim_time_max()],
                 'ax1_ylim': [self.amplitude_data[:, site_index].min() * self._yaxis_lim,
                              self.amplitude_data[:, site_index].max() * self._yaxis_lim],
-                'ax1_inset_xlim': [0.7, 2.6],
+                'ax1_inset_xlim': [0.0, self.sim_time_max()],
                 'ax1_inset_ylim': [-2e-4, 2e-4],
                 'ax1_inset_width': 1.95,
                 'ax1_inset_height': 0.5,
                 'ax1_inset_bbox': [0.04, 0.675],
                 'ax2_xlim': [0.0001, 119.9999],
-                'ax2_ylim': [1e-5, 1e1],  # A            B            C            D           E
-                'precursor_xlim': (0.0, 2.59),  # (0.00, 0.54) (0.00, 0.42) (0.00, 0.42) (0.00, 0.65) (0.00, 0.42)
-                'signal_onset_xlim': (2.6, 3.79),  # (0.00, 0.01) (0.42, 0.54) (0.42, 0.65) (0.65, 1.20) (0.42, 1.20)
-                'equilib_xlim': (3.8, 5.0),  # (0.54, 1.50) (0.54, 1.50) (0.65, 1.50) (1.20, 1.50) (1.20, 1.50)
+                'ax2_ylim': [1e-5, 1e1],
+                'precursor_xlim': (0.0, 0.0),
+                'signal_onset_xlim': (0.0, 0.0),
+                'equilib_xlim': (0.0, 0.0),
                 'ax1_label': '(a)',
                 'ax2_label': '(b)',
                 'ax1_line_height': self.amplitude_data[:, site_index].min() * 0.9
@@ -939,7 +987,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             }
             # ... add more wavepacket schemes as needed
         }
-        select_wp_vals = wavepacket_schemes[0]
+        select_wp_vals = wavepacket_schemes[2]
         wavepacket1_xlim_min_raw, wavepacket1_xlim_max_raw = select_wp_vals['wp1_xlim']
         wavepacket2_xlim_min_raw, wavepacket2_xlim_max_raw = select_wp_vals['wp2_xlim']
         wavepacket3_xlim_min_raw, wavepacket3_xlim_max_raw = select_wp_vals['wp3_xlim']
@@ -972,13 +1020,14 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         ########################################
         if ax1_xlim_lower > ax1_xlim_upper:
-            raise(ValueError(f"Lower limit of x-axis is greater than upper limit: {ax1_xlim_lower} > {ax1_xlim_upper}"))
+            raise (
+                ValueError(f"Lower limit of x-axis is greater than upper limit: {ax1_xlim_lower} > {ax1_xlim_upper}"))
 
         def convert_norm(val, a=0, b=1):
             # Magic. Don't touch! Normalises precursor region so that both wavepackets and feature can be defined using
             # their own x-axis limits.
             return int(self.num_dp_per_site * ((b - a) * ((val - signal_xlim_min)
-                                                           / (signal_xlim_max - signal_xlim_min)) + a))
+                                                          / (signal_xlim_max - signal_xlim_min)) + a))
 
         converted_values = {name: (convert_norm(raw_values[name][0]), convert_norm(raw_values[name][1])) for name in
                             data_names}
@@ -1067,8 +1116,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         break
 
                 print(f",{max_val_in_fft}  )")
-                print(f'\n[Warning: Global max is invalid (Freq: {placeholder_dsw_fft[1]: .4f} | Mag.: {placeholder_dsw_fft[2]:.4f})\n'
-                      f'\t- Using first valid value (Freq: {match_freq_for_max_val: .4f} | Mag.: {max_val_in_fft: .4f})]\n')
+                print(
+                    f'\n[Warning: Global max is invalid (Freq: {placeholder_dsw_fft[1]: .4f} | Mag.: {placeholder_dsw_fft[2]:.4f})\n'
+                    f'\t- Using first valid value (Freq: {match_freq_for_max_val: .4f} | Mag.: {max_val_in_fft: .4f})]\n')
             else:
                 print(f",{max_val_in_fft}  )")
             print(f"\t- FFT | Frequency: {match_freq_for_max_val: .4f} (GHz) | Value: {max_val_in_fft: .4f}")
@@ -1246,9 +1296,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 exchange_string = f"J$_{{min}}$ = {self.exchange_heisenberg_min} [T] | J$_{{max}}$ = " \
                                   f"{self.exchange_heisenberg_max} [T]"
             info_box_full_text = (
-                    (f"H$_{{0}}$ = {self.bias_zeeman_static} [T] | H$_{{D1}}$ = {self.bias_zeeman_oscillating_1: 2.2e} [T] | "
-                     f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
-                     f"{exchange_string} | N = {self.num_sites_chain} | ") + r"$\alpha$" +
+                    (
+                        f"H$_{{0}}$ = {self.bias_zeeman_static} [T] | H$_{{D1}}$ = {self.bias_zeeman_oscillating_1: 2.2e} [T] | "
+                        f"H$_{{D2}}$ = {self.bias_zeeman_oscillating_2: 2.2e}[T] \nf = {self.driving_freq} [GHz] | "
+                        f"{exchange_string} | N = {self.num_sites_chain} | ") + r"$\alpha$" +
                     f" = {self.gilbert_chain: 2.2e}")
 
             info_box_props = dict(boxstyle='round', facecolor='gainsboro', alpha=1.0)
@@ -1308,7 +1359,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig.canvas.mpl_connect('button_press_event', mouse_event)
             plt.show()
 
-        #self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
+        self._fig.savefig(f"{self.output_filepath}_site{site_index}.png", bbox_inches="tight")
         plt.close(self._fig)
 
     def find_local_extrema(self, data_to_test, target_idx: int, idx_range_to_search: int, max_maxima: int = None,
@@ -1342,9 +1393,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         local_max_idx_pos = np.where(local_maxima == closest_max[1])[0][0]
 
         # Check for adjacent maxima
-        adjacent_maxima = [local_maxima[local_max_idx_pos-1],
+        adjacent_maxima = [local_maxima[local_max_idx_pos - 1],
                            local_maxima[local_max_idx_pos],
-                           local_maxima[local_max_idx_pos+1]] #  [m for m in local_maxima if m[0] in [max_idx - 1, max_idx + 1]]
+                           local_maxima[
+                               local_max_idx_pos + 1]]  #  [m for m in local_maxima if m[0] in [max_idx - 1, max_idx + 1]]
         maxima_threshold = 1.2  # if adjacents are 20% greater than the target maxima, we select the adjacent maxima
         if adjacent_maxima[2][1] / local_maxima[1][1] > maxima_threshold:
             closest_max = adjacent_maxima[2]
@@ -1392,7 +1444,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 for min_idx, val in viable_minima:
                     score = 0
                     score += 1 if min_idx == min(viable_minima, key=lambda x: abs(x[0] - max_idx))[0] else 0
-                    score += 2 if min_idx == min(viable_minima, key=lambda x: abs(x[0] + range_offset - target_idx))[0] else 0
+                    score += 2 if min_idx == min(viable_minima, key=lambda x: abs(x[0] + range_offset - target_idx))[
+                        0] else 0
                     scores.append((score, min_idx, val))
 
                 # Select minima with the highest score and turn back into index/value pair
@@ -1444,8 +1497,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             closest_trough_after = troughs_after[0]
 
             # Calculate amplitude for both trough combinations and select the higher one∫
-            amplitude_before = abs(self.amplitude_data[peak + search_range[0], target_idx[1]] - self.amplitude_data[closest_trough_before + search_range[0], target_idx[1]])
-            amplitude_after = abs(self.amplitude_data[peak + search_range[0], target_idx[1]] - self.amplitude_data[closest_trough_after + search_range[0], target_idx[1]])
+            amplitude_before = abs(self.amplitude_data[peak + search_range[0], target_idx[1]] - self.amplitude_data[
+                closest_trough_before + search_range[0], target_idx[1]])
+            amplitude_after = abs(self.amplitude_data[peak + search_range[0], target_idx[1]] - self.amplitude_data[
+                closest_trough_after + search_range[0], target_idx[1]])
             if amplitude_before > amplitude_after:
                 peak_trough_pairs.append((peak, closest_trough_before, amplitude_before))
             else:
@@ -1458,8 +1513,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         significant_peak, significant_trough, max_amplitude = max(peak_trough_pairs, key=lambda x: x[2])
 
         # Compile results into single array; more readable
-        key_peak = [significant_peak + search_range[0], self.amplitude_data[significant_peak + search_range[0], target_idx[1]]]
-        key_trough = [significant_trough + search_range[0], self.amplitude_data[significant_trough + search_range[0], target_idx[1]]]
+        key_peak = [significant_peak + search_range[0],
+                    self.amplitude_data[significant_peak + search_range[0], target_idx[1]]]
+        key_trough = [significant_trough + search_range[0],
+                      self.amplitude_data[significant_trough + search_range[0], target_idx[1]]]
 
         print(f"Key Values\n"
               f"\t- Maxima | Index: {key_peak[0]} | Time: {self.time_data[key_peak[0]]:.3f} ns | Value: {key_peak[1]}\n"
@@ -2095,6 +2152,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         # Pad the data to greatly improve efficiency of the FFT computation
         n_total = input_data.size
+
         n_total_padded = sp.fft.next_fast_len(n_total)
 
         # Find the bin size
@@ -2148,7 +2206,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         return dft_samples, discrete_fourier_transform
 
-
     def _choose_scaling(self, value=None, subplot_to_scale=None, row_index=None, presets=None):
         if value is None and subplot_to_scale is None:
             exit(1)
@@ -2196,7 +2253,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
     def _tick_setter(self, ax, x_major, x_minor, y_major, y_minor, yaxis_multi_loc=False, is_fft_plot=False,
                      xaxis_num_decimals=.1, yaxis_num_decimals=.1, yscale_type='sci', format_xaxis=False,
-                     show_sci_notation=False, xaxis_rescale=None):
+                     show_sci_notation=False, xaxis_rescale=None, xaxis_shift=False):
 
         if ax is None:
             ax = plt.gca()
@@ -2218,7 +2275,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 x_scaled_labels, x_major_labels, x_major_scaled = self._choose_scaling(value=x_major)
                 rescaled_dif = xaxis_rescale / x_major_scaled
 
-                shift = -self.num_sites_total()/2
+                if xaxis_shift:
+                    shift = -self.num_sites_total() / 2
+                else:
+                    shift = 0
                 # Container for all new xdata across lines for determining xlims
                 all_new_xdata = np.array([])
 
@@ -2435,27 +2495,43 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
         # Key values and compute wavenumber plus frequency for Moon
-        external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
-        gyromag_ratio_moon = 29.2e9  # 28.8e9
+        external_field_moon = 0.15  # exchange_field = [8.125, 32.5]  # [T]
+        gyromag_ratio_moon = 28.2e9  # 28.8e9
+
+        # System dimensions
         lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 9.1e-6  # metres 4e-6
-        sat_mag_moon = 800e3  # A/m
-        exc_stiff_moon = 5.3e-11  # J/m
+        system_len_moon = 8.804e-6  # metres 4e-6
+        system_dims = [system_len_moon, 1e-9, 12e-9]
+
+        sat_mag_moon = 8e5  # A/m
+        exc_stiff_moon = 1.3e-11  # J/m
         demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = 0e-3  # 1.0e-3
+        dmi_val_const_moon = -4e-4  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
         # Key values and computations of values for our system
         external_field = external_field_moon
-        exchange_field = (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)
+        exchange_field = (2 * exc_stiff_moon) / sat_mag_moon  # (2 * exc_stiff_moon) / (sat_mag_moon * lattice_constant_moon ** 2)
         gyromag_ratio = gyromag_ratio_moon
+
+        # My system dims
         lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
         system_len = system_len_moon  # metres
+        system_dims[0] = system_len
         dmi_val_const = (2 * dmi_val_const_moon) / (sat_mag_moon * lattice_constant_moon)  # 1.9416259130841862  # 2.5
         dmi_vals = [dmi_val_const]  # J/m^2
 
+        # Anisotropy constants
+        K_1 = 0 * 6.2e4
+        K_2 = 0e5
+        aniso_axis = [0, 0, 1]
+
         dec.getcontext().prec = 30
+
+        # Axis limits
+        ax_xlim_lims = [-0.20, 0.20]
+        ax_ylim_lims = [0, 40]
 
         ########################################
 
@@ -2465,7 +2541,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         if find_modes:
 
             # System length setup
-            max_len = round(system_len / lattice_constant)
+            max_len = round(system_dims[0] / lattice_constant)
             half_max_length = int(max_len / 2)
             n_lower, n_upper = 0, half_max_length
             num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
@@ -2480,7 +2556,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             filter_for_closest_matching_wavelength = False
             filter_for_closest_matching_frequency = True
 
-            print_cutoff_freq = [12, 20]  # must be in GHz
+            print_cutoff_freq = ax_ylim_lims  # must be in GHz
 
             use_original_wavenumbers = True
             use_relative_atol = True
@@ -2496,27 +2572,35 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             wv_tol = 10 * 10 ** -wv_rnd
             freq_atol = 10 * 10 ** -fq_rnd
             freq_rtol = 5e-3
-            half_int_atol = 10e-2
+            half_int_atol = 5e-2
 
             # Calculate all wavevectors in system
-            wavevector_array = (2 * num_spins_array * np.pi) / system_len
+            wavevector_array = (2 * num_spins_array * np.pi) / system_dims[0]
 
-            # Calculate all frequencies in system assuming that there is no demagnetisation
-            freq_array = gyromag_ratio * (
-                    round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wavevector_array ** 2
-                    + external_field
-                    + (dmi_val_const * lattice_constant * wavevector_array))
+            # This equation takes the field components in units of Tesla
+            # freq_array = gyromag_ratio * (
+            #         round_to_sig_figs(exchange_field, 3) * wavevector_array ** 2
+            #         + external_field
+            #         + (dmi_val_const * lattice_constant * wavevector_array))
+
+            freq_array = Omega_generalised_with_ua(external_field, sat_mag_moon, exc_stiff_moon, dmi_val_const_moon,
+                                                   wavevector_array, lattice_constant_moon, K_1, K_2, aniso_axis, gyromag_ratio*2*np.pi,
+                                                   [system_dims[0], system_dims[1], system_dims[2]],
+                                                   has_demag=use_demag)
 
             # Convert frequencies to [GHz] with rounding
             freq_array = abs(np.round(freq_array * hz_2_GHz, fq_rnd))
 
             # Find minima (frequency). Only need to check all frequencies that are greater than this ONCE
-            min_freq_index = int(np.where(np.isclose(freq_array, min(freq_array), atol=0))[0])
+            min_indices_approx = np.where(np.isclose(freq_array, min(freq_array), atol=1e-3))
+            min_freq_index = np.where(freq_array == min(freq_array[min_indices_approx]))[0][0]
+            print(freq_array[min_freq_index] / (2*np.pi))
+
 
             print(
                 f"Lattice constant [nm]: {lattice_constant * 1e9} | DMI constant [T]: +/- {dmi_val_const} | "
-                f"Exchange field [T]: {exchange_field} | External field [T]: {external_field} | "
-                f"Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9} | System length [um]: {system_len * 1e6}")
+                f"Exchange field [T]: {exchange_field / (lattice_constant_moon**2)} | External field [T]: {external_field} | "
+                f"Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9: .2f} | System length [um]: {system_dims[0] * 1e6}")
             print(
                 f'wv_rnd: {wv_rnd} | fq_rnd: {fq_rnd} | wv_tol: {wv_tol} | freq_atol: {freq_atol} | '
                 f'half_int_atol: {half_int_atol}')
@@ -2534,13 +2618,13 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 non_zero_wave_indices])
 
             # Convert to nm
-            wavelengths_array = np.round(wavelengths_array * m_2_nm, 3)  # Sometimes might want abs() so that all wavelengths are +ve (for readability)
-
+            wavelengths_array = np.round(wavelengths_array * m_2_nm,
+                                         3)  # Sometimes might want abs() so that all wavelengths are +ve (for readability)
             # Convert wave numbers to [1/nm] with rounding
             wavevector_array = np.round(wavevector_array * 1e-9, wv_rnd)
 
             if min_freq_index >= half_max_length:
-                wavevectors_from_n = wavevector_array[:min_freq_index+1]
+                wavevectors_from_n = wavevector_array[:min_freq_index + 1]
             else:
                 wavevectors_from_n = wavevector_array[min_freq_index:]
 
@@ -2761,7 +2845,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                 entry['other_occurrences_half_ints'])):
 
                             if should_highlight_half_ints and other_half_int:
-                                if filter_for_closest_matching_wavelength and not (other_scaling < 0.05 or other_scaling > 0.95):
+                                if filter_for_closest_matching_wavelength and not (
+                                        other_scaling < 0.05 or other_scaling > 0.95):
                                     color = select_colour_scheme['BLUE']
                                 else:
                                     color = select_colour_scheme['PURPLE']
@@ -2789,15 +2874,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         else:
             print(f"Lattice constant [nm]: {lattice_constant * 1e9:.2f} | DMI constant [T]: +/- {dmi_val_const:.2f} |"
-                  f" Exchange field [T]: {exchange_field:.2f} | External field [T]: {external_field:.2f} |"
+                  f" Exchange field [T]: {exchange_field / (lattice_constant_moon**2):.2f} | External field [T]: {external_field:.2f} |"
                   f" Gyromagnetic ratio [GHz/T]: {gyromag_ratio * 1e-9:.2f} | System length [um]: {system_len * 1e6:.2f} |"
                   f" Sites: {round(system_len / lattice_constant):.2f}")
 
             # Plot dispersion relations
 
-            freq_set = 15
-            driving_width = 200e-9
-            self._fig.suptitle(f'Dispersion Relation ({freq_set} [GHz])')
+            freq_set = 14
+            driving_width = 120e-9
+            self._fig.suptitle(f'Dispersion Relation')
             for dmi_val in dmi_vals:
                 max_len = round(system_len / lattice_constant)
                 solve_for_k = True
@@ -2806,16 +2891,27 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     wave_number_array = (2 * num_spins_array * np.pi) / system_len
                     # old: wave_number_array = (2*num_spins_array*np.pi)/ ((len(num_spins_array) - 1) * lattice_constant)
 
-                    freq_array = gyromag_ratio * (
-                           round_to_sig_figs(exchange_field * lattice_constant ** 2, 3) * wave_number_array ** 2
-                           + external_field
-                           + (dmi_val * lattice_constant * wave_number_array))
+                    #freq_array = gyromag_ratio * (
+                    #        round_to_sig_figs(exchange_field, 3) * wave_number_array ** 2
+                    #        + external_field
+                    #        #+ (dmi_val * lattice_constant * wave_number_array)
+                    #)
+
+                    freq_array = Omega_generalised_with_ua(external_field, sat_mag_moon, exc_stiff_moon,
+                                                           dmi_val_const_moon,
+                                                           wave_number_array, 1e-9, K_1, K_2, aniso_axis,
+                                                           gyromag_ratio,
+                                                           [system_dims[0], system_dims[1], system_dims[2]],
+                                                           has_demag=1,
+                                                           has_dmi=1,
+                                                           has_aniso=1)
+
                     #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
 
                     # external_field_array = np.full_like(num_spins_array, external_field)
                     #freq_array = np.full_like(external_field_array, freq_set * 1e9)
                     # dmi_val *= lattice_constant
-                    # wave_number_array = ((dmi_val + np.sqrt(dmi_val**2 - 4 * (exchange_field * lattice_constant**2) *
+                    # wave_number_array = ((dmi_val + np.sqrt(dmi_val**2 - 4 * exchange_field *
                     #                                       (external_field_array - freq_array / gyromag_ratio)))
                     #                     / (4 * exc_stiff_moon))
                     #wave_number_array = ((-dmi_val + np.sqrt(dmi_val**2 - 4 * exchange_field
@@ -2825,21 +2921,187 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                     ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
                              label=f'D = {dmi_val}', marker='o', markersize=1.5)
-                    ax1.axvline(x=-0.0104, color='black', linestyle='-', lw=3, alpha=0.75, zorder=1.999)
+
+                    ax1.axvline(x=wave_number_array[freq_array.argmin()] * hz_2_GHz, color='black', linestyle='-', lw=3, alpha=0.75, zorder=1.999)
+
+                    demag_N = calculate_demag_factor_uniform_prism(system_dims[0],
+                                                                         system_dims[1],
+                                                                         system_dims[2])
+
+                    print(demag_N)
+
+                    self._tick_setter(ax1, 0.05, 0.01, 5, 2, is_fft_plot=False,
+                                      xaxis_num_decimals=.2, yaxis_num_decimals=2.2, yscale_type='plain')
+
+                    ax1.set(xlabel="Wavevector (nm$^{-1}$)",
+                            ylabel='Frequency (GHz)',
+                            xlim=ax_xlim_lims,
+                            ylim=ax_ylim_lims)
+
+                    def safe_sqrt(value):
+                        if value < 0:
+                            return None
+                        else:
+                            return math.sqrt(value)
+
+                    def safe_cubrt(value):
+                        if value < 0:
+                            return -((-value) ** (1. / 3.))
+                        else:
+                            return value ** (1. / 3.)
+
+                    def quartic_y(a, b, c):
+                        quartic_p = - (a**2 / 12) - c
+
+                        quartic_q = - (a**3 / 108) + (a * c / 3) - (b**2 / 8)
+
+                        first_sqrt = safe_sqrt((quartic_q**2 / 4) + (quartic_p**3 / 27))
+
+                        if first_sqrt is not None:
+                            quartic_w = safe_cubrt(- (quartic_q / 2) + first_sqrt)
+
+                            if quartic_w is not None:
+                                return (a / 6) + quartic_w - quartic_p / (3 * quartic_w)
+
+                        return None
+
+                    def quartic_root(a, b, c, sign_1=-1, sign_2=1):
+                        sign_3 = -1 * sign_1
+                        q_y = quartic_y(a, b, c)
+
+                        # If q_y is None, return None immediately
+                        if q_y is None:
+                            return None
+
+                        # Calculate first_root
+                        first_root = safe_sqrt(2 * q_y - a)
+
+                        # Calculate second_root based on first_root (even if first_root is None)
+                        second_root = None
+
+                        # Defend against possible division by zero for special cases (u_quartic_b = 0)
+                        if b != 0:
+                            second_root = safe_sqrt(
+                                -2 * q_y - a + sign_3 * ((2 * b) / (first_root if first_root is not None else 1)))
+
+                        # Check if at least one of first_root or second_root is valid
+                        if first_root is not None and second_root is not None:
+                            # Both roots are real, proceed with the combination
+                            return 0.5 * (sign_1 * first_root + sign_2 * second_root)
+                        elif first_root is not None:
+                            # Only first_root is real, use it alone
+                            return 0.5 * (sign_1 * first_root)
+                        elif second_root is not None:
+                            # Only second_root is real, use it alone
+                            return 0.5 * (sign_2 * second_root)
+                        else:
+                            # Both roots are None, return None
+                            return None
+
+                    def quartic_a(H0, J, d_ij, Ms, Nx, Ny, Nz, az, K1, K2, has_dmi=True, has_demag=True, has_ani=True):
+                        return (1 / J) * (2 * H0
+                                          + has_demag * Ms * (Nx + Ny - 2 * Nz)
+                                          + has_ani * (4 * az**2 * K1) / (Ms * mu0)
+                                          + has_ani * (8 * az**4 * K2) / (Ms * mu0)
+                                          ) + has_dmi * mu0 * (d_ij**2 / J**2)
+
+                    def quartic_b(d_ij, J):
+                        # Special case for depressed quartics
+                        return 0 * d_ij / J
+
+                    def quartic_c(omega, gamma, H0, J, Ms, demag_factors, az, K1, K2):
+                        return (1 / J**2) * (
+                                + Ms**2 * (demag_factors['N_x'] * demag_factors['N_y']
+                                           - demag_factors['N_x'] * demag_factors['N_z']
+                                           - demag_factors['N_y'] * demag_factors['N_z']
+                                           + demag_factors['N_z']**2
+                                           )
+                                - omega**2 / (gamma**2 * mu0**2)
+                                + 1 / (Ms * mu0**2) * (4 * az**4 * K1**2
+                                                       + 16 * az**6 * K1 * K2
+                                                       + 16 * az**2 * K2**2
+                                                       )
+                                + 1 / (Ms * mu0) * (4 * az**2 * H0 * K1
+                                                    + 8 * az**4 * H0 * K2
+                                                    )
+                                + (1 / mu0) * (4 * az**2 * K1 * demag_factors['N_x']
+                                               + 8 * az**4 * K2 * demag_factors['N_x']
+                                               - 4 * az**2 * K1 * demag_factors['N_z']
+                                               - 8 * az**4 * K2 * demag_factors['N_z']
+                                               )
+                    )
+
+                    def quadratic_formula(a, b, c, sign=1):
+                        return (-b + sign * np.sqrt(b**2 - 4 * a * c)) / (2 * a)
+
+                    qA = quartic_a(mu0*external_field, exchange_field, dmi_val_const, sat_mag_moon,
+                                   demag_N['N_x'], demag_N['N_y'], demag_N['N_z'], aniso_axis[2], K_1, K_2)
+
+                    qB = quartic_b(dmi_val_const, exchange_field)
+
+                    mode_upper_lim = ax_ylim_lims[1] * 1e9
+                    # for freq_val in freq_array:
+                    #     num_modes = []
+                    #     # Only check modes below 50 GHz; any higher becomes unphysical for most of my materials
+                    #     if freq_val <= mode_upper_lim:
+                    #         # print(f'\n\nFreq: {freq_val}')
+                    #         qC = quartic_c(freq_val, gyromag_ratio, mu0*external_field,
+                    #                        exchange_field, sat_mag_moon,
+                    #                        demag_N, aniso_axis[2], K_1, K_2)
+                    #
+                    #         use_quartic = False
+                    #         if use_quartic:
+                    #
+                    #             quartic_root_1 = quartic_root(qA, qB, qC, sign_1=-1, sign_2=1)
+                    #             if quartic_root_1 is not None:
+                    #                 # print(f'Quartic Root (k1): {quartic_root_1}')
+                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_1)
+                    #
+                    #             quartic_root_2 = quartic_root(qA, qB, qC, sign_1=-1, sign_2=-1)
+                    #             if quartic_root_2 is not None:
+                    #                 # print(f'Quartic Root (k2): {quartic_root_2}')
+                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_2)
+                    #
+                    #             quartic_root_3 = quartic_root(qA, qB, qC, sign_1=1, sign_2=1)
+                    #             if quartic_root_3 is not None:
+                    #                 # print(f'Quartic Root (k3): {quartic_root_3}')
+                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_3)
+                    #
+                    #             quartic_root_4 = quartic_root(qA, qB, qC, sign_1=1, sign_2=-1)
+                    #             if quartic_root_4 is not None:
+                    #                 # print(f'Quartic Root (k4): {quartic_root_4}')
+                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_4)
+                    #         else:
+                    #             quadratic_root_1 = quadratic_formula(qA, qB, qC)
+                    #             num_modes.append(driving_width / (2 * np.pi) * quadratic_root_1)
+                    #
+                    #             quadratic_root_2 = quadratic_formula(qA, qB, qC, sign=-1)
+                    #             num_modes.append(driving_width / (2 * np.pi) * quadratic_root_2)
+
 
                     for freq_val in freq_array:
                         num_modes = []
                         if freq_val <= 50e9:
-                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + np.sqrt(dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * lattice_constant ** 2 * (external_field - freq_val / gyromag_ratio))) / (2 * exchange_field * lattice_constant ** 2)))
-                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant - np.sqrt(dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * lattice_constant ** 2 * (external_field - freq_val / gyromag_ratio))) / (2 * exchange_field * lattice_constant ** 2)))
+                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + np.sqrt(
+                               dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * (
+                                           external_field - freq_val / gyromag_ratio))) / (
+                                                                                         2 * exchange_field)))
+                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant - np.sqrt(
+                               dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * (
+                                           external_field - freq_val / gyromag_ratio))) / (
+                                                                                         2 * exchange_field)))
+
+                            # Calculate the index and the corresponding wave number value for the global minima
+
+                            normalized_x = (wave_number_array[freq_array.argmin()] * hz_2_GHz - ax_xlim_lims[0]) / (ax_xlim_lims[1] - ax_xlim_lims[0])
 
                             for i, mode in enumerate(num_modes):
                                 if np.isclose(np.fmod(mode, 0.5), 0, atol=1e-2) or np.isclose(
                                         np.fmod(mode, 0.5), 0.5, atol=1e-2):
                                     if mode < 0:
-                                        test_range = [0.0, 0.47]
+                                        test_range = [0.0, normalized_x]
                                     else:
-                                        test_range = [0.47, 1.0]
+                                        test_range = [normalized_x, 1.0]
 
                                     print(f'Freq: {freq_val * hz_2_GHz}', end=' | ')
                                     if np.isclose(np.fmod(mode, 1.0), 0, atol=1e-2) or np.isclose(
@@ -2858,6 +3120,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                     if i == 1:
                                         print(num_modes[0], num_modes[1], end='\n\n\n')
 
+
                     #ax1.set(xlabel=r"Wavevector, $k$ (nm$^{-1})$",
                     #        ylabel=r"External Static Field, $H^{0}$ (T)" , xlim=[-0.2, 0.2], ylim=[5, 40])
                     self._tick_setter(ax1, 0.05, 0.01, 5, 2, is_fft_plot=False,
@@ -2869,7 +3132,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                         #ax2.plot(wavelengths_array, external_field_array, lw=0., ls='-', marker='o', markersize=1.5,
                         #         alpha=0)
-                        #ax2.set(xlabel=r"Wavelength, $\lambda$ (nm)")  # , xlim=[0, 0.5], ylim=[0, 30])
+                        #ax2.set(xlabel=r"Wavelength, $\lambda$ (nm)")  # , xlim=ax_xlimx_lims, ylim=ax_ylim_lims)
                         ax2.set_xlim(ax1.get_xlim())  # Match the limits of the primary x-axis
 
                         # Custom labels for the secondary x-axis
@@ -2884,47 +3147,48 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     # ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
                     #          label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
-                    ax1.set(xlabel="Wavevector (nm$^{-1}$)",
-                            ylabel='Frequency (GHz)', xlim=[-0.15, 0.15], ylim=[5, 40])
+
                     # self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
                     #                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
                 else:
                     #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
                     #freq_array = np.full_like(external_field_array, freq_set * 1e9)
 
-                    freq_array = np.linspace(15, 40, 1000) * 1e9
+                    freq_array = np.linspace(ax_ylim_lims[0], ax_ylim_lims[1], 1000) * 1e9
                     external_field_array = np.full_like(freq_array, 0.4)
 
-                    num_modes_pos = (driving_width / (2*np.pi)) * ((-dmi_val*lattice_constant + np.sqrt(dmi_val**2 * lattice_constant**2 - 4 * exchange_field * lattice_constant**2
-                                                                                   * (external_field_array -
-                                                                                      freq_array / gyromag_ratio)))
-                                                               / (2 * exchange_field * lattice_constant**2))
+                    num_modes_pos = (driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + np.sqrt(
+                        dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field
+                        * (external_field_array -
+                           freq_array / gyromag_ratio)))
+                                                                     / (2 * exchange_field))
 
-                    num_modes_neg = (driving_width / (2*np.pi)) * ((-dmi_val*lattice_constant - np.sqrt(dmi_val**2 * lattice_constant**2 - 4 * exchange_field * lattice_constant**2
-                                                                                   * (external_field_array -
-                                                                                      freq_array / gyromag_ratio)))
-                                                               / (2 * exchange_field * lattice_constant**2))
+                    num_modes_neg = (driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant - np.sqrt(
+                        dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field
+                        * (external_field_array -
+                           freq_array / gyromag_ratio)))
+                                                                     / (2 * exchange_field))
 
                     ## Test from 06 May 24
-                    #num_modes = (driving_width / np.pi) * ((dmi_val / sat_mag_moon) + p_sign * np.sqrt((dmi_val/sat_mag_moon**2) - 4 * exchange_field * lattice_constant**2 * (external_field)))
+                    #num_modes = (driving_width / np.pi) * ((dmi_val / sat_mag_moon) + p_sign * np.sqrt((dmi_val/sat_mag_moon**2) - 4 * exchange_field * (external_field)))
 
                     # ax1.plot(external_field_array, num_modes, lw=0., ls='-',
                     #          label=f'D = {dmi_val}', marker='o', markersize=1.5)
                     # ax1.set(xlabel=r"External Static Field, $H^{0}$ (T)",
-                    #         ylabel=r'Number of modes, $n$')  # , xlim=[0, 0.5], ylim=[0, 30])
+                    #         ylabel=r'Number of modes, $n$')  # , xlim=ax_xlim_lims, ylim=ax_ylim_lims)
                     ax1.plot(freq_array * hz_2_GHz, num_modes_pos, lw=0., ls='-',
                              label=f'+D = {dmi_val}', marker='o', markersize=1.5)
-                    ax1.plot(freq_array * hz_2_GHz, -1*num_modes_neg, lw=0., ls='-',
+                    ax1.plot(freq_array * hz_2_GHz, -1 * num_modes_neg, lw=0., ls='-',
                              label=f'-D = {dmi_val}', marker='o', markersize=1.5)
                     for i in range(int(np.floor(ax1.get_ylim()[0])), int(np.ceil(ax1.get_ylim()[1]))):
                         ax1.axhline(y=i + 0.5, color='black', linestyle='--', lw=0.5, alpha=0.75)
                         ax1.axhline(y=i, color='black', linestyle='-', lw=0.5, alpha=0.75)
                     ax1.set(xlabel=r"Frequency, $f$ (GHz)",
-                            ylabel=r'Number of modes, $n$')  # , xlim=[0, 0.5], ylim=[0, 30])
+                            ylabel=r'Number of modes, $n$')  # , xlim=ax_xlim_lims, ylim=ax_ylim_lims)
 
                 ax1.margins(0)
                 ax1.xaxis.labelpad = -2
-                #ax1.legend(title=f'Mine - D [T]\n(H_ex = {exchange_field:2.3f}[T])',
+                #ax1.legend(title=f'Mine - D [T]\n(H_ex = {exchange_field / (lattice_constant_moon**2) : 2.3f}[T])',
                 #           title_fontsize=self._fontsizes["smaller"],
                 #           fontsize=self._fontsizes["tiny"], frameon=True, fancybox=True)
 
@@ -2991,7 +3255,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig.canvas.mpl_connect('button_press_event', mouse_event)
 
             cursor = mplcursors.cursor(hover=True)
-            cursor.connect("add", lambda sel: sel.annotation.set_text(f'(k: {sel.target[0]:.6f}, f: {sel.target[1]:.6f})'))
+            cursor.connect("add",
+                           lambda sel: sel.annotation.set_text(f'(k: {sel.target[0]:.6f}, f: {sel.target[1]:.6f})'))
 
             # Hide the arrow in the callback
             @cursor.connect("add")
@@ -3002,3 +3267,50 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self._fig.tight_layout()  # has to be here
             self._fig.savefig(f"{self.output_filepath}_dispersion.png", bbox_inches="tight")
             plt.show()
+
+
+def Omega_generalised_with_ua(H0, Ms, A, D, k, d, K1, K2, aniso_axis, gamma, system_dims, p=1,
+                              has_demag=1, has_dmi=1, has_aniso=1):
+    mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
+
+    # This function requires the field components to be in [A m^{-1}]
+    H0 /= mu0
+    J = 2 * A / (mu0 * Ms)
+    DM = 2 * D / (mu0 * Ms)
+
+    demag_factors = calculate_demag_factor_uniform_prism(system_dims[0],
+                                                         system_dims[1],
+                                                         system_dims[2])
+
+    #om = np.sqrt((H0
+    #              + J * (k ** 2)
+    #              + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z'])
+    #              )
+    #             * (H0
+    #                + J * (k ** 2)
+    #                + has_aniso * ((4 * (aniso_axis[2])**2) / (Ms * mu0) * (K1 + 2 * K2 * (aniso_axis[2])**2))
+    #                + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z'])
+    #                )
+    #             + has_aniso * ((4 * aniso_axis[2] ** 4) / (Ms ** 2 * mu0 ** 2)
+    #                            * (4 * K1 ** 2 + 4 * K1 * K2 * (aniso_axis[2])**2 + 4 * K2 ** 2 * (aniso_axis[2])**4))
+    #             )
+    om = np.sqrt((H0
+                  + J * (k ** 2)
+                  + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0)
+                                 * (K1 + 2 * K2 * aniso_axis[2] ** 2))
+                  + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z']))
+                 * (H0
+                    + J * (k ** 2)
+                    + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0)
+                                   * (K1 + 2 * K2 * aniso_axis[2] ** 2))
+                    + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z'])
+                    )
+                 )
+
+    om += p * DM * k * has_dmi
+
+    # the mu0 factor shown in the paper is not necessary if we use gamma
+    # in Hz / (A / m)
+    om *= (gamma * mu0)
+
+    return om

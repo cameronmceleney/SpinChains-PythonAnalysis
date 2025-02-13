@@ -43,10 +43,10 @@ if __name__ == '__main__':
     _should_use_eigens = False
     _mass_produce = False
     _has_numeric_suffix = True
-    filename_base = "1351"  # str(input("Enter the unique identifier of the file: "))
+    filename_base = "1723"  # str(input("Enter the unique identifier of the file: "))
 
     system_setup = sp.SystemSetup()
-    system_setup.detect_os(False, False, "2024-07-30", "2024-07-30")
+    system_setup.detect_os(False, False, False,"2024-08-22", "2025-02-12")
 
     def generate_filenames():
         if _has_numeric_suffix:
@@ -107,13 +107,13 @@ if __name__ == '__main__':
                                  output_dir_path=system_setup.output_dir(), file_prefix="rk2", file_component='mx',
                                  file_identifier="T", auto_run=True)
             dataset1.process_data()
-            dataset1.call_methods(override_method="pf", override_function="te", override_site=0, early_exit=True,
+            dataset1.call_methods(override_method="pf", override_function="hd", override_site=40, early_exit=True,
                                   loop_function=True, mass_produce=False, interactive_mode=True)
             exit(0)
     elif _should_use_eigens:
         dataset2 = das.PlotEigenmodes(filename_base, system_setup.input_dir(), system_setup.output_dir())
         dataset2.import_eigenmodes()
-        dataset2.plot_eigenmodes()  # only use this line if raw files don't need imported or converted
+        dataset2.plot_eigenmodes()  # only use tshis line if raw files don't need imported or converted
 
     exit(0)
 

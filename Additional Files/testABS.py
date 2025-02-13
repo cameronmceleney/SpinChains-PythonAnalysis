@@ -136,19 +136,19 @@ def tick_setter(ax, x_major, x_minor, y_major, y_minor, is_fft_plot=False):
 
 
 def compare_dataset_plots():
-    spin_site = 3000
+    spin_site = 1
 
-    dataset1 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0940.csv",
+    dataset1 = np.loadtxt("/Users/cameronmceleney/Data/2024-08-02/Simulation_Data/rk2_mx_T1736.csv",
                           delimiter=",", skiprows=11)
-    dataset2 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1006.csv",
+    dataset2 = np.loadtxt("/Users/cameronmceleney/Data/2024-08-02/Simulation_Data/rk2_mx_T1738.csv",
                           delimiter=",", skiprows=11)
-    dataset3 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1550.csv",
+    dataset3 = np.loadtxt("/Users/cameronmceleney/Data/2024-08-02/Simulation_Data/rk2_mx_T1741.csv",
                           delimiter=",", skiprows=11)
-    dataset4 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T1602.csv",
+    dataset4 = np.loadtxt("/Users/cameronmceleney/Data/2024-08-02/Simulation_Data/rk2_mx_T1744.csv",
                           delimiter=",", skiprows=11)
-    dataset5 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0955.csv",
+    dataset5 = np.loadtxt("/Users/cameronmceleney/Data/2024-08-02/Simulation_Data/rk2_mx_T1746.csv",
                           delimiter=",", skiprows=11)
-    dataset6 = np.loadtxt("D:\\Data\\2022-08-10\\Simulation_Data\\rk2_mx_T0929.csv",
+    dataset6 = np.loadtxt("/Users/cameronmceleney/Data/2024-08-02/Simulation_Data/rk2_mx_T1749.csv",
                           delimiter=",", skiprows=11)
 
     time = dataset1[:, 0] * 1e9
@@ -184,8 +184,8 @@ def compare_dataset_plots():
     ax1.fill_between(time, abs(data_to_plot6), color=colour6, zorder=1.6)
 
     # Inset
-    ax1_inset = inset_axes(ax1, width=1.55
-                           , height=1.55, loc="upper left", bbox_to_anchor=[0.0875, 0.875],
+    ax1_inset = inset_axes(ax1, width=0.6
+                           , height=0.8, loc="upper left", bbox_to_anchor=[0.13, 0.875],
                            bbox_transform=ax1.figure.transFigure)
     mark_inset(ax1, ax1_inset, loc1=3, loc2=4, facecolor="none", edgecolor="black", lw=0.75, alpha=1.0, zorder=1.9)
     # ax1.indicate_inset_zoom(ax1_inset, facecolor='#f9f2e9', edgecolor='black', alpha=1.0, lw=0.75, zorder=1)
@@ -207,12 +207,12 @@ def compare_dataset_plots():
     ax1_inset.fill_between(time, abs(data_to_plot5), color=colour5, zorder=1.5)
     ax1_inset.fill_between(time, abs(data_to_plot6), color=colour6, zorder=1.6)
 
-    # Main
-    ax1.set(xlim=[0.5, 5], ylim=[1e-9, 3.5e-3],
+    ax1.set(xlim=[0, 2], ylim=[1e-9, 3.e-3],
             xlabel="Time [ns]", ylabel="|m$_x$|/M$_S$")
 
     ax1.xaxis.set(major_locator=ticker.MultipleLocator(1.0), major_formatter=ticker.FormatStrFormatter("%.1f"),
                   minor_locator=ticker.MultipleLocator(0.2))
+
     # ax1.locator_params(axis='y', nbins=3)
     locmin = ticker.LogLocator(base=10.0, subs=np.arange(1, 10) * 0.01, numticks=15)
     ax1.yaxis.set_minor_locator(locmin)
@@ -232,7 +232,7 @@ def compare_dataset_plots():
     ax1_inset.grid(False)
 
     # Inset
-    ax1_inset.set(xlim=[0.5001, 1.4999], ylim=[1e-7, 5e-5],
+    ax1_inset.set(xlim=[0.0001, 0.3999], ylim=[1e-7, 1e-4],
                   yscale="log")
     # ax1.set_xticks([])
     # ax1.set_yticks([])
@@ -257,9 +257,9 @@ def compare_dataset_plots():
     for k, spine in ax1.spines.items():  # ax.spines is a dictionary
         spine.set_zorder(10)
 
-    ax1.yaxis.get_offset_text().set_visible(False)
-    ax1.text(-0.05, 0.97, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
-             verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
+    ax1.yaxis.get_offset_text().set_visible(True)
+    #ax1.text(-0.05, 0.97, r'$\times \mathcal{10}^{{\mathcal{-3}}}$',
+    #         verticalalignment='center', horizontalalignment='center', transform=ax1.transAxes, fontsize=8)
 
     # ax1.margins(x=0.5, y=0.1e-3)
     ax1_inset.set_axisbelow(False)
@@ -270,13 +270,13 @@ def compare_dataset_plots():
     ax1.legend(title="t$_g$ [ns]", ncol=1, loc="lower right",
                frameon=True, fancybox=False, facecolor='white', edgecolor='black',
                fontsize=6, title_fontsize=7,
-               bbox_to_anchor=(0.94, 0.08), bbox_transform=ax1.figure.transFigure
+               bbox_to_anchor=(0.89, 0.12), bbox_transform=ax1.figure.transFigure
                ).set_zorder(1.9)
 
     ax1.set_axisbelow(False)
     ax1_inset.set_axisbelow(False)
 
-    fig.savefig("D:\\Data\\2022-08-10\\Outputs\\comparison_220928_1.png", bbox_inches="tight")
+    fig.savefig("/Users/cameronmceleney/Data/2024-08-02/Outputs/rk2_mx_T1741_comparison", bbox_inches="tight")
 
 
 def afm_test():
@@ -718,7 +718,6 @@ def sine_wave_test():
     else:
         plt.show()
 
-
 if __name__ == '__main__':
     # loggingSetup()
     # rc_params_update()
@@ -726,7 +725,8 @@ if __name__ == '__main__':
     # compare_dataset_plots()
     # test()
     # afm_test()
-    sine_wave_test()
+    # sine_wave_test()
     #analytic_sine_wave()
+    compare_dataset_plots()
     exit()
     # main()
