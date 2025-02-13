@@ -2505,8 +2505,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         sat_mag_moon = 8e5  # A/m
         exc_stiff_moon = 1.3e-11  # J/m
-        demag_mag_moon = sat_mag_moon
-        dmi_val_const_moon = -4e-4  # 1.0e-3
+        dmi_val_const_moon = 0.5e-3#4e-4  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
@@ -2518,7 +2517,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # My system dims
         lattice_constant = lattice_constant_moon  # np.sqrt(5.3e-17 / exchange_field)
         system_len = system_len_moon  # metres
-        system_dims[0] = system_len
         dmi_val_const = (2 * dmi_val_const_moon) / (sat_mag_moon * lattice_constant_moon)  # 1.9416259130841862  # 2.5
         dmi_vals = [dmi_val_const]  # J/m^2
 
@@ -2534,9 +2532,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         ax_ylim_lims = [0, 40]
 
         ########################################
-
-        if not use_demag:
-            demag_mag_moon = 0
+        use_demag = True
 
         if find_modes:
 
@@ -2889,6 +2885,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 if solve_for_k:
                     num_spins_array = np.arange(-int(max_len / 2), int(max_len / 2) + 1, 1)
                     wave_number_array = (2 * num_spins_array * np.pi) / system_len
+                    k_signs = np.sign(wave_number_array)  # This gives -1 for negative, +1 for positive
+
                     # old: wave_number_array = (2*num_spins_array*np.pi)/ ((len(num_spins_array) - 1) * lattice_constant)
 
                     #freq_array = gyromag_ratio * (
@@ -2897,14 +2895,20 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     #        #+ (dmi_val * lattice_constant * wave_number_array)
                     #)
 
-                    freq_array = Omega_generalised_with_ua(external_field, sat_mag_moon, exc_stiff_moon,
-                                                           dmi_val_const_moon,
-                                                           wave_number_array, 1e-9, K_1, K_2, aniso_axis,
-                                                           gyromag_ratio,
+                    omega_array = Omega_generalised_with_ua(external_field, sat_mag_moon, exc_stiff_moon,
+                                                            dmi_val_const_moon,
+                                                            wave_number_array, lattice_constant_moon,
+                                                            K_1, K_2, aniso_axis,
+                                                            (gyromag_ratio_moon * 2 * np.pi),
                                                            [system_dims[0], system_dims[1], system_dims[2]],
-                                                           has_demag=1,
-                                                           has_dmi=1,
-                                                           has_aniso=1)
+                                                            has_demag=use_demag
+                                                            )
+
+                    freq_array = np.array([omega / (2 * np.pi) for omega in omega_array])
+
+                    # Find the minimum frequency, and thus wavevector, as avhline() requires normalised inputs
+                    normalized_k = (wave_number_array[freq_array.argmin()] * hz_2_GHz - ax_xlim_lims[0]) / (
+                            ax_xlim_lims[1] - ax_xlim_lims[0])
 
                     #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
 
@@ -2919,16 +2923,420 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     #                     / (2 * exchange_field * lattice_constant))
                     # + (((2 * dmi_val) / (sat_mag_moon)) * wave_number_array))
 
-                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
+                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz,
+                             lw=0., ls='-',
                              label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
-                    ax1.axvline(x=wave_number_array[freq_array.argmin()] * hz_2_GHz, color='black', linestyle='-', lw=3, alpha=0.75, zorder=1.999)
+                    ax1.axvline(x=wave_number_array[freq_array.argmin()] * hz_2_GHz,
+                                color='black', ls='-', lw=3,
+                                alpha=0.75, zorder=1.999)
+                    print(f'Min k: {wave_number_array[freq_array.argmin()] * hz_2_GHz}'
+                          f' | Min freq.: {min(freq_array) * hz_2_GHz}')
+
 
                     demag_N = calculate_demag_factor_uniform_prism(system_dims[0],
-                                                                         system_dims[1],
-                                                                         system_dims[2])
+                                                                   system_dims[1],
+                                                                   system_dims[2])
+                    if not use_demag:
+                        demag_N['N_x'], demag_N['N_y'], demag_N['N_z'] = 0, 0, 0
+                    print(f'Demag factors: {demag_N}')
 
-                    print(demag_N)
+                    # To gather unique modes during horizontal line plotting
+                    mode_tolerance_dp = 3
+                    plotted_horizontal_lines = {}
+
+                    for i, freq_val in enumerate(freq_array):
+                        # Need to preserve directional information from original wavevector
+                        orig_sign = k_signs[i]
+                        freq_key = round(freq_val, 2)
+
+                        num_modes = []
+                        # Only check modes below 50 GHz; any higher becomes unphysical for most of my materials
+                        if freq_val < ax_ylim_lims[1] * 1e9:
+                            # print(f'Freq: {freq_val * 1e-9: .2f} GHz')
+
+                            use_quartic = False
+                            if use_quartic:
+                                def safe_sqrt(x, tol=1e-12):
+                                    """Return sqrt(x) if x is nonnegative (within tolerance), otherwise None."""
+                                    if x < -tol:
+                                        return None
+                                    return math.sqrt(max(x, 0))
+
+                                def safe_cubrt(x):
+                                    """Cube root that works for negative numbers."""
+                                    if x >= 0:
+                                        return x ** (1.0 / 3.0)
+                                    else:
+                                        return - ((-x) ** (1.0 / 3.0))
+
+                                def solve_depressed_quartic(p, q, r):
+                                    """
+                                    Solve the depressed quartic:
+                                         k^4 + p*k^2 + q*k + r = 0.
+
+                                    This function follows the method described on Wikipedia.
+                                    It first solves the resolvent cubic (in its depressed form) for a real solution z0,
+                                    then computes R = sqrt(p/2 + y) with y = z0 + p/6, and finally returns the four roots:
+                                         k = 0.5 * ( ± R ± D ),
+                                    where D = sqrt(-3*p/2 - y + (q/(2*R))) and an alternative term E = sqrt(-3*p/2 - y - (q/(2*R))).
+                                    (Depending on the sign chosen in the second square root, you get the four candidate roots.)
+
+                                    Parameters:
+                                      p, q, r : float
+                                          Coefficients of the depressed quartic.
+
+                                    Returns:
+                                      roots : list of floats
+                                          The real roots found (some of the four candidates may be complex if the radicands become negative).
+                                    """
+                                    # --- Step 1: Solve the resolvent cubic in its depressed form.
+                                    # Transform: let y = z + p/6 so that the resolvent cubic becomes:
+                                    #    z^3 + A*z + B = 0, with
+                                    A = - (p ** 2) / 12 - r
+                                    B = (p ** 3) / 108 + (p * r) / 3 - (q ** 2) / 8
+
+                                    # Compute discriminant of the depressed cubic
+                                    disc = (B / 2) ** 2 + (A / 3) ** 3
+
+                                    if disc >= 0:
+                                        # One real solution from Cardano's formula:
+                                        z0 = safe_cubrt(-B / 2 + safe_sqrt(disc)) + safe_cubrt(-B / 2 - safe_sqrt(disc))
+                                    else:
+                                        # Three real solutions; use trigonometric solution.
+                                        # Note: When disc < 0, the cube roots are computed via cosine.
+                                        phi = math.acos(-B / 2 / math.sqrt(-(A / 3) ** 3))
+                                        z0 = 2 * math.sqrt(-A / 3) * math.cos(phi / 3)
+
+                                    # Recover y = z0 + p/6
+                                    y = z0 + p / 6
+
+                                    # --- Step 2: Compute R = sqrt(p/2 + y)
+                                    R = safe_sqrt(p / 2 + y)
+                                    if R is None:
+                                        # If R is not real, then no real solution is obtained via this branch.
+                                        return []
+
+                                    # --- Step 3: Compute the two secondary square roots.
+                                    # They appear with a ± sign.
+                                    radicand = -3 * p / 2 - y
+                                    term = q / (2 * R)
+                                    D = safe_sqrt(radicand + term)
+                                    E = safe_sqrt(radicand - term)
+
+                                    roots = []
+                                    # Now form the four candidates.
+                                    if D is not None:
+                                        roots.append(0.5 * (R + D))
+                                        roots.append(0.5 * (R - D))
+                                    if E is not None:
+                                        roots.append(0.5 * (-R + E))
+                                        roots.append(0.5 * (-R - E))
+
+                                    # Filter out any None values if present.
+                                    roots = [k for k in roots if k is not None]
+                                    return roots
+
+                                def solve_depressed_quartic_test(C, D, E, A=1, B=0):
+                                    """
+                                    Starting with the quartic:
+                                        A * k^4 + B * k^3 + C * k^2 + D * k + E = 0,
+
+                                    solve the depressed quartic:
+                                         u^4 + a * u^2 + b * u + c = 0.
+
+                                    by eliminating the constant B through:
+                                        k = u - B / (4 * A).
+
+                                    This function follows the method described on Wikipedia.
+                                    It first solves the resolvent cubic (in its depressed form) for a real solution z0,
+                                    then computes R = sqrt(p/2 + y) with y = z0 + p/6, and finally returns the four roots:
+                                         k = 0.5 * ( ± R ± D ),
+                                    where D = sqrt(-3*p/2 - y + (q/(2*R))) and an alternative term E = sqrt(-3*p/2 - y - (q/(2*R))).
+                                    (Depending on the sign chosen in the second square root, you get the four candidate roots.)
+
+                                    Parameters:
+                                      A, C, D, E : float
+                                          Coefficients of the depressed quartic.
+
+                                    Returns:
+                                      roots : list of floats
+                                          The real roots found (some of the four candidates may be complex if the radicands become negative).
+                                    """
+                                    # -- Step 0: Convert the quartic to a depressed quartic
+                                    if A != 1:
+                                        # Normalize the coefficients
+                                        B /= A
+                                        C /= A
+                                        D /= A
+                                        E /= A
+                                        A = 1
+
+                                    # Rename the coefficients of the depressed quartic for use in Resolvent cubic
+                                    res_a = - 3 * (B ** 2) / (8 * A ** 2) + C / A
+                                    res_b = (B ** 3) / (8 * A ** 3) - (B * C) / (2 * A ** 2) + D / A
+                                    res_c = (-3 * (B ** 4) / (256 * A ** 4) + (C * B ** 2) / (16 * A ** 3)
+                                         - (B * D) / (4 * A ** 2) + E / A)
+
+                                    if res_b == 0:
+                                        # Special case of a biquadratic equation
+
+                                        # --- Step 1: Set coefficients of biquadratic equation given by:
+                                        #       y_0 * u^4 + y_2 * u^2 + y_4 = 0.
+                                        # where:
+                                        #       y_0 = 1, y_2 = a, y_4 = c
+                                        y_0 = 1
+                                        y_2 = res_a
+                                        y_4 = res_c
+
+                                        # --- Step 2: Solve the biquadratic equation
+                                        # Let v = u^2, then the equation becomes:
+                                        #       y_0 * v^2 + y_2 * v + y_4 = 0
+                                        disc_quad = y_2 ** 2 - 4 * y_0 * y_4
+                                        disc_val = safe_sqrt(disc_quad)
+
+                                        if disc_val is None:
+                                            # If the discriminant is not real, then no real solution is obtained via this branch.
+                                            return []
+
+                                        v_pos = (-y_2 + disc_val) / (2 * y_0)
+                                        v_neg = (-y_2 - disc_val) / (2 * y_0)
+
+                                        # --- Step 3: Recover u
+                                        roots = []
+
+                                        # Handles the first and second roots
+                                        u_0 = safe_sqrt(v_pos)
+                                        if u_0 is not None:
+                                            roots.extend([u_0, -u_0])
+
+                                        # Handles the third and fourth roots
+                                        u_2 = safe_sqrt(v_neg)
+                                        if u_2 is not None:
+                                            roots.extend([u_2, -u_2])
+
+                                    else:
+                                        # General solution for a depressed quartic
+
+                                        # --- Step 1: Solve the resolvent cubic in its depressed form.
+                                        p = - (res_a ** 2) / 12 - res_c
+                                        q = - (res_a ** 3) / 108 + (res_a * res_c) / 3 - (res_b ** 2) / 8
+
+                                        # Compute discriminant of the depressed cubic
+                                        disc = (q / 2) ** 2 + (p / 3) ** 3
+
+                                        if disc >= 0:
+                                            # One real solution from Cardano's formula:
+                                            w = safe_cubrt(-q / 2 + safe_sqrt(disc))
+                                        else:
+                                            # Three real solutions; use trigonometric solution.
+                                            # Note: When disc < 0, the cube roots are computed via cosine.
+                                            phi = math.acos(-q / 2 / math.sqrt(-(p / 3) ** 3))
+                                            w = 2 * math.sqrt(-p / 3) * math.cos(phi / 3)
+
+                                        # Recover y
+                                        y = res_a / 6 + w - p / (3 * w)
+
+                                        # --- Step 2: Find possible values of u
+                                        # Full expression is:
+                                        #       u = 0.5 * (\pm_s alpha_root
+                                        #                  \pm_t Sqrt[- alpha \pm_s + (2 * b) / (alpha_root)])
+                                        #
+                                        # which can be simplified to:
+                                        #       u = 0.5 * (\pm_s R \pm_t D)
+                                        # where:
+                                        #       - D === Sqrt[- alpha \pm_s + (2 * b) / (alpha_root)]
+                                        #       - \pm_s is +ve (-ve) for u_0 and u_1 (u_2 and u_3).
+                                        #       - pm_t is +ve (-ve) for u_0 and u_2 (u_1 and u_3).
+
+                                        inner_root = 2 * y - res_a
+                                        R = safe_sqrt(inner_root)
+
+                                        if R is None:
+                                            # If alpha_root is not real, then no real solution is obtained via this branch.
+                                            return []
+
+                                        # --- Step 3: Compute the two secondary square roots.
+                                        term_1 = safe_sqrt(- inner_root + (2 * res_b) / R)
+                                        term_2 = safe_sqrt(- inner_root - (2 * res_b) / R)
+
+                                        roots = []
+                                        # Now form the four candidates.
+                                        if term_1 is not None:
+                                            roots.append(0.5 * (-R + term_1))
+                                            roots.append(0.5 * (-R - term_1))
+                                        if term_2 is not None:
+                                            roots.append(0.5 * (R + term_2))
+                                            roots.append(0.5 * (R - term_2))
+
+                                    # --- Final step: cleanup and return the state.
+                                    roots = [u for u in roots if u is not None]  # Filter out any None values if present
+
+                                    if B != 0:
+                                        # Recover k as k = u - B / (4 * A)
+                                        roots = [u - B / (4 * A) for u in roots]
+
+                                    return roots
+
+                                def solve_quartic(H0, A, D_ij, Ms, demag_factors, a_z, K_1, K_2, omega, gamma):
+                                    """
+                                    Solve the full quartic dispersion relation
+                                      J^2*k^4 + [J*(η+ρ) - D_ij^2]*k^2 + [2 ω D_ij/(γ μ0)]*k + [ηρ - ω^2/(γ^2 μ0^2)] = 0,
+                                    where
+                                      c_1 = H0 + (2 a_z^2/(Ms μ0))*(K1 + 2*K2*a_z^2) + Ms*(Nx-Nz)
+                                      c_2 = H0 + (2 a_z^2/(Ms μ0))*(K1 + 2*K2*a_z^2) + Ms*(Ny-Nz)
+
+                                    The quartic is normalized by dividing by J^2 so that:
+                                         k^4 + p*k^2 + q*k + r = 0,
+                                    with
+                                         p = (J*(η+ρ) - D_ij^2)/J^2,
+                                         q = 2 ω D_ij/(γ μ0 J^2),
+                                         r = (ηρ - ω^2/(γ^2 μ0^2))/J^2.
+
+                                    Args:
+                                        H0 : float : External field [A / m].
+                                        A : float : Exchange stiffness [J / m].
+                                        D_ij : float : DMI constant [J / m^2].
+                                        Ms : float : Saturation magnetization [A / m].
+                                        demag_factors : dict : Dictionary of demagnetization factors [normalised].
+                                        a_z : float : Anisotropy vector component along z axis.
+                                        K_1 : float : Uniaxial anisotropy constant for quadratic term [J / m^3].
+                                        K_2 : float : Uniaxial anisotropy constant for quartic term [J / m^3].
+                                        omega : float : Angular frequency [rad * Hz].
+                                        gamma : float : Gyromagnetic ratio [rad * Hz / T].
+
+
+                                    Returns:
+                                        k : list : Candidate wavevectors [1 / m] that solve the quartic.
+                                    """
+                                    mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
+
+                                    H0 /= mu0  # Convert from T to A/m
+                                    Nx, Ny, Nz = demag_factors['N_x'], demag_factors['N_y'], demag_factors['N_z']
+
+                                    # Formulae from moon2013generation
+                                    J = 2 * A / (mu0 * Ms)
+                                    D = -2 * D_ij / (mu0 * Ms) #-ve required to match Omega_with_generalised_ua
+
+                                    # Define constants ('d' coefficient: dee Mathematica file for derivation)
+                                    c_base = H0 + (2 * a_z ** 2 / (Ms * mu0)) * (K_1 + 2 * K_2 * a_z ** 2)
+                                    c_1 = c_base + Ms * (Nx - Nz)
+                                    c_2 = c_base + Ms * (Ny - Nz)
+
+                                    # Define the depressed quartic coefficients
+                                    quartic_A = J ** 2
+                                    quartic_B = 0
+                                    quartic_C = (J * (c_1 + c_2) - D ** 2)
+                                    quartic_D = 2 * omega * D_ij / (gamma * mu0)
+                                    quartic_E = c_1 * c_2 - omega ** 2 / (gamma ** 2 * mu0 ** 2)
+
+                                    # Solve the depressed quartic
+                                    roots = solve_depressed_quartic_test(A=quartic_A, B=quartic_B, C=quartic_C,
+                                                                         D=quartic_D, E=quartic_E)
+
+                                    return roots
+
+                                # Compute the roots for k [1 / m]
+                                candidate_k_roots = solve_quartic(external_field, exc_stiff_moon, dmi_val_const_moon,
+                                                        sat_mag_moon, demag_N,
+                                                        aniso_axis[2], K_1, K_2,
+                                                        (freq_val * 2 * np.pi), (gyromag_ratio_moon * 2 * np.pi)
+                                                        )
+
+                                #print(k_roots)
+
+                                # if len(k_roots) > 0:
+                                #     print("Candidate k roots:")
+                                #     for k in k_roots:
+                                #         print(f'{k} | ', end='')
+                                #     print('\n', end='')
+
+                                # Should return up to 4 roots - currently have no way to select valid roots
+                                # Temp code to test execution
+                                # Need to divide by 1e9 if num_modes should be in inverse nanometres
+                                #if candidate_k_roots:
+                                #    for k_root in candidate_k_roots:
+                                #        num_modes.append(driving_width / (2 * np.pi) * k_root)
+
+                                # Filter candidate roots based on sign:
+                                matching = [k for k in candidate_k_roots if
+                                            np.isclose(np.sign(k), orig_sign, atol=1e-12)]
+                                if matching:
+                                    k_selected = matching[0]  # or average if degenerate
+                                    mode_num = (driving_width / (2 * np.pi)) * abs(k_selected)
+                                    num_modes.append(mode_num)
+                                else:
+                                    print(f'No matching k for freq {freq_val} with original sign {orig_sign}')
+
+                            else:
+                                # Old version
+                                mode_1 = (-dmi_val * lattice_constant + np.sqrt(
+                                   dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * (
+                                               external_field - freq_val / gyromag_ratio))) / (
+                                                                                             2 * exchange_field)
+                                mode_2 = (-dmi_val * lattice_constant - np.sqrt(
+                                   dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * (
+                                               external_field - freq_val / gyromag_ratio))) / (
+                                                                                             2 * exchange_field)
+
+                                # print(f'k1: {mode_1} | k2: {mode_2}')
+                                # mode_1 and mode_2 are in [inverse metres]
+                                num_modes.append(driving_width / (2 * np.pi) * mode_1)
+                                num_modes.append(driving_width / (2 * np.pi) * mode_2)
+
+                            mode_atol = 5 * 10**(-mode_tolerance_dp)
+
+                            # Build unique modes dictionary based on the rounded value.
+                            unique_modes = {}
+                            for mode in num_modes:
+                                key = round(mode, mode_tolerance_dp)
+                                unique_modes[key] = mode
+
+                            for mode in unique_modes.values():
+                                # Loop over unique mode values while avoiding to duplicate drawn lines
+                                test_range = [0.0, normalized_k] if mode < 0 else [normalized_k, 1.0]
+                                sign_key = 'negative' if mode < 0 else 'positive'
+
+                                # Interference condition only depends on absolute value of num_modes, otherwise
+                                # negative num_modes (for negative wavevectors) fail the test
+                                line_type = None
+                                abs_mode = abs(mode)
+                                if (np.isclose(np.fmod(abs_mode, 1.0), 0, atol=mode_atol)
+                                        or np.isclose(np.fmod(abs_mode, 1.0), 1.0, atol=mode_atol)):
+                                    # First, check for whole integer (constructive interference)
+                                    line_type = 'Whole'
+
+                                elif (np.isclose(np.fmod(abs_mode, 0.5), 0, atol=mode_atol)
+                                        or np.isclose(np.fmod(abs_mode, 0.5), 0.5, atol=mode_atol)):
+                                    # Only if it's not a whole integer do we check for half-integer conditions
+                                    line_type = 'Half'
+
+                                # If we determined a line type, proceed.
+                                if line_type is not None:
+                                    if freq_key not in plotted_horizontal_lines:
+                                        # Lazy-initialised plotted_horizontal_lines so need to build entry at first pass
+                                        plotted_horizontal_lines[freq_key] = {
+                                            'Whole_positive': False,
+                                            'Whole_negative': False,
+                                            'Half_positive': False,
+                                            'Half_negative': False
+                                        }
+                                    dict_key = f"{line_type}_{sign_key}"
+                                    # Check if a line for this (frequency, type, sign) has already been drawn.
+                                    if not plotted_horizontal_lines[freq_key][dict_key]:
+                                        # Set linestyle depending on type.
+                                        ls = '-' if line_type == 'Whole' else '--'
+                                        ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
+                                                    ls=ls, lw=1.5, color='black', alpha=0.75,
+                                                    zorder=1.22 if line_type == 'Whole' else 1.23)
+                                        print(f'{line_type} ({sign_key}): {mode:.3f} | freq: {freq_val * 1e-9: .2f}')
+                                        # Mark that this line has now been plotted.
+                                        plotted_horizontal_lines[freq_key][dict_key] = True
+                            if freq_key in plotted_horizontal_lines:
+                                print(unique_modes)
+                                print(plotted_horizontal_lines[freq_key])
+                                print('\n', end='')
+
 
                     self._tick_setter(ax1, 0.05, 0.01, 5, 2, is_fft_plot=False,
                                       xaxis_num_decimals=.2, yaxis_num_decimals=2.2, yscale_type='plain')
@@ -2938,195 +3346,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                             xlim=ax_xlim_lims,
                             ylim=ax_ylim_lims)
 
-                    def safe_sqrt(value):
-                        if value < 0:
-                            return None
-                        else:
-                            return math.sqrt(value)
-
-                    def safe_cubrt(value):
-                        if value < 0:
-                            return -((-value) ** (1. / 3.))
-                        else:
-                            return value ** (1. / 3.)
-
-                    def quartic_y(a, b, c):
-                        quartic_p = - (a**2 / 12) - c
-
-                        quartic_q = - (a**3 / 108) + (a * c / 3) - (b**2 / 8)
-
-                        first_sqrt = safe_sqrt((quartic_q**2 / 4) + (quartic_p**3 / 27))
-
-                        if first_sqrt is not None:
-                            quartic_w = safe_cubrt(- (quartic_q / 2) + first_sqrt)
-
-                            if quartic_w is not None:
-                                return (a / 6) + quartic_w - quartic_p / (3 * quartic_w)
-
-                        return None
-
-                    def quartic_root(a, b, c, sign_1=-1, sign_2=1):
-                        sign_3 = -1 * sign_1
-                        q_y = quartic_y(a, b, c)
-
-                        # If q_y is None, return None immediately
-                        if q_y is None:
-                            return None
-
-                        # Calculate first_root
-                        first_root = safe_sqrt(2 * q_y - a)
-
-                        # Calculate second_root based on first_root (even if first_root is None)
-                        second_root = None
-
-                        # Defend against possible division by zero for special cases (u_quartic_b = 0)
-                        if b != 0:
-                            second_root = safe_sqrt(
-                                -2 * q_y - a + sign_3 * ((2 * b) / (first_root if first_root is not None else 1)))
-
-                        # Check if at least one of first_root or second_root is valid
-                        if first_root is not None and second_root is not None:
-                            # Both roots are real, proceed with the combination
-                            return 0.5 * (sign_1 * first_root + sign_2 * second_root)
-                        elif first_root is not None:
-                            # Only first_root is real, use it alone
-                            return 0.5 * (sign_1 * first_root)
-                        elif second_root is not None:
-                            # Only second_root is real, use it alone
-                            return 0.5 * (sign_2 * second_root)
-                        else:
-                            # Both roots are None, return None
-                            return None
-
-                    def quartic_a(H0, J, d_ij, Ms, Nx, Ny, Nz, az, K1, K2, has_dmi=True, has_demag=True, has_ani=True):
-                        return (1 / J) * (2 * H0
-                                          + has_demag * Ms * (Nx + Ny - 2 * Nz)
-                                          + has_ani * (4 * az**2 * K1) / (Ms * mu0)
-                                          + has_ani * (8 * az**4 * K2) / (Ms * mu0)
-                                          ) + has_dmi * mu0 * (d_ij**2 / J**2)
-
-                    def quartic_b(d_ij, J):
-                        # Special case for depressed quartics
-                        return 0 * d_ij / J
-
-                    def quartic_c(omega, gamma, H0, J, Ms, demag_factors, az, K1, K2):
-                        return (1 / J**2) * (
-                                + Ms**2 * (demag_factors['N_x'] * demag_factors['N_y']
-                                           - demag_factors['N_x'] * demag_factors['N_z']
-                                           - demag_factors['N_y'] * demag_factors['N_z']
-                                           + demag_factors['N_z']**2
-                                           )
-                                - omega**2 / (gamma**2 * mu0**2)
-                                + 1 / (Ms * mu0**2) * (4 * az**4 * K1**2
-                                                       + 16 * az**6 * K1 * K2
-                                                       + 16 * az**2 * K2**2
-                                                       )
-                                + 1 / (Ms * mu0) * (4 * az**2 * H0 * K1
-                                                    + 8 * az**4 * H0 * K2
-                                                    )
-                                + (1 / mu0) * (4 * az**2 * K1 * demag_factors['N_x']
-                                               + 8 * az**4 * K2 * demag_factors['N_x']
-                                               - 4 * az**2 * K1 * demag_factors['N_z']
-                                               - 8 * az**4 * K2 * demag_factors['N_z']
-                                               )
-                    )
-
-                    def quadratic_formula(a, b, c, sign=1):
-                        return (-b + sign * np.sqrt(b**2 - 4 * a * c)) / (2 * a)
-
-                    qA = quartic_a(mu0*external_field, exchange_field, dmi_val_const, sat_mag_moon,
-                                   demag_N['N_x'], demag_N['N_y'], demag_N['N_z'], aniso_axis[2], K_1, K_2)
-
-                    qB = quartic_b(dmi_val_const, exchange_field)
-
-                    mode_upper_lim = ax_ylim_lims[1] * 1e9
-                    # for freq_val in freq_array:
-                    #     num_modes = []
-                    #     # Only check modes below 50 GHz; any higher becomes unphysical for most of my materials
-                    #     if freq_val <= mode_upper_lim:
-                    #         # print(f'\n\nFreq: {freq_val}')
-                    #         qC = quartic_c(freq_val, gyromag_ratio, mu0*external_field,
-                    #                        exchange_field, sat_mag_moon,
-                    #                        demag_N, aniso_axis[2], K_1, K_2)
-                    #
-                    #         use_quartic = False
-                    #         if use_quartic:
-                    #
-                    #             quartic_root_1 = quartic_root(qA, qB, qC, sign_1=-1, sign_2=1)
-                    #             if quartic_root_1 is not None:
-                    #                 # print(f'Quartic Root (k1): {quartic_root_1}')
-                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_1)
-                    #
-                    #             quartic_root_2 = quartic_root(qA, qB, qC, sign_1=-1, sign_2=-1)
-                    #             if quartic_root_2 is not None:
-                    #                 # print(f'Quartic Root (k2): {quartic_root_2}')
-                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_2)
-                    #
-                    #             quartic_root_3 = quartic_root(qA, qB, qC, sign_1=1, sign_2=1)
-                    #             if quartic_root_3 is not None:
-                    #                 # print(f'Quartic Root (k3): {quartic_root_3}')
-                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_3)
-                    #
-                    #             quartic_root_4 = quartic_root(qA, qB, qC, sign_1=1, sign_2=-1)
-                    #             if quartic_root_4 is not None:
-                    #                 # print(f'Quartic Root (k4): {quartic_root_4}')
-                    #                 num_modes.append(driving_width / (2 * np.pi) * quartic_root_4)
-                    #         else:
-                    #             quadratic_root_1 = quadratic_formula(qA, qB, qC)
-                    #             num_modes.append(driving_width / (2 * np.pi) * quadratic_root_1)
-                    #
-                    #             quadratic_root_2 = quadratic_formula(qA, qB, qC, sign=-1)
-                    #             num_modes.append(driving_width / (2 * np.pi) * quadratic_root_2)
-
-
-                    for freq_val in freq_array:
-                        num_modes = []
-                        if freq_val <= 50e9:
-                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant + np.sqrt(
-                               dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * (
-                                           external_field - freq_val / gyromag_ratio))) / (
-                                                                                         2 * exchange_field)))
-                            num_modes.append((driving_width / (2 * np.pi)) * ((-dmi_val * lattice_constant - np.sqrt(
-                               dmi_val ** 2 * lattice_constant ** 2 - 4 * exchange_field * (
-                                           external_field - freq_val / gyromag_ratio))) / (
-                                                                                         2 * exchange_field)))
-
-                            # Calculate the index and the corresponding wave number value for the global minima
-
-                            normalized_x = (wave_number_array[freq_array.argmin()] * hz_2_GHz - ax_xlim_lims[0]) / (ax_xlim_lims[1] - ax_xlim_lims[0])
-
-                            for i, mode in enumerate(num_modes):
-                                if np.isclose(np.fmod(mode, 0.5), 0, atol=1e-2) or np.isclose(
-                                        np.fmod(mode, 0.5), 0.5, atol=1e-2):
-                                    if mode < 0:
-                                        test_range = [0.0, normalized_x]
-                                    else:
-                                        test_range = [normalized_x, 1.0]
-
-                                    print(f'Freq: {freq_val * hz_2_GHz}', end=' | ')
-                                    if np.isclose(np.fmod(mode, 1.0), 0, atol=1e-2) or np.isclose(
-                                            np.fmod(mode, 1.0), 1.0, atol=1e-2):
-                                        # If full int then print solid line
-                                        ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
-                                                    color='black', linestyle='-', lw=1.5, alpha=0.75, zorder=1.22)
-                                        print(f'Whole: {mode}')
-                                    else:
-                                        # Otherwise, must be a half-int; use a dashed line
-                                        ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
-                                                    color='black', linestyle='--', lw=1.5,
-                                                    alpha=0.75, zorder=1.99)
-                                        print(f'Half: {mode}')
-
-                                    if i == 1:
-                                        print(num_modes[0], num_modes[1], end='\n\n\n')
-
-
-                    #ax1.set(xlabel=r"Wavevector, $k$ (nm$^{-1})$",
-                    #        ylabel=r"External Static Field, $H^{0}$ (T)" , xlim=[-0.2, 0.2], ylim=[5, 40])
-                    self._tick_setter(ax1, 0.05, 0.01, 5, 2, is_fft_plot=False,
-                                      xaxis_num_decimals=.2, yaxis_num_decimals=2.2, yscale_type='plain')
-
-                    if dmi_val == 0:
+                    if dmi_val < 0:
                         ax2 = ax1.twiny()
                         wavelengths_array = (2 * np.pi) / (wave_number_array * hz_2_GHz)
 
@@ -3144,12 +3364,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         self._tick_setter(ax2, 5, 1, 5, 2, is_fft_plot=False,
                                           xaxis_num_decimals=.2, yaxis_num_decimals=2.2, yscale_type='plain')
 
-                    # ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz, lw=0., ls='-',
-                    #          label=f'D = {dmi_val}', marker='o', markersize=1.5)
-
-
-                    # self._tick_setter(ax1, 0.1, 0.05, 3, 2, is_fft_plot=False,
-                    #                   xaxis_num_decimals=.1, yaxis_num_decimals=2.0, yscale_type='plain')
                 else:
                     #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
                     #freq_array = np.full_like(external_field_array, freq_set * 1e9)
@@ -3269,48 +3483,29 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             plt.show()
 
 
-def Omega_generalised_with_ua(H0, Ms, A, D, k, d, K1, K2, aniso_axis, gamma, system_dims, p=1,
+def Omega_generalised_with_ua(H0, Ms, A, Dij, k, d, K1, K2, aniso_axis, gamma, system_dims, p=1,
                               has_demag=1, has_dmi=1, has_aniso=1):
     mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
 
     # This function requires the field components to be in [A m^{-1}]
     H0 /= mu0
     J = 2 * A / (mu0 * Ms)
-    DM = 2 * D / (mu0 * Ms)
+    D = -2 * Dij / (mu0 * Ms)
 
     demag_factors = calculate_demag_factor_uniform_prism(system_dims[0],
                                                          system_dims[1],
                                                          system_dims[2])
 
-    #om = np.sqrt((H0
-    #              + J * (k ** 2)
-    #              + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z'])
-    #              )
-    #             * (H0
-    #                + J * (k ** 2)
-    #                + has_aniso * ((4 * (aniso_axis[2])**2) / (Ms * mu0) * (K1 + 2 * K2 * (aniso_axis[2])**2))
-    #                + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z'])
-    #                )
-    #             + has_aniso * ((4 * aniso_axis[2] ** 4) / (Ms ** 2 * mu0 ** 2)
-    #                            * (4 * K1 ** 2 + 4 * K1 * K2 * (aniso_axis[2])**2 + 4 * K2 ** 2 * (aniso_axis[2])**4))
-    #             )
-    om = np.sqrt((H0
-                  + J * (k ** 2)
-                  + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0)
-                                 * (K1 + 2 * K2 * aniso_axis[2] ** 2))
-                  + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z']))
-                 * (H0
-                    + J * (k ** 2)
+    const_factor = (H0 + J * (k ** 2)
                     + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0)
-                                   * (K1 + 2 * K2 * aniso_axis[2] ** 2))
-                    + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z'])
+                                 * (K1 + 2 * K2 * aniso_axis[2] ** 2)))
+    omega = np.sqrt((const_factor + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z']))
+                    * (const_factor + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z']))
                     )
-                 )
 
-    om += p * DM * k * has_dmi
+    omega += p * D * k * has_dmi
 
-    # the mu0 factor shown in the paper is not necessary if we use gamma
-    # in Hz / (A / m)
-    om *= (gamma * mu0)
+    # om is in Hz
+    omega *= (gamma * mu0)
 
-    return om
+    return omega
