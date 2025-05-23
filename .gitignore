@@ -1,5 +1,6 @@
 
 ### .idea exclusions
+/.idea/
 
 ## General User-specific stuff
 /.idea/workspace.xml
