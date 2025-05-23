@@ -2505,7 +2505,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         sat_mag_moon = 8e5  # A/m
         exc_stiff_moon = 1.3e-11  # J/m
-        dmi_val_const_moon = 0.5e-3#4e-4  # 1.0e-3
+        dmi_val_const_moon = -4e-4  # 4e-4  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
         p_vals_moon = [0, -1, 1]
 
@@ -2933,7 +2933,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     print(f'Min k: {wave_number_array[freq_array.argmin()] * hz_2_GHz}'
                           f' | Min freq.: {min(freq_array) * hz_2_GHz}')
 
-
                     demag_N = calculate_demag_factor_uniform_prism(system_dims[0],
                                                                    system_dims[1],
                                                                    system_dims[2])
@@ -2943,19 +2942,20 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                     # To gather unique modes during horizontal line plotting
                     mode_tolerance_dp = 3
+                    mode_atol = 5 * 10 ** (-mode_tolerance_dp)
                     plotted_horizontal_lines = {}
 
                     for i, freq_val in enumerate(freq_array):
                         # Need to preserve directional information from original wavevector
                         orig_sign = k_signs[i]
-                        freq_key = round(freq_val, 2)
+                        freq_key = round(freq_val * 1e-9, 3)
 
                         num_modes = []
                         # Only check modes below 50 GHz; any higher becomes unphysical for most of my materials
                         if freq_val < ax_ylim_lims[1] * 1e9:
                             # print(f'Freq: {freq_val * 1e-9: .2f} GHz')
 
-                            use_quartic = False
+                            use_quartic = True
                             if use_quartic:
                                 def safe_sqrt(x, tol=1e-12):
                                     """Return sqrt(x) if x is nonnegative (within tolerance), otherwise None."""
@@ -2969,73 +2969,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                         return x ** (1.0 / 3.0)
                                     else:
                                         return - ((-x) ** (1.0 / 3.0))
-
-                                def solve_depressed_quartic(p, q, r):
-                                    """
-                                    Solve the depressed quartic:
-                                         k^4 + p*k^2 + q*k + r = 0.
-
-                                    This function follows the method described on Wikipedia.
-                                    It first solves the resolvent cubic (in its depressed form) for a real solution z0,
-                                    then computes R = sqrt(p/2 + y) with y = z0 + p/6, and finally returns the four roots:
-                                         k = 0.5 * ( ± R ± D ),
-                                    where D = sqrt(-3*p/2 - y + (q/(2*R))) and an alternative term E = sqrt(-3*p/2 - y - (q/(2*R))).
-                                    (Depending on the sign chosen in the second square root, you get the four candidate roots.)
-
-                                    Parameters:
-                                      p, q, r : float
-                                          Coefficients of the depressed quartic.
-
-                                    Returns:
-                                      roots : list of floats
-                                          The real roots found (some of the four candidates may be complex if the radicands become negative).
-                                    """
-                                    # --- Step 1: Solve the resolvent cubic in its depressed form.
-                                    # Transform: let y = z + p/6 so that the resolvent cubic becomes:
-                                    #    z^3 + A*z + B = 0, with
-                                    A = - (p ** 2) / 12 - r
-                                    B = (p ** 3) / 108 + (p * r) / 3 - (q ** 2) / 8
-
-                                    # Compute discriminant of the depressed cubic
-                                    disc = (B / 2) ** 2 + (A / 3) ** 3
-
-                                    if disc >= 0:
-                                        # One real solution from Cardano's formula:
-                                        z0 = safe_cubrt(-B / 2 + safe_sqrt(disc)) + safe_cubrt(-B / 2 - safe_sqrt(disc))
-                                    else:
-                                        # Three real solutions; use trigonometric solution.
-                                        # Note: When disc < 0, the cube roots are computed via cosine.
-                                        phi = math.acos(-B / 2 / math.sqrt(-(A / 3) ** 3))
-                                        z0 = 2 * math.sqrt(-A / 3) * math.cos(phi / 3)
-
-                                    # Recover y = z0 + p/6
-                                    y = z0 + p / 6
-
-                                    # --- Step 2: Compute R = sqrt(p/2 + y)
-                                    R = safe_sqrt(p / 2 + y)
-                                    if R is None:
-                                        # If R is not real, then no real solution is obtained via this branch.
-                                        return []
-
-                                    # --- Step 3: Compute the two secondary square roots.
-                                    # They appear with a ± sign.
-                                    radicand = -3 * p / 2 - y
-                                    term = q / (2 * R)
-                                    D = safe_sqrt(radicand + term)
-                                    E = safe_sqrt(radicand - term)
-
-                                    roots = []
-                                    # Now form the four candidates.
-                                    if D is not None:
-                                        roots.append(0.5 * (R + D))
-                                        roots.append(0.5 * (R - D))
-                                    if E is not None:
-                                        roots.append(0.5 * (-R + E))
-                                        roots.append(0.5 * (-R - E))
-
-                                    # Filter out any None values if present.
-                                    roots = [k for k in roots if k is not None]
-                                    return roots
 
                                 def solve_depressed_quartic_test(C, D, E, A=1, B=0):
                                     """
@@ -3076,7 +3009,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                     res_a = - 3 * (B ** 2) / (8 * A ** 2) + C / A
                                     res_b = (B ** 3) / (8 * A ** 3) - (B * C) / (2 * A ** 2) + D / A
                                     res_c = (-3 * (B ** 4) / (256 * A ** 4) + (C * B ** 2) / (16 * A ** 3)
-                                         - (B * D) / (4 * A ** 2) + E / A)
+                                             - (B * D) / (4 * A ** 2) + E / A)
 
                                     if res_b == 0:
                                         # Special case of a biquadratic equation
@@ -3096,7 +3029,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                         disc_val = safe_sqrt(disc_quad)
 
                                         if disc_val is None:
-                                            # If the discriminant is not real, then no real solution is obtained via this branch.
+                                            # If the discriminant is not real, then no real solution is obtained
+                                            # via this branch.
                                             return []
 
                                         v_pos = (-y_2 + disc_val) / (2 * y_0)
@@ -3258,16 +3192,6 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                 #    for k_root in candidate_k_roots:
                                 #        num_modes.append(driving_width / (2 * np.pi) * k_root)
 
-                                # Filter candidate roots based on sign:
-                                matching = [k for k in candidate_k_roots if
-                                            np.isclose(np.sign(k), orig_sign, atol=1e-12)]
-                                if matching:
-                                    k_selected = matching[0]  # or average if degenerate
-                                    mode_num = (driving_width / (2 * np.pi)) * abs(k_selected)
-                                    num_modes.append(mode_num)
-                                else:
-                                    print(f'No matching k for freq {freq_val} with original sign {orig_sign}')
-
                             else:
                                 # Old version
                                 mode_1 = (-dmi_val * lattice_constant + np.sqrt(
@@ -3281,17 +3205,24 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                                 # print(f'k1: {mode_1} | k2: {mode_2}')
                                 # mode_1 and mode_2 are in [inverse metres]
-                                num_modes.append(driving_width / (2 * np.pi) * mode_1)
-                                num_modes.append(driving_width / (2 * np.pi) * mode_2)
+                                candidate_k_roots = []
+                                candidate_k_roots.append(driving_width / (2 * np.pi) * mode_1)
+                                candidate_k_roots.append(driving_width / (2 * np.pi) * mode_2)
 
-                            mode_atol = 5 * 10**(-mode_tolerance_dp)
+
+                            # Filter candidate roots based on sign:
+                            matching = [k for k in candidate_k_roots if
+                                        np.isclose(np.sign(k), orig_sign, atol=1e-12)]
 
                             # Build unique modes dictionary based on the rounded value.
                             unique_modes = {}
-                            for mode in num_modes:
+                            if matching:
+                                mode = (driving_width / (2 * np.pi)) * matching[0]
                                 key = round(mode, mode_tolerance_dp)
                                 unique_modes[key] = mode
-
+                            #else:
+                            #    print(f'No matching k for freq {freq_val} with original sign {orig_sign}')
+                            candidate_k_roots = [(driving_width / (2 * np.pi)) * k for k in candidate_k_roots]
                             for mode in unique_modes.values():
                                 # Loop over unique mode values while avoiding to duplicate drawn lines
                                 test_range = [0.0, normalized_k] if mode < 0 else [normalized_k, 1.0]
@@ -3329,13 +3260,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                         ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
                                                     ls=ls, lw=1.5, color='black', alpha=0.75,
                                                     zorder=1.22 if line_type == 'Whole' else 1.23)
-                                        print(f'{line_type} ({sign_key}): {mode:.3f} | freq: {freq_val * 1e-9: .2f}')
+                                        print(f'{line_type} ({sign_key}): {mode:.3f} | freq: {freq_key} GHz')
+                                        print(f'Candidate roots: {candidate_k_roots}')
                                         # Mark that this line has now been plotted.
                                         plotted_horizontal_lines[freq_key][dict_key] = True
-                            if freq_key in plotted_horizontal_lines:
-                                print(unique_modes)
-                                print(plotted_horizontal_lines[freq_key])
-                                print('\n', end='')
 
 
                     self._tick_setter(ax1, 0.05, 0.01, 5, 2, is_fft_plot=False,
@@ -3497,8 +3425,7 @@ def Omega_generalised_with_ua(H0, Ms, A, Dij, k, d, K1, K2, aniso_axis, gamma, s
                                                          system_dims[2])
 
     const_factor = (H0 + J * (k ** 2)
-                    + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0)
-                                 * (K1 + 2 * K2 * aniso_axis[2] ** 2)))
+                    + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0) * (K1 + 2 * K2 * aniso_axis[2] ** 2)))
     omega = np.sqrt((const_factor + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z']))
                     * (const_factor + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z']))
                     )
