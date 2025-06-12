@@ -31,7 +31,7 @@ Notes:
     Project
         SpinChains-PythonAnalysis
     Path
-        Testing/test_file.py
+        Core Files/main.py
     Author
         Cameron Aidan McEleney < c.mceleney.1@research.gla.ac.uk >
     Created

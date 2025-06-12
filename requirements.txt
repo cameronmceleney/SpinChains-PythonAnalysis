@@ -1,0 +1,6 @@
+numpy
+matplotlib
+imageio
+mplcursors
+scipy
+tabulate

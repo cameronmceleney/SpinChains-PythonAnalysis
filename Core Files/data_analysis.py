@@ -1,41 +1,64 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Full packages
+"""Description.
+
+Long description.
+
+Constants:
+
+Examples:
+    (Here, place useful implementations of the contents of test_file.py). Note that leading symbol '>>>' includes the
+    code in doctests, while '$' does not.)::
+
+        >>>
+
+Todo:
+
+References:
+    Style guide: `Google Python Style Guide`_
+
+Notes:
+    File version
+        0.3.1
+    Project
+        SpinChains-PythonAnalysis
+    Path
+        Core Files/data_analysis.py
+    Author
+        Cameron Aidan McEleney < c.mceleney.1@research.gla.ac.uk >
+    Created
+        12 Mar 2022
+    IDE
+        PyCharm
+
+.. _Google Python Style Guide:
+   https://google.github.io/styleguide/pyguide.html
+"""
+__all__ = ['']
+
+# Standard library imports
 import csv
-import errno
+from errno import EEXIST
 import logging as log
+import textwrap
 from typing import Any
 
+# Third-party imports
+from glob import glob
 import numpy as np
 import shutil
 import os
 import re
 
-# Specific functions from packages
-from glob import glob
-
-# My full modules
-import plot_rk_methods as plt_rk
-import plot_eigenmodes as plt_eigens
-import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
-
-# Specific functions from my modules
+# Local application imports
 from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
 from figure_manager import rc_params_update
+from plot_rk_methods import PaperFigures
+from plot_eigenmodes import Eigenmodes
+import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
 
-"""
-    Description of what data_analysis does
-"""
-PROGRAM_NAME = "data_analysis.py"
-"""
-    Core Details
-    
-    Author      : cameronmceleney
-    Created on  : 12/03/2022 19:02
-    Filename    : data_analysis
-    IDE         : PyCharm
-"""
+# Module-level constants
 
 
 class PlotEigenmodes:
@@ -77,138 +100,113 @@ class PlotEigenmodes:
         # Invoke my customised parameters (for plots)
         rc_params_update()
 
-    def import_eigenmodes(self):
-        # Containers to store key information about the returned arrays. Iterating through containers was felt to be
-        # easier to read than having many lines of variable declarations and initialisations.
+    def import_eigenmodes(self) -> None:
+        """Populate containers to store key information from the loaded dataset files.
+
+        Determines which formatted files, if any, are missing in the provided directory; generating them if required.
+        Iterating through containers was felt to be easier rather than reading many lines of variable declarations
+        and initialisations.
+        """
 
         self._check_directory_tree()
 
         if all(self.is_formatted_data_present):
-            # All directories have been found, so can load into memory
             print(f"\nAll required files found. Loading data into memory...")
 
             for i, filename in enumerate(self.formatted_filenames):
                 file_to_search_for = self.input_dir_path + filename
                 self._arrays_to_output[i] = np.loadtxt(file_to_search_for, delimiter=',')
 
-            return
-
         else:
             print(f"\nSome required files were not found. Need to generate formatted files from datasets...")
 
-            for i, does_exist in enumerate(self.is_formatted_data_present):
-                # Tests existence of each filtered array until either False is returned, or all are present (all True).
-
+            for i, does_file_exist in enumerate(self.is_formatted_data_present):
                 try:
-                    if does_exist is True:
-                        pass
-                    elif does_exist is False:
-                        self._generate_file_that_is_missing(i)
+                    if not does_file_exist:
+                        self._controller_for_generating_missing_files(i)
 
                 except ValueError:
-                    log.info(f"Boolean variable (does_exist) was dtype None.")
+                    log.exception(f"PlotEigenmodes.import_eigenmodes: Encountered `does_file_exist` as None, indicating"
+                                  f"some upstream issue has occurred.")
                     exit(1)
-                finally:
-                    pass
-                    # self.import_eigenmodes()
-
-            return
 
     def plot_eigenmodes(self):
+        """Allows the user to plot as many eigenmodes as they would like; one per figure.
+
+        This function is primarily used to replicate Fig. 1 from `macedo2021breaking`. The use of keywords within this
+        function also allows the user to plot the 'generalised fourier coefficients' of a system; mainly used to replicate
+        Figs 4.a & 4.d of the same paper.
+        """
         log.info(f"Invoking functions to plot data...")
 
-        """
-        Allows the user to plot as many eigenmodes as they would like; one per figure. This function is primarily used
-        to replicate Fig. 1 from macedo2021breaking. The use of keywords within this function also allow the user to
-        plot the 'generalised fourier coefficients' of a system; mainly used to replicate Figs 4.a & 4.d of the same
-        paper.
+        print(f"""
+            {'-' * 80}
+            Plot the eigenmodes of the selected data. Input the requested modes as 
+            single values, or as a space-separated list. Unique [keywords] include:
+                    *   Exit [EXIT] (Quit the program)"
+                    *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
+                    *   Dispersion Relation [DIS] (Plot the dispersion relation)
 
-        :return: A figure (png).
+            Note: None of the keywords are case-sensitive.
+            {'-' * 80}
+            """)
 
-        """
-        handle_eigenmodes = plt_eigens.Eigenmodes(self._arrays_to_output[0], self._arrays_to_output[1],
-                                                  self._arrays_to_output[2], f"{self.fi}{self.fd}",
-                                                  self.input_dir_path, self.full_output_path)
+        dataset_eigenmodes = Eigenmodes(self._arrays_to_output[0],
+                                        self._arrays_to_output[1],
+                                        self._arrays_to_output[2],
+                                        f"{self.fi}{self.fd}",
+                                        self.input_dir_path,
+                                        self.full_output_path)
 
-        print('--------------------------------------------------------------------------------')
-        print('''
-        This will plot the eigenmodes of the selected data. Input the requested 
-        modes as single values, or as a space-separated list. Unique [keywords] include:
-            *   Exit [EXIT] (Quit the program)
-            *   Fourier Coefficients [FRC] (Plot generalised Fourier co-efficients)
-            *   Dispersion Relation [DIS] (Plot the dispersion relation)
+        largest_eigenmode = self._arrays_to_output[0].size  # Largest valid eigenmode in dataset
+        previous_plotted_eigenmodes = set()
 
-        Note: None of the keywords are case-sensitive.
-              ''')
-        print('--------------------------------------------------------------------------------')
+        should_continue_plotting = True
+        while should_continue_plotting:
+            requested_tokens = input("Enter eigenmode(s) to plot: ").split()
 
-        upper_limit_mode = self._arrays_to_output[0].size  # The largest mode which can be plotted for the given data.
+            # Advanced users might pass a keyword (instead of eigenmodes) to trigger additional plotting behaviour.
+            for token in requested_tokens:
+                match token.upper():
+                    case 'EXIT':
+                        should_continue_plotting = False
+                        break
 
-        # Test Code!
+                    case 'FRC':
+                        dataset_eigenmodes.generalised_fourier_coefficients(use_defaults=False)
+                        break
 
-        previously_plotted_modes = []  # Tracks what mode(s) the user plotted in their last inputs.
+                    case 'DIS':
+                        dataset_eigenmodes.plot_dispersion_relation()
+                        break
 
-        # Take in first user input. Assume input is valid, until an error is raised.
-        modes_to_plot = input("Enter mode(s) to plot: ").split()
-        has_valid_modes = True
-
-        while True:
-            # Plots eigenmodes as long as the user enters a valid input.
-            for test_mode in modes_to_plot:
-
+                # Check numeric eigenmodes
                 try:
-                    if not 1 <= int(test_mode) <= upper_limit_mode:
-                        # Check mode is in the range held by the dataset
-                        print(f"That mode does not exist. Please select a mode between 1 & {upper_limit_mode}.")
-                        break
-
-                    if set(previously_plotted_modes) & set(modes_to_plot):
-                        # Check if mode has already been plotted. Cast to set as they don't allow duplicates.
-                        has_valid_modes = False
-                        print(
-                            f"You have already printed a mode in {previously_plotted_modes}. Please make "
-                            f"another choice.")
-                        break
+                    eigenmode = int(token)
+                    if eigenmode in previous_plotted_eigenmodes: raise SyntaxError
+                    if not (1 <= eigenmode <= largest_eigenmode): raise IndexError
 
                 except ValueError:
-                    # If the current tested mode is within the range, then it is either a keyword, or invalid.
-                    if test_mode.upper() == 'EXIT':
-                        exit(0)
+                    # Serious issue, so reject entire batch.
+                    print(f"[{token}] isn't an integer and is not a known keyword.")
+                    break
 
-                    elif test_mode.upper() == 'FRC':
-                        handle_eigenmodes.generalised_fourier_coefficients(use_defaults=False)
-                        has_valid_modes = False
-                        break
-
-                    elif test_mode.upper() == 'DIS':
-                        handle_eigenmodes.plot_dispersion_relation()
-                        has_valid_modes = False
-                        break
-
-                    has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-                    while True:
-
-                        if has_more_plots == 'Y':
-                            has_valid_modes = False  # Prevents plotting of incorrect input, and allows user to retry.
-                            break
-
-                        elif has_more_plots == 'N':
-                            print("Exiting program...")
-                            exit(0)
-
-                        else:
-                            while has_more_plots not in 'YN':
-                                has_more_plots = input("Do you want to continue plotting modes? Y/N: ").upper()
-
-                if has_valid_modes:
-                    handle_eigenmodes.plot_single_eigenmode(int(test_mode), has_endpoints=False)
-
-                else:
-                    has_valid_modes = True  # Reset condition
+                except SyntaxError:
+                    # Reject current duplicate and proceed with batch.
+                    print(f"Skipping eigenmode [{token}] as it has already been plotted.")
                     continue
 
-            previously_plotted_modes = modes_to_plot  # Reassign the current modes to be the previous attempts.
-            modes_to_plot = (input("Enter mode(s) to plot: ")).split()  # Take in the new set of inputs.
+                except IndexError:
+                    # Reject current out-of-bounds eigenmode and proceed with batch.
+                    print(f"Eigenmode [{token}] is out of dataset's range [1, {largest_eigenmode}].")
+                    continue
+
+                else:
+                    dataset_eigenmodes.plot_single_eigenmode(eigenmode, has_endpoints=False)
+                    previous_plotted_eigenmodes.add(eigenmode)
+
+        print("Exiting program...")
+        exit(0)
 
     def _check_directory_tree(self, should_show_errors=False):
 
@@ -234,7 +232,7 @@ class PlotEigenmodes:
                 self.import_eigenmodes()
 
             except OSError as exc:
-                if exc.errno != errno.EEXIST:
+                if exc.errno != EEXIST:
                     raise
 
                 # Handles exceptions from raise
@@ -295,27 +293,27 @@ class PlotEigenmodes:
                     print('Moved:', file)
             elif all(item is True for item in self.is_input_data_present):
                 for i in range(0, 3):
-                    self._generate_file_that_is_missing(i)
+                    self._controller_for_generating_missing_files(i)
                     self.import_eigenmodes()
 
             else:
                 print('Unknown error. Exiting.')
                 exit(1)
 
-    def _generate_file_that_is_missing(self, index):
+    def _controller_for_generating_missing_files(self, index: int) -> None:
+        """Select private method with which to generate the missing, required, filtered file(s)."""
 
-        # Instance of missing file has been found, and will need to generate all filtered files that are needed.
-        # Before doing so, allow user to opt-out.
+        match index:
+            case 0 | 1:
+                self._generate_missing_eigenvectors()
 
-        if index in [0, 1]:
-            self._generate_missing_eigenvectors()
-            return
-        elif index in [2]:
-            self._generate_missing_eigenvalues()
-            return
-        else:
-            log.error(f"Index of value {index} was called")
-            return
+            case 2:
+                self._generate_missing_eigenvalues()
+
+            case _:
+                log.error(f"PlotEigenmodes._generate_missing_file_controller: Index [{index}] was passed which"
+                          f"doesn't correspond to a defined match-case.")
+                exit(1)
 
     def _generate_missing_eigenvalues(self):
 
@@ -972,7 +970,7 @@ class CallMethods:
         #                                    self._output_path_full)
         # else:
 
-        paper_fig = plt_rk.PaperFigures(self._data_timestamps, self._data_magnetic_moments,
+        paper_fig = PaperFigures(self._data_timestamps, self._data_magnetic_moments,
                                         self._header_parameters, self._header_flags, self._header_simulated_sites,
                                         self._file_paths_full['output'])
 
