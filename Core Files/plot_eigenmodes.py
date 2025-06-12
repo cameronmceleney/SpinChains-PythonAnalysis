@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import dataclasses
 
 # Full packages
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import seaborn as sns
+from dataclasses import dataclass, field
 
 # Specific functions from packages
 
@@ -28,6 +30,20 @@ import seaborn as sns
     Filename    : plot_eigenmodes.py
     IDE         : PyCharm
 """
+
+
+@dataclass
+class PlotParameters:
+
+    # Defaults are just my most common settings.
+    step: int = 5
+    lower: int = 130
+    upper: int = 170
+    width_ones: float = 0.023529411764705882
+    width_zeros: float = field(init=False)
+
+    def __post_init__(self):
+        self.width_zeros = 1.0 - self.width_ones
 
 
 class Eigenmodes:
@@ -61,37 +77,26 @@ class Eigenmodes:
         number_of_spins = self.mx_data[:, 0].size
         early_exit = True
 
-        # use_defaults is a testing flag to speed up the process of running sims.
-        if use_defaults:
-            step = 5
-            lower = 130
-            upper = 170
-            width_ones = 0.023529411764705882
-            width_zeros = 1 - 0.023529411764705882
+        eigenmode_plot_params = PlotParameters()
+        if not use_defaults:
+            eigenmode_plot_params.step = int(input("Enter step: "))
+            eigenmode_plot_params.lower = int(input("Enter lower: "))
+            eigenmode_plot_params.upper = int(input("Enter upper: "))
+            eigenmode_plot_params.width_ones = float(input("Enter driving region width as a normalised range [0, 1]"
+                                                           "of the total system width: "))
+            eigenmode_plot_params.width_zeros = 1 - eigenmode_plot_params.width_ones
 
-        else:
-            step = int(input("Enter step: "))
-            lower = int(input("Enter lower: "))
-            upper = int(input("Enter upper: "))
-            width_ones = float(input("Enter width of driving region [0, 1]: "))
-            width_zeros = 1 - width_ones
+        eigenvalues = np.append([0], self.eigenvalues_data)
 
+        # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to linear frequency.
         if are_eigens_angular_freqs:
-            # Raw data is in units of 2*Pi (angular frequency), so we need to convert back to frequency.
-            eigenvalues_angular = np.append([0], self.eigenvalues_data)  # eigenvalues_angular
-            eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues_angular]
-        else:
-            # No need for further data processing
-            eigenvalues = np.append([0], self.eigenvalues_data)
+            eigenvalues = [eigval / (2 * np.pi) for eigval in eigenvalues]
 
-        x_axis_limits = range(0, number_of_spins, 1)
+        # `g` is the literature symbol for the `driving field profile` along the axis where the drive is applied.
+        g_ones = np.ones(int(number_of_spins * eigenmode_plot_params.width_ones), dtype=int)
+        g_zeros = np.zeros(int(number_of_spins * eigenmode_plot_params.width_zeros), dtype=int)
 
-        # Find widths of each component of the driving regions.
-        g_ones = np.ones(int(number_of_spins * width_ones), dtype=int)
-        g_zeros = np.zeros(int(number_of_spins * width_zeros), dtype=int)
-
-        # g is the driving field profile along the axis where the drive is applied. My simulations all have the
-        # drive along the x-axis, hence the name 'gx'.
+        # My simulations all have the drive along the x-axis, hence the name 'gx'.
         gx_lhs = g_ones + g_zeros
         gx_rhs = g_zeros + g_ones
 
@@ -107,12 +112,12 @@ class Eigenmodes:
         fourier_coefficents_lhs = fourier_coefficents_lhs / np.linalg.norm(fourier_coefficents_lhs)
         fourier_coefficents_rhs = fourier_coefficents_rhs / np.linalg.norm(fourier_coefficents_rhs)
 
-        # Plotting functions. Left here as nothing else will use this functionality.
         fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-        fig.suptitle(r'Overlap Values ($\mathcal{O}_{j}$)'f'for a Uniform System')  # {file_name}
+        fig.suptitle(r"Overlap Values ($\mathcal{O}_{j}$)" + f"for a Uniform System")
         plt.subplots_adjust(top=0.82)
 
         # Whichever ax is before the sns.lineplot statements is the one which holds the labels.
+        x_axis_limits = range(0, number_of_spins, 1)
         sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_lhs), lw=3, marker='o', ls='--', label='Left',
                      zorder=1.2)
         sns.lineplot(x=x_axis_limits, y=np.abs(fourier_coefficents_rhs), lw=3, color='r',
@@ -120,28 +125,42 @@ class Eigenmodes:
 
         np.savetxt("D:/Data/2023-03-06/Simulation_Data/T1115_Eigens/test.csv",
                    zip(x_axis_limits, np.abs(fourier_coefficents_lhs)))
+
         if early_exit:
             exit(0)
 
-        # Both y-axes need to match up, so it is clear what eigenmode corresponds to what eigenfrequency.
-        ax.set(xlabel=r'Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) (GHz)', ylabel='Fourier coefficient',
-               xlim=[lower, upper], yscale='log', ylim=[1e-4, 1e-2],
-               xticks=list(range(lower, upper + 1, step)),
-               xticklabels=[float(i) for i in np.round(eigenvalues[lower:upper + 1:step], 3)])
+        # Primary y-axis shows 'frequency' and secondary y-axis shows 'eigenmode indices'
+        ax.set(xlabel=r"Eigenfrequency ( $\frac{\omega_j}{2\pi}$ ) (GHz)",
+               ylabel="Fourier coefficient",
+               xlim=[eigenmode_plot_params.lower, eigenmode_plot_params.upper],
+               ylim=[1e-4, 1e-2],
+               yscale='log',
+               xticks=list(range(eigenmode_plot_params.lower,
+                                 eigenmode_plot_params.upper + 1,
+                                 eigenmode_plot_params.step)),
+               xticklabels=[float(i) for i in np.round(
+                   eigenvalues[eigenmode_plot_params.lower:eigenmode_plot_params.upper + 1:eigenmode_plot_params.step],
+                   3)]
+               )
 
-        ax_mode = ax.twiny()  # Create second scale on the upper y-axis of the plot.
+        ax_mode = ax.twiny()
         ax_mode.set(xlabel=f'Eigenmode ($A_j$) for m$^x$ components',
                     xlim=ax.get_xlim(),
-                    xticks=list(range(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]) + 1, step)))
+                    xticks=list(range(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]) + 1, eigenmode_plot_params.step)))
 
-        ax.legend(loc=1, bbox_to_anchor=(0.975, 0.975),
-                  frameon=True, fancybox=True, facecolor='white', edgecolor='white',
-                  title='Propagation\n   Direction', fontsize=10)
+        ax.legend(loc=1,
+                  title="Propagation\nDirection",
+                  fontsize=10,
+                  bbox_to_anchor=(0.975, 0.975),
+                  frameon=True,
+                  fancybox=True,
+                  facecolor='white',
+                  edgecolor='white')
 
         ax.grid(visible=True, axis='both', which='both', ls='-', lw=2)
 
         plt.tight_layout()
-        fig.savefig(f"{self.output_filepath}_fourier_coefficents.png", bbox_inches="tight")
+        fig.savefig(f"{self.output_filepath}_fourier_coefficients.png", bbox_inches="tight")
 
     def plot_single_eigenmode(self, eigenmode, has_endpoints=True):
         """
@@ -155,15 +174,13 @@ class Eigenmodes:
         """
         plt.rcParams.update({'savefig.dpi': 1000, "figure.dpi": 1000})
         print(f'Plotting #{eigenmode}...')
-        eigenmode -= 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
+        eigenmode_offset = eigenmode - 1  # To handle 'off-by-one' error, as first site is at mx_data[0]
 
         # Select single mode to plot from imported data.
-        mx_mode = self.mx_data[:, eigenmode] * -1
+        mx_mode = self.mx_data[:, eigenmode_offset] * -1
         # my_mode = self.my_data[:, eigenmode] * -1
 
-        frequency = self.eigenvalues_data[eigenmode]  # Convert angular (frequency) eigenvalue to frequency [Hz].
-
-        eigenmode += 1  # Return to 'true' count
+        frequency = self.eigenvalues_data[eigenmode_offset]  # Convert angular (frequency) eigenvalue to frequency [Hz].
 
         # Simulation parameters
         number_of_spins = len(mx_mode)
