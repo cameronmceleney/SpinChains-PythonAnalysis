@@ -1,120 +1,155 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+"""Contains all the plotting functionality required for my data analysis
+
+The data for each method comes from the file data_analysis.py. These plots will only work for data from my RK methods.
+
+Constants:
+
+Examples:
+    (Here, place useful implementations of the contents of test_file.py). Note that leading symbol '>>>' includes the
+    code in doctests, while '$' does not.)::
+
+        >>>
+
+Todo:
+
+References:
+    Style guide: `Google Python Style Guide`_
+
+Notes:
+    File version
+        0.3.1
+    Project
+        SpinChains-PythonAnalysis
+    Path
+        Core Files/plot_rk_methods.py
+    Author
+        Cameron Aidan McEleney < c.mceleney.1@research.gla.ac.uk >
+    Created
+        13 Mar 2022
+    IDE
+        PyCharm
+
+.. _Google Python Style Guide:
+   https://google.github.io/styleguide/pyguide.html
+"""
+__all__ = ['']
+
+# Standard library imports
 import csv
-
-import matplotlib as mpl
-from sys import platform as sys_platform
-
-if sys_platform == 'darwin':
-    mpl.use('macosx')
-elif sys_platform in ['win32', 'win64']:
-    mpl.use('TkAgg')
-
-# Full packages
 import decimal as dec
+import math
+import os as os
+from sys import platform
+from typing import TypedDict, Any, Dict, List, Optional, Union
+
+# Third-party imports
 import imageio as imio
-import math as math
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+import matplotlib as mpl
+from matplotlib import (patches as mpatches,
+                        pyplot as plt,
+                        ticker as ticker)
 import mplcursors
 import mpl_toolkits.axes_grid1
 import mpl_toolkits.axes_grid1.inset_locator
 import numpy as np
-import os as os
-import scipy as sp
+from pint import UnitRegistry
+from scipy import constants, fft, signal
 
-# Specific functions from packages
-from typing import TypedDict, Any, Dict, List, Optional, Union
+# Local application imports
+from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
+from figure_manager import FigureManager, colour_schemes
+
+# Module-level constants
+UREG: UnitRegistry = UnitRegistry()
+"""Units registry instance."""
+
+# Set matplotlib backend according to detected operating system
+if platform == 'darwin':
+    mpl.use('macosx')
+elif platform in ['win32', 'win64']:
+    mpl.use('TkAgg')
 
 
-# My full modules
+def calculate_demag_factor_uniform_prism(
+        length: int | float,
+        width: int | float,
+        thickness: int | float
+) -> dict[str, float]:
+    """Calculate the demagnetisation factors for a prism experiencing a uniform external static Zeeman field.
 
-def calculate_demag_factor_uniform_prism(length, width, thickness, alignment='z'):
+    The equation used by this function is taken directly from this `magpar website`_. It assumes that the external
+    field is applied perpendicular to driving field, and thus the propagation direction of the induced spin-waves.
+    Distances should be given in nanometres.
+
+    Args:
+        length: Distance along in-plane axis along which driving field is applied; commonly the x-axis for me.
+        width: Distance along out-of-plane axis; commonly the y-axis for me.
+        thickness: Distance along in-plane axis along which external field is applied; commonly the z-axis for me.
+
+    .. _magpar website:
+        http://www.magpar.net/static/magpar-0.9rc2/doc/html/demagcalc.html
+    """
     demag_factors = {'N_x': -1, 'N_y': -1, 'N_z': -1}
 
-    def _calculate_demag_factor(a, b, c):
+    def calculate_demagnetisation_factor(a, b, c):
+        """Helper function that calculates the demagnetisation factors as per the given equation."""
         r = a ** 2 + b ** 2 + c ** 2
 
-        demag_factor = ((b ** 2 - c ** 2) / (2 * b * c)) * np.log((np.sqrt(r) - a)
+        factor = ((b ** 2 - c ** 2) / (2 * b * c)) * np.log((np.sqrt(r) - a)
                                                                   / (np.sqrt(r) + a))
 
-        demag_factor += ((a ** 2 - c ** 2) / (2 * a * c)) * np.log((np.sqrt(r) - b)
+        factor += ((a ** 2 - c ** 2) / (2 * a * c)) * np.log((np.sqrt(r) - b)
                                                                    / (np.sqrt(r) + b))
 
-        demag_factor += (b / (2 * c)) * np.log((np.sqrt(a ** 2 + b ** 2) + a)
+        factor += (b / (2 * c)) * np.log((np.sqrt(a ** 2 + b ** 2) + a)
                                                / (np.sqrt(a ** 2 + b ** 2) - a))
 
-        demag_factor += (a / (2 * c)) * np.log((np.sqrt(a ** 2 + b ** 2) + b)
+        factor += (a / (2 * c)) * np.log((np.sqrt(a ** 2 + b ** 2) + b)
                                                / (np.sqrt(a ** 2 + b ** 2) - b))
 
-        demag_factor += (c / (2 * a)) * np.log((np.sqrt(b ** 2 + c ** 2) - b)
+        factor += (c / (2 * a)) * np.log((np.sqrt(b ** 2 + c ** 2) - b)
                                                / (np.sqrt(b ** 2 + c ** 2) + b))
 
-        demag_factor += (c / (2 * b)) * np.log((np.sqrt(a ** 2 + c ** 2) - a)
+        factor += (c / (2 * b)) * np.log((np.sqrt(a ** 2 + c ** 2) - a)
                                                / (np.sqrt(a ** 2 + c ** 2) + a))
 
-        demag_factor += 2 * np.arctan((a * b) / (c * np.sqrt(r)))
+        factor += 2 * np.arctan((a * b) / (c * np.sqrt(r)))
 
-        demag_factor += (a ** 3 + b ** 3 - 2 * c ** 3) / (3 * a * b * c)
+        factor += (a ** 3 + b ** 3 - 2 * c ** 3) / (3 * a * b * c)
 
-        demag_factor += ((a ** 2 + b ** 2 - 2 * c ** 2) / (3 * a * b * c)) * np.sqrt(r)
+        factor += ((a ** 2 + b ** 2 - 2 * c ** 2) / (3 * a * b * c)) * np.sqrt(r)
 
-        demag_factor += (c / (a * b)) * (np.sqrt(a ** 2 + c ** 2) + np.sqrt(b ** 2 + c ** 2))
+        factor += (c / (a * b)) * (np.sqrt(a ** 2 + c ** 2) + np.sqrt(b ** 2 + c ** 2))
 
-        demag_factor -= ((np.power((a ** 2 + b ** 2), 3 / 2) + np.power((b ** 2 + c ** 2), 3 / 2) + np.power(
+        factor -= ((np.power((a ** 2 + b ** 2), 3 / 2) + np.power((b ** 2 + c ** 2), 3 / 2) + np.power(
             (c ** 2 + a ** 2), 3 / 2))
                          / (3 * a * b * c))
 
-        demag_factor /= np.pi
+        factor /= np.pi
 
-        return demag_factor
+        return factor
 
-    if alignment.upper() == 'Z':
-        demag_factors['N_z'] = _calculate_demag_factor(length, width, thickness)
-        demag_factors['N_y'] = _calculate_demag_factor(thickness, length, width)
-        demag_factors['N_x'] = _calculate_demag_factor(width, thickness, length)
-    else:
-        raise ("custom_physics_equations.py -> calculate_demag_factor_uniform_prism -> _calculate_demag_factor: "
-               "Unknown parameter [alignment] was passed")
+    demag_factors['N_z'] = calculate_demagnetisation_factor(length, width, thickness)
+    demag_factors['N_y'] = calculate_demagnetisation_factor(thickness, length, width)
+    demag_factors['N_x'] = calculate_demagnetisation_factor(width, thickness, length)
 
-    N_total = 0
-    for k, v in demag_factors.items():
-        N_total += v
-    if N_total >= 1 + 1e-4:
+    demag_atol = 1e-4
+    if not (1 - demag_atol <= sum(demag_factors.values()) <= 1 + demag_atol):
+        # Demagnetisation factors must sum to 1.0 (subject to tolerance check) to remain physically valid.
         exit(1)
 
     return demag_factors
 
 
-# Specific functions from my modules
-from attribute_defintions import SimulationParametersContainer, SimulationFlagsContainer
-from figure_manager import FigureManager, colour_schemes
-
-"""
-    Contains all the plotting functionality required for my data analysis. The data for each method comes from the file
-    data_analysis.py. These plots will only work for data from my RK methods.
-"""
-
-"""
-    Core Details
-    
-    Author      : cameronmceleney
-    Created on  : 13/03/2022 18:06
-    Filename    : plot_rk_methods.py
-    IDE         : PyCharm
-"""
-
-
 class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
-    """
-    Generates a single subplot that can either be a PNG or GIF.
+    """Generate a single subplot that can either be a PNG or GIF.
 
     Useful for creating plots for papers, or recreating a paper's work. To change between the png/gif saving options,
     change the invocation in data.analysis.py.
     """
-    cm_to_inch = 1 / 2.54
-    hz_to_Ghz = 1e-9
 
     class PlotScheme(TypedDict):
         signal_xlim: List[int]
@@ -154,11 +189,12 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self.update_with_dict(flags_dict)
 
         if self.lattice_constant() < 0:
-            self.lattice_constant.update(1e-9)
+            self.lattice_constant.update(constants.nano)
 
         if self.exchange_dmi_constant() == 0.625:
             # TODO. Change this. Note that, for now, the halving of the DMI is taken care of by the C++ code
             self.exchange_dmi_constant *= 2
+
         # Attributes for plots
         self._fig = None
         self._axes = None
@@ -405,8 +441,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                         + self.bias_zeeman_static()
                         + region_dmi * self.lattice_constant() * wavevectors))
 
-        wavevectors *= -1 * self.hz_to_Ghz if negative_wavevector else self.hz_to_Ghz
-        frequencies *= self.hz_to_Ghz
+        wavevectors *= constants.nano
+        frequencies *= constants.nano
+
+        if negative_wavevector: wavevectors *= -1
 
         # Find the index of the element with the minimum absolute difference
         absolute_diff = np.abs(wavevectors - plot_scheme['ax2_xlim'][1])
@@ -484,17 +522,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                          aspect='auto', interpolation='none',
                          cmap='magma_r')
 
-            mu_0 = 1.256637e-6
-
             def Omega_generalised(H0, Ms, A, D, k, d, gamma, p=1,
                                   has_demag=int(self.has_demag_intense) or int(self.has_demag_fft),
                                   has_dmi=int(self.has_dmi)):
                 A = (A * d ** 2 * Ms / 2)  # my conversion
-                J = 2 * A / (mu_0 * Ms)
+                J = 2 * A / (constants.mu_0 * Ms)
 
                 D = (D * d * Ms / 2)  # my conversion
-                DM = 2 * D / (mu_0 * Ms)
-                gamma /= (2 * np.pi * 1e9)
+                DM = 2 * D / (constants.mu_0 * Ms)
+                gamma /= (2 * np.pi * constants.giga)
 
                 demag_factors = calculate_demag_factor_uniform_prism(self.num_sites_total - 2,
                                                                      2, 8)
@@ -507,18 +543,18 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                 # the mu0 factor shown in the paper is not necessary if we use gamma
                 # in Hz / (A / m)
-                om *= (gamma * mu_0)
+                om *= (gamma * constants.mu_0)
 
                 return om
 
-            kmax = 0.8 * 1e9
+            kmax = 0.8 * constants.giga
             ks = np.linspace(1e-10, kmax, int(round(self.num_sites_total / 2)))
             ks_n = np.linspace(-kmax, 1e-10, int(round(self.num_sites_total / 2)))
-            oms_g = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, self.exchange_heisenberg_min,
+            oms_g = Omega_generalised(self.bias_zeeman_static / constants.mu_0, self.sat_mag, self.exchange_heisenberg_min,
                                       self.exchange_dmi_constant, ks, self.lattice_constant, self.gyro_mag, p=1,
                                       has_demag=int(self.has_demag_intense) or int(self.has_demag_fft),
                                       has_dmi=int(self.has_dmi))
-            oms_g_n = Omega_generalised(self.bias_zeeman_static / mu_0, self.sat_mag, self.exchange_heisenberg_min,
+            oms_g_n = Omega_generalised(self.bias_zeeman_static / constants.mu_0, self.sat_mag, self.exchange_heisenberg_min,
                                         self.exchange_dmi_constant, ks_n, self.lattice_constant, self.gyro_mag, p=1,
                                         has_demag=int(self.has_demag_intense) or int(self.has_demag_fft),
                                         has_dmi=int(self.has_dmi))
@@ -743,20 +779,25 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 # Open the file in append mode
                 with (open(f"D:\\Data\\2024-04-01\\Outputs\\T1317_details.txt", 'a') as file):
                     # Write the data to the file
-                    data_to_write = (f"{self.output_filepath}"
-                                     f","
-                                     f"{self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6 / 1e-9))]}"
-                                     f","
-                                     f"{self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6 / 1e-9))]}")
-                    file.write(
-                        data_to_write + '\n')  # Assuming 'data' is a string with two columns separated by a comma
+                    data_to_write = (f"{self.output_filepath},"
+                                     f"{self.amplitude_data[row_index,
+                                                            int(self.driving_region_lhs()
+                                                                - np.round(constants.micro / constants.nano))]},"
+                                     f"{self.amplitude_data[row_index,
+                                                            int(self.driving_region_rhs()
+                                                                + np.round(constants.micro / constants.nano))]}")
+                    file.write(data_to_write + '\n')  # Assumes 'data' is two-column comma-delimited string
                     file.close()
             except IOError:
                 print("Error: Unable to append data to the file.")
             finally:
                 print(f"Data written to file:\n"
-                      f"\t- Before: {self.amplitude_data[row_index, int(self.driving_region_lhs() - np.round(1e-6 / 1e-9))]}\n"
-                      f"\t- After : {self.amplitude_data[row_index, int(self.driving_region_rhs() + np.round(1e-6 / 1e-9))]}"
+                      f"\t- Before: {self.amplitude_data[row_index,
+                                                         int(self.driving_region_lhs()
+                                                             - np.round(constants.micro / constants.nano))]}\n"
+                      f"\t- After : {self.amplitude_data[row_index,
+                                                         int(self.driving_region_rhs()
+                                                             + np.round(constants.micro / constants.nano))]}"
                       )
         del self.amplitude_data
         del self.time_data
@@ -1471,9 +1512,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
     def find_significant_wave(self, target_idx, search_range):
         # Peaks and troughs detection in the subset
-        peaks, properties = sp.signal.find_peaks(self.amplitude_data[search_range[0]:search_range[1], target_idx[1]],
+        peaks, properties = signal.find_peaks(self.amplitude_data[search_range[0]:search_range[1], target_idx[1]],
                                                  height=0, prominence=(None, None))
-        troughs, _ = sp.signal.find_peaks(-self.amplitude_data[search_range[0]:search_range[1], target_idx[1]],
+        troughs, _ = signal.find_peaks(-self.amplitude_data[search_range[0]:search_range[1], target_idx[1]],
                                           height=0, prominence=(None, None))  # Finding minima by inverting data
 
         if len(peaks) == 0 or len(troughs) == 0:
@@ -1599,11 +1640,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
          sample_rate_delay, num_samples_delay) = generate_sine_wave(FREQUENCY, SAMPLE_RATE, DURATION,
                                                                     1.0, False)
 
-        time_instant_fft = sp.fftpack.rfftfreq(num_samples_instant, 1 / sample_rate_instant)
-        signal_instant_fft = sp.fftpack.rfft(signal_instant)
+        time_instant_fft = fft.rfftfreq(num_samples_instant, 1 / sample_rate_instant)
+        signal_instant_fft = fft.rfft(signal_instant)
 
-        time_delay_fft = sp.fftpack.rfftfreq(num_samples_delay, 1 / sample_rate_delay)
-        signal_delay_fft = sp.fftpack.rfft(signal_delay)
+        time_delay_fft = fft.rfftfreq(num_samples_delay, 1 / sample_rate_delay)
+        signal_delay_fft = fft.rfft(signal_delay)
 
         ax1.plot(time_delay_fft, np.abs(signal_delay_fft), marker='', lw=2.0, color='#ffb55a',
                  markerfacecolor='black', markeredgecolor='black', label="1", zorder=1.2)
@@ -1684,13 +1725,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                               yaxis_num_decimals=1.0, yscale_type='p')
         ########################################
         if dispersion_relations:
-            # Key values and computations that are common to both systems
-            hz_2_GHz, hz_2_THz = 1e-9, 1e-12
-            mu0 = 1.256e-6  # m kg s^-2 A^-2
-
             # Key values and compute wavenumber plus frequency for Moon
             external_field_moon = 0.1  # exchange_field = [8.125, 32.5]  # [T]
-            gyromag_ratio_moon = 28.01e9  # 28.8e9
+            gyromag_ratio_moon = 28.0 * constants.giga  # 28.8e9
             lattice_constant_moon = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
             system_len_moon = 8e-6  # metres
             sat_mag_moon = 800e3  # A/m
@@ -1701,7 +1738,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
             # Key values and computations of values for our system
             external_field, exchange_field = 0.1, 4.16  # 0.1, 132.5  # [T]
-            gyromag_ratio = 28.01e9  # 28.8e9
+            gyromag_ratio = 28.0 * constants.giga  # 28.8e9
             lattice_constant = 2e-9  # np.sqrt(5.3e-17 / exchange_field)
             system_len = 8e-6  # metres
             dmi_val_const = 1.94
@@ -1718,10 +1755,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             ax2 = plt.subplot2grid((num_rows, num_cols), (int(num_rows / 2), 0),
                                    rowspan=num_rows, colspan=num_cols, fig=self._fig)
 
-            ax2.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_THz, color='red', lw=1., ls='-',
+            ax2.plot(wave_number_array * constants.nano, freq_array * constants.pico, color='red', lw=1., ls='-',
                      label=f'Our System')
-            ax2.plot(wave_number_array * hz_2_GHz, gyromag_ratio * (
-                    external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * hz_2_THz,
+            ax2.plot(wave_number_array * constants.nano, gyromag_ratio * (
+                    external_field + exchange_field * lattice_constant ** 2 * wave_number_array ** 2) * constants.pico,
                      color='red', lw=1., alpha=0.4, ls='--', label=f'Dk2 dataset')
 
             # These!!
@@ -1752,7 +1789,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     freq_array = gyromag_ratio * (2 * (exc_stiff / sat_mag) * wave_number_array**2
                                                   + external_field
                                                   + (2 * dmi_val/sat_mag) * wave_number_array)
-                    ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                    ax1.plot(wave_number_array * constants.nano, freq_array_dk2 * constants.nano, lw=1., alpha=0.4, ls='--',
                             label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
 
                     These!!
@@ -1765,7 +1802,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                                   + external_field
                                                   + dmi_val * lattice_constant * wave_number_array)
 
-                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz,
+                    ax1.plot(wave_number_array * constants.nano, freq_array * constants.nano,
                              lw=1., ls='-', label=f'D = {dmi_val}')
                     ax1.set(xlabel="Wavevector (nm$^{-1}$)", ylabel='Frequency (GHz)',
                             xlim=[-0.25, 0.25], ylim=[0, 40])
@@ -1783,18 +1820,20 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     wave_number_array_moon = (num_spins_array_moon * np.pi) / (
                             (len(num_spins_array_moon) - 1) * lattice_constant_moon)
 
-                    h0 = external_field_moon / mu0
-                    j_star = ((2 * exc_stiff_moon) / (mu0 * sat_mag_moon))
+                    h0 = external_field_moon / constants.mu_0
+                    j_star = ((2 * exc_stiff_moon) / (constants.mu_0 * sat_mag_moon))
                     h0_plus_jk = h0 + j_star * wave_number_array_moon ** 2
-                    d_star = ((2 * dmi_val) / (mu0 * sat_mag_moon))
+                    d_star = ((2 * dmi_val) / (constants.mu_0 * sat_mag_moon))
 
-                    freq_array_moon = gyromag_ratio_moon * mu0 * (np.sqrt(h0_plus_jk * (h0_plus_jk + demag_mag_moon))
-                                                                  + p_val * d_star * wave_number_array_moon)
+                    freq_array_moon = (gyromag_ratio_moon * constants.mu_0
+                                       * (np.sqrt(h0_plus_jk * (h0_plus_jk + demag_mag_moon))
+                                          + p_val * d_star * wave_number_array_moon)
+                                       )
 
-                    ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz,
+                    ax2.plot(wave_number_array_moon * constants.nano, freq_array_moon * constants.nano,
                              lw=1., ls='-', label=f'D = {p_val * dmi_val}')
                     """ Don't delete yet! Need to check the maths                   
-                    ax1.plot(wave_number_array * hz_2_GHz, freq_array_dk2 * hz_2_GHz, lw=1., alpha=0.4, ls='--',
+                    ax1.plot(wave_number_array * constants.nano, freq_array_dk2 * constants.nano, lw=1., alpha=0.4, ls='--',
                             label=r'$(Dk^2)$'f'D = {dmi_val}'r'$(mJ/m^2$)')
 
                     These!!
@@ -1874,11 +1913,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                                                                        bbox_to_anchor=[0.9875, 0.02],
                                                                                        bbox_transform=ax2.transAxes)
 
-                ax2_inset_disp_rels.plot(wave_number_array1 * hz_2_GHz,
-                                         (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * hz_2_THz, lw=1.5,
+                ax2_inset_disp_rels.plot(wave_number_array1 * constants.nano,
+                                         (D_b * 2 * gyromag_ratio) * wave_number_array1 ** 2 * constants.pico, lw=1.5,
                                          ls='--', color='purple', label='$a=0.2$ nm', zorder=1.3)
-                ax2_inset_disp_rels.plot(wave_number_array2 * hz_2_GHz,
-                                         (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * hz_2_THz, lw=1.5, ls='-',
+                ax2_inset_disp_rels.plot(wave_number_array2 * constants.nano,
+                                         (D_b * 2 * gyromag_ratio) * wave_number_array2 ** 2 * constants.pico, lw=1.5, ls='-',
                                          label='$a=0.63$ nm', zorder=1.2)
 
                 ########################################
@@ -2153,7 +2192,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # Pad the data to greatly improve efficiency of the FFT computation
         n_total = input_data.size
 
-        n_total_padded = sp.fft.next_fast_len(n_total)
+        n_total_padded = fft.next_fast_len(n_total)
 
         # Find the bin size
         if spatial_spacing is None:
@@ -2173,23 +2212,23 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 if fft_window == 'bb':
                     window = 1
                 else:
-                    window_func = getattr(sp.signal.windows, fft_window, "hann")
+                    window_func = getattr(signal.windows, fft_window, "hann")
                     window = window_func(n_total)
             elif callable(fft_window):
                 # Incase the user wants a custom window function
-                window = sp.signal.fft_window(n_total)
+                window = signal.fft_window(n_total)
             else:
                 # Default case
-                window = sp.signal.windows.hann(n_total)
+                window = signal.windows.hann(n_total)
 
             # *= doesn't work here for some reason without breaking subplots
             data_to_process = data_to_process * window
 
         # Perform the FFT
-        discrete_fourier_transform = sp.fft.fft(data_to_process, n_total_padded)
+        discrete_fourier_transform = fft.fft(data_to_process, n_total_padded)
 
         # Samples from the DFT.
-        dft_samples = sp.fft.fftfreq(n_total_padded, sample_spacing)
+        dft_samples = fft.fftfreq(n_total_padded, sample_spacing)
 
         # Always skip the DC component at y[0] as I don't need the signal's mean value
         if n_total_padded % 2 == 0:
@@ -2490,20 +2529,16 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
         # ax2 = plt.subplot2grid((num_rows, num_cols), (0, 0),
         #                       rowspan=num_rows, colspan=num_cols, fig=self._fig)
         ########################################
-        # Key values and computations that are common to both systems
-        hz_2_GHz, hz_2_THz, m_2_nm = 1e-9, 1e-12, 1e9
-        mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
-
         # Key values and compute wavenumber plus frequency for Moon
         external_field_moon = 0.15  # exchange_field = [8.125, 32.5]  # [T]
         gyromag_ratio_moon = 28.2e9  # 28.8e9
 
         # System dimensions
-        lattice_constant_moon = 1e-9  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
-        system_len_moon = 8.804e-6  # metres 4e-6
-        system_dims = [system_len_moon, 1e-9, 12e-9]
+        lattice_constant_moon = 1 * constants.nano  # 1e-9 np.sqrt(5.3e-17 / exchange_field)
+        system_len_moon = 8.804 * constants.micro
+        system_dims = [system_len_moon, 1 * constants.nano, 12 * constants.nano]
 
-        sat_mag_moon = 8e5  # A/m
+        sat_mag_moon = 800 * constants.kilo  # A/m
         exc_stiff_moon = 1.3e-11  # J/m
         dmi_val_const_moon = -4e-4  # 4e-4  # 1.0e-3
         dmi_vals_moon = [0, dmi_val_const_moon, dmi_val_const_moon]  # J/m^2
@@ -2585,7 +2620,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                                    has_demag=use_demag)
 
             # Convert frequencies to [GHz] with rounding
-            freq_array = abs(np.round(freq_array * hz_2_GHz, fq_rnd))
+            freq_array = abs(np.round(freq_array * constants.nano, fq_rnd))
 
             # Find minima (frequency). Only need to check all frequencies that are greater than this ONCE
             min_indices_approx = np.where(np.isclose(freq_array, min(freq_array), atol=1e-3))
@@ -2614,7 +2649,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 non_zero_wave_indices])
 
             # Convert to nm
-            wavelengths_array = np.round(wavelengths_array * m_2_nm,
+            wavelengths_array = np.round(wavelengths_array * constants.giga,
                                          3)  # Sometimes might want abs() so that all wavelengths are +ve (for readability)
             # Convert wave numbers to [1/nm] with rounding
             wavevector_array = np.round(wavevector_array * 1e-9, wv_rnd)
@@ -2641,7 +2676,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 else:
                     if convert_to_wavelength:
                         # Convert from wavenumber [m] to wavelength [nm]
-                        wavelength1 = abs(((2 * np.pi) / n1) * m_2_nm)
+                        wavelength1 = abs(((2 * np.pi) / n1) * constants.giga)
                     else:
                         wavelength1 = abs(n1)
 
@@ -2907,7 +2942,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     freq_array = np.array([omega / (2 * np.pi) for omega in omega_array])
 
                     # Find the minimum frequency, and thus wavevector, as avhline() requires normalised inputs
-                    normalized_k = (wave_number_array[freq_array.argmin()] * hz_2_GHz - ax_xlim_lims[0]) / (
+                    normalized_k = (wave_number_array[freq_array.argmin()] * constants.nano - ax_xlim_lims[0]) / (
                             ax_xlim_lims[1] - ax_xlim_lims[0])
 
                     #external_field_array = np.linspace(0, np.round(0.99 * freq_set * 1e9 / gyromag_ratio, 2), 1000)
@@ -2923,15 +2958,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     #                     / (2 * exchange_field * lattice_constant))
                     # + (((2 * dmi_val) / (sat_mag_moon)) * wave_number_array))
 
-                    ax1.plot(wave_number_array * hz_2_GHz, freq_array * hz_2_GHz,
+                    ax1.plot(wave_number_array * constants.nano, freq_array * constants.nano,
                              lw=0., ls='-',
                              label=f'D = {dmi_val}', marker='o', markersize=1.5)
 
-                    ax1.axvline(x=wave_number_array[freq_array.argmin()] * hz_2_GHz,
+                    ax1.axvline(x=wave_number_array[freq_array.argmin()] * constants.nano,
                                 color='black', ls='-', lw=3,
                                 alpha=0.75, zorder=1.999)
-                    print(f'Min k: {wave_number_array[freq_array.argmin()] * hz_2_GHz}'
-                          f' | Min freq.: {min(freq_array) * hz_2_GHz}')
+                    print(f'Min k: {wave_number_array[freq_array.argmin()] * constants.nano}'
+                          f' | Min freq.: {min(freq_array) * constants.nano}')
 
                     demag_N = calculate_demag_factor_uniform_prism(system_dims[0],
                                                                    system_dims[1],
@@ -3143,17 +3178,15 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                     Returns:
                                         k : list : Candidate wavevectors [1 / m] that solve the quartic.
                                     """
-                                    mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
-
-                                    H0 /= mu0  # Convert from T to A/m
+                                    H0 /= constants.mu_0  # Convert from T to A/m
                                     Nx, Ny, Nz = demag_factors['N_x'], demag_factors['N_y'], demag_factors['N_z']
 
                                     # Formulae from moon2013generation
-                                    J = 2 * A / (mu0 * Ms)
-                                    D = -2 * D_ij / (mu0 * Ms) #-ve required to match Omega_with_generalised_ua
+                                    J = 2 * A / (constants.mu_0 * Ms)
+                                    D = -2 * D_ij / (constants.mu_0 * Ms) #-ve required to match Omega_with_generalised_ua
 
                                     # Define constants ('d' coefficient: dee Mathematica file for derivation)
-                                    c_base = H0 + (2 * a_z ** 2 / (Ms * mu0)) * (K_1 + 2 * K_2 * a_z ** 2)
+                                    c_base = H0 + (2 * a_z ** 2 / (Ms * constants.mu_0)) * (K_1 + 2 * K_2 * a_z ** 2)
                                     c_1 = c_base + Ms * (Nx - Nz)
                                     c_2 = c_base + Ms * (Ny - Nz)
 
@@ -3161,8 +3194,8 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                     quartic_A = J ** 2
                                     quartic_B = 0
                                     quartic_C = (J * (c_1 + c_2) - D ** 2)
-                                    quartic_D = 2 * omega * D_ij / (gamma * mu0)
-                                    quartic_E = c_1 * c_2 - omega ** 2 / (gamma ** 2 * mu0 ** 2)
+                                    quartic_D = 2 * omega * D_ij / (gamma * constants.mu_0)
+                                    quartic_E = c_1 * c_2 - omega ** 2 / (gamma ** 2 * constants.mu_0 ** 2)
 
                                     # Solve the depressed quartic
                                     roots = solve_depressed_quartic_test(A=quartic_A, B=quartic_B, C=quartic_C,
@@ -3257,7 +3290,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                                     if not plotted_horizontal_lines[freq_key][dict_key]:
                                         # Set linestyle depending on type.
                                         ls = '-' if line_type == 'Whole' else '--'
-                                        ax1.axhline(y=freq_val * hz_2_GHz, xmin=test_range[0], xmax=test_range[1],
+                                        ax1.axhline(y=freq_val * constants.nano, xmin=test_range[0], xmax=test_range[1],
                                                     ls=ls, lw=1.5, color='black', alpha=0.75,
                                                     zorder=1.22 if line_type == 'Whole' else 1.23)
                                         print(f'{line_type} ({sign_key}): {mode:.3f} | freq: {freq_key} GHz')
@@ -3276,7 +3309,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
                     if dmi_val < 0:
                         ax2 = ax1.twiny()
-                        wavelengths_array = (2 * np.pi) / (wave_number_array * hz_2_GHz)
+                        wavelengths_array = (2 * np.pi) / (wave_number_array * constants.nano)
 
                         #ax2.plot(wavelengths_array, external_field_array, lw=0., ls='-', marker='o', markersize=1.5,
                         #         alpha=0)
@@ -3318,9 +3351,9 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                     #          label=f'D = {dmi_val}', marker='o', markersize=1.5)
                     # ax1.set(xlabel=r"External Static Field, $H^{0}$ (T)",
                     #         ylabel=r'Number of modes, $n$')  # , xlim=ax_xlim_lims, ylim=ax_ylim_lims)
-                    ax1.plot(freq_array * hz_2_GHz, num_modes_pos, lw=0., ls='-',
+                    ax1.plot(freq_array * constants.nano, num_modes_pos, lw=0., ls='-',
                              label=f'+D = {dmi_val}', marker='o', markersize=1.5)
-                    ax1.plot(freq_array * hz_2_GHz, -1 * num_modes_neg, lw=0., ls='-',
+                    ax1.plot(freq_array * constants.nano, -1 * num_modes_neg, lw=0., ls='-',
                              label=f'-D = {dmi_val}', marker='o', markersize=1.5)
                     for i in range(int(np.floor(ax1.get_ylim()[0])), int(np.ceil(ax1.get_ylim()[1]))):
                         ax1.axhline(y=i + 0.5, color='black', linestyle='--', lw=0.5, alpha=0.75)
@@ -3342,7 +3375,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             #
             #     # Iterate over the arrays and write
             #     for i in range(len(wave_number_array)):
-            #         writer.writerow([wave_number_array[i] * hz_2_GHz, freq_array[i] * hz_2_GHz])
+            #         writer.writerow([wave_number_array[i] * constants.nano, freq_array[i] * constants.nano])
 
             """
             for p_val, dmi_val in zip(p_vals_moon, dmi_vals_moon):
@@ -3362,7 +3395,7 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
                 freq_array_moon = gyromag_ratio_moon * (np.sqrt(h0_plus_jk * (h0_plus_jk + demag_mag_moon))
                                                         + p_val * d_star * wave_number_array_moon)
 
-                ax2.plot(wave_number_array_moon * hz_2_GHz, freq_array_moon * hz_2_GHz, lw=0, ls='-',
+                ax2.plot(wave_number_array_moon * constants.nano, freq_array_moon * constants.nano, lw=0, ls='-',
                          label=f'D = {p_val * dmi_val:.3e}', marker='o', markersize=1.5)
                 ax2.set(xlabel="Wavevector (nm$^{-1}$)",
                         ylabel='Frequency (GHz)', xlim=[-0.5, 0.5], ylim=[0, 60])
@@ -3413,19 +3446,17 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
 def Omega_generalised_with_ua(H0, Ms, A, Dij, k, d, K1, K2, aniso_axis, gamma, system_dims, p=1,
                               has_demag=1, has_dmi=1, has_aniso=1):
-    mu0 = 1.25663706212e-6  # m kg s^-2 A^-2
-
     # This function requires the field components to be in [A m^{-1}]
-    H0 /= mu0
-    J = 2 * A / (mu0 * Ms)
-    D = -2 * Dij / (mu0 * Ms)
+    H0 /= constants.mu_0
+    J = 2 * A / (constants.mu_0 * Ms)
+    D = -2 * Dij / (constants.mu_0 * Ms)
 
     demag_factors = calculate_demag_factor_uniform_prism(system_dims[0],
                                                          system_dims[1],
                                                          system_dims[2])
 
     const_factor = (H0 + J * (k ** 2)
-                    + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * mu0) * (K1 + 2 * K2 * aniso_axis[2] ** 2)))
+                    + has_aniso * ((2 * (aniso_axis[2] ** 2)) / (Ms * constants.mu_0) * (K1 + 2 * K2 * aniso_axis[2] ** 2)))
     omega = np.sqrt((const_factor + has_demag * Ms * (demag_factors['N_x'] - demag_factors['N_z']))
                     * (const_factor + has_demag * Ms * (demag_factors['N_y'] - demag_factors['N_z']))
                     )
@@ -3433,6 +3464,6 @@ def Omega_generalised_with_ua(H0, Ms, A, Dij, k, d, K1, K2, aniso_axis, gamma, s
     omega += p * D * k * has_dmi
 
     # om is in Hz
-    omega *= (gamma * mu0)
+    omega *= (gamma * constants.mu_0)
 
     return omega
