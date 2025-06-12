@@ -777,51 +777,67 @@ class CallMethods:
                 print('--------------------------------------------------------------------------------')
                 log.info(output)
 
-    def call_methods(self, loop_function: bool = False, early_exit: bool = False, interactive_mode: bool = False,
-                     override_method: str | None = None, override_function: str | None = None,
-                     override_site: int | None = None):
+    def call_methods(
+            self,
+            loop_function: bool = False,
+            early_exit: bool = False,
+            interactive_mode: bool = False,
+            override_method: str | None = None,
+            override_function: str | None = None,
+            override_site: int | None = None
+    ) -> None:
+        """Call plotting method for valid user input.
 
-        self._set_internal_attributes(override_method=override_method, override_function=override_function,
-                                      override_site=override_site, loop_function=loop_function,
-                                      early_exit=early_exit, interactive_mode=interactive_mode)
+        This method is the caller for setting the internal attributes used by the class to manage general plotting
+        behaviours: see ``self._set_internal_attributes()``.
+        """
+
+        # Dictate exit conditions
         attempts, attempts_max = 0, 4
 
-        while True:
+        self._set_internal_attributes(override_method=override_method,
+                                      override_function=override_function,
+                                      override_site=override_site,
+                                      loop_function=loop_function,
+                                      early_exit=early_exit,
+                                      interactive_mode=interactive_mode)
+
+        continue_calling_methods = True
+        while continue_calling_methods:
             match self._method_to_use:
-                case "3P":
+                case '3P':
                     self._invoke_three_panes()
-                case "FS":
+                case 'FS':
                     self._invoke_fs_functions()
-                case "FT":
+                case 'FT':
                     self._invoke_fft_functions()
-                case "PF":
+                case 'PF':
                     self._invoke_paper_figures()
-                case "CP":
+                case 'CP':
                     self._invoke_contour_plot()
-                case "EXIT":
+                case 'EXIT':
                     self._invoke_exit_conditions()
                 case _:
                     attempts += 1
-                    if attempts > attempts_max:
-                        print("Maximum attempts exceeded. Exiting.")
-                        break
-
                     print(f"Invalid option. The available functions are: {', '.join(self._accepted_methods)}.")
-                    self._method_to_use = input("Select function to use: ").upper()
 
+            # Guards to check invalid attempts
+            if attempts > attempts_max:
+                print(f"Maximum attempts [{attempts_max}] exceeded. Exiting...")
+                continue_calling_methods = False
+                continue
+
+            # Conditions to enact only for valid attempts
             if self.early_exit:
-                break
-            else:
-                self._method_to_use = input("Select function to use: ").upper()
+                continue_calling_methods = False
+                continue
+
+            self._method_to_use = input("Select function to use: ").upper()
 
         if self.mass_produce:
-            output = f"Produced: {self.file_terms['identifier']}{self.file_terms['descriptor']}"
-            print(output)
-            log.info(output)
+            log.info(f"Produced: {self.file_terms['identifier']}{self.file_terms['descriptor']}")
         else:
-            output = "Code complete! Exiting."
-            print(output)
-            log.info(output)
+            log.info("Code complete! Exiting.")
 
     def _invoke_three_panes(self):
         # Use this if you wish to see what my old Spyder code would output
