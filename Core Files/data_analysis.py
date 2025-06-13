@@ -39,14 +39,16 @@ __all__ = ['']
 
 # Standard library imports
 import csv
+from dataclasses import dataclass, field
 from errno import EEXIST
 import logging as log
-import textwrap
-from typing import Any
+from textwrap import dedent
+from typing import Any, Optional, Callable
 
 # Third-party imports
 from glob import glob
 import numpy as np
+from numpy.typing import NDArray
 import shutil
 import os
 import re
@@ -59,6 +61,11 @@ from plot_eigenmodes import Eigenmodes
 import plot_rk_methods_legacy_standalone as plt_rk_legacy_standalone
 
 # Module-level constants
+FILE_NAME_COMPONENTS: dict[str, Optional[str]] = dict.fromkeys(['prefix', 'component', 'identifier', 'descriptor'])
+"""Components (i.e. subsections) from the filename holding the dataset are used to name and label output figures."""
+
+FILE_PATHS: dict[str, Optional[str]] = dict.fromkeys(['filename', 'input', 'output'])
+"""Absolute paths to the: dataset file, dataset directory, and output directory for saving figures."""
 
 
 class PlotEigenmodes:
@@ -376,9 +383,8 @@ class AnalyseData:
         self.header_parameters = None
         self.header_simulated_sites = None
 
-        self._file_terms = {"prefix": None, "component": None, "identifier": None,
-                            "descriptor": None}
-        self._file_paths_full = {"filename": None, "input": None, "output": None}
+        self._file_terms: FILE_NAME_COMPONENTS = FILE_NAME_COMPONENTS
+        self._file_paths_full: FILE_PATHS = FILE_PATHS
 
     def import_data(self, file_descriptor, input_dir_path, output_dir_path, file_prefix="rk2", file_component="mx",
                     file_identifier="T", auto_run: bool = True):
@@ -413,11 +419,22 @@ class AnalyseData:
 
         print("Data processed. Ready to call method.")
 
-    def call_methods(self, override_method=None, override_function=None, override_site=None, early_exit=False,
-                     loop_function=False, mass_produce=False, interactive_mode=False):
+    def call_methods(
+            self,
+            early_exit: Optional[bool] = False,
+            loop_function: Optional[bool] = False,
+            mass_produce: Optional[bool] = False,
+            interactive_mode: Optional[bool] = False,
+            *,
+            override_method: Optional[str] = None,
+            override_function: Optional[str] = None,
+            override_site: Optional[int] = None,
+            **kwargs
+    ) -> None:
         called_method = CallMethods(self._file_terms, self._file_paths_full, self.data_container, self.data_timestamps,
                                     self.header_simulated_sites, self.data_magnetic_moments, self.header_parameters,
                                     self.header_flags, mass_produce)
+        kwargs.get('override_method')
         called_method.call_methods(override_method=override_method, override_function=override_function,
                                    override_site=override_site, loop_function=loop_function, early_exit=early_exit,
                                    interactive_mode=interactive_mode)
@@ -433,7 +450,7 @@ class ImportData:
         self._input_id = file_terms["identifier"]
         self._input_desc = file_terms["descriptor"]
 
-        self._file_paths_full = {"filename": None, "input": None, "output": None}
+        self._file_paths_full: FILE_PATHS = FILE_PATHS
 
         self._data_container = None
         self._data_timestamps = None
@@ -685,15 +702,54 @@ class ProcessData:
         return mapped_and_cased_input
 
 
+@dataclass(frozen=True)
+class MethodSpec:
+    abbr: str
+    handler_name: str
+    """Name of the method available on this class instance."""
+
+
+@dataclass(frozen=True)
+class BoundMethodSpec:
+    abbr: str
+    handler: Callable[..., Any]
+    description: str
+
+
 class CallMethods:
+    """Docstring for class."""
+    _UNBOUND_METHOD_SPECS: dict[str, MethodSpec] = {
+        'three_panes': MethodSpec('3P', 'invoke_three_panes'),
+        'fft_spatial': MethodSpec('FS', 'invoke_fs_functions'),
+        'fft_temporal': MethodSpec('FT', 'invoke_fft_functions'),
+        'paper_figures': MethodSpec('PF', 'invoke_paper_figures'),
+        'contour_plots': MethodSpec('CP', 'invoke_contour_plot'),
+        'safe_exit': MethodSpec('EXIT', 'invoke_exit_conditions'),
+    }
+    """Supported means for generating figures."""
 
-    def __init__(self, file_terms, file_paths, data_container, data_timestamps, header_simulated_sites,
-                 data_magnetic_moments, header_parameters, header_flags, mass_produce=False):
+    _file_terms: FILE_NAME_COMPONENTS = FILE_NAME_COMPONENTS
+    _override_options: dict[str, Optional[int | str]] = {'method': None, 'function': None, 'site': None}
 
-        self._file_terms = {"prefix": None, "component": None, "identifier": None,
-                            "descriptor": None}
+    called_method: str
+    early_exit: bool = False
+    loop_function: bool = False
+    interactive_mode: bool = False
+
+    def __init__(
+            self,
+            file_terms: FILE_NAME_COMPONENTS,
+            file_paths: FILE_PATHS,
+            data_container: NDArray[tuple[Any, ...]],
+            data_timestamps,
+            header_simulated_sites,
+            data_magnetic_moments,
+            header_parameters,
+            header_flags,
+            mass_produce: bool = False
+    ):
+        """Docstring for class instance."""
         self.file_terms = file_terms
-
         self._file_paths_full = file_paths
 
         self.data_container = data_container
@@ -704,85 +760,66 @@ class CallMethods:
         self._header_flags = header_flags
         self._header_simulated_sites = header_simulated_sites
 
-        self._method_to_use: str | None = None
-        self.override_method: str | None = None
-        self.override_function: str | None = None
-        self.override_site: int | None = None
-        self.early_exit: bool = False
-        self.loop_function: bool = False
         self.mass_produce: bool = mass_produce
-        self.interactive_mode: bool = False
 
-        self._accepted_methods = ["3P", "FS", "FT", "PF", "CP", "EXIT"]
+        # Bind each 'handler' to the targeted method instance.
+        self.accepted_methods: dict[str, BoundMethodSpec] = {}
 
-    def _set_internal_attributes(self, override_method, override_function, override_site, early_exit: bool,
-                                 loop_function: bool, interactive_mode: bool):
-        if override_method is not None:
-            self.override_method = self._method_to_use = override_method
-        if override_function is not None:
-            self.override_function = override_function
-        if override_site is not None:
-            self.override_site = override_site
+        for key, spec in type(self)._UNBOUND_METHOD_SPECS.items():
+            fn = getattr(self, '_' + spec.handler_name)
+            self.accepted_methods[key] = BoundMethodSpec(
+                abbr=spec.abbr,
+                handler=fn,
+                description=fn.__doc__ or ""
+            )
 
-        if isinstance(early_exit, bool) and early_exit is True:
-            self.early_exit = True
-        else:
-            self.early_exit = False
+    def _process_selection_on_initialisation(self) -> str | None:
+        """Define the initial method used for the selection process.
 
-        if isinstance(loop_function, bool) and loop_function is True:
-            self.loop_function = False  # currently doesn't work properly
-        else:
-            self.loop_function = False
+        Inform the user of how selection is performed if no override was correctly passed.
+        """
+        user_method_selection = (self._override_options['method']
+                                 if self._override_options['method']
+                                 else None)
 
-        if isinstance(interactive_mode, bool) and interactive_mode is True:
-            self.interactive_mode = True
-        else:
-            self.interactive_mode = False
+        if not user_method_selection:
+            print(dedent(f"""\
+                    The plotting functions available are:
 
-        self._set_internal_methods()
+                    *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
+                    *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
+                    *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
+                    *   Paper Figure [PF] (Plot final state of system at all sites)
+                    *   Contour Plot [CP] (Plot a single site as a 3D map)
 
-    def _set_internal_methods(self):
-        if self._method_to_use is None:
-            # TODO This list of functions is massively out of date!
-            print('''
-            The plotting functions available are:
-    
-                *   Three Panes  [3P] (Plot all spin sites varying in time, and compare a selection)
-                *   FFT & Signal [FS] (Examine signals from site(s), and the corresponding FFT)
-                *   FFT only     [FT] (Interactive plot that outputs (x,y) of mouse click to console)
-                *   Paper Figure [PF] (Plot final state of system at all sites)
-                *   Contour Plot [CP] (Plot a single site as a 3D map)
-    
-            The terms within the square brackets are the keys for each function. 
-            If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
-                      ''')
-            print('--------------------------------------------------------------------------------\n')
+                    The terms within the square brackets are the keys for each function. 
+                    If you wish to exit the program then type EXIT. Keys are NOT case-sensitive.
+                    {'-' * 80}\n"""
+                         ))
 
-            self._method_to_use = input("Which function to use: ").upper()
-        else:
-            self._method_to_use = self.override_method.upper()
-
-        if any([self.override_method, self.override_function, self.override_site, self.early_exit]):
+        if any(v is not None for v in self._override_options.values()) or self.early_exit:
             if self.mass_produce:
                 output = f"Producing: {self._file_paths_full['filename']}"
-                print(output)
-                log.info(output)
-
             else:
-                output = (f"Override(s) enabled.\nMethod: {self.override_method} | Function: {self.override_function}"
-                          f" | Site/Row: {self.override_site} | Early Exit: {self.early_exit}")
-                print(output)
-                print('--------------------------------------------------------------------------------')
-                log.info(output)
+                output = f"""\
+                            Override(s) enabled.
+                            Method: {self._override_options['method']} | Function: {self._override_options['function']}
+                            Site/Row: {self._override_options['site']} | Early Exit: {self.early_exit}
+                            {'-'*80}"""
+            print(dedent(output))
+            log.info(output)
+
+        return user_method_selection
 
     def call_methods(
             self,
-            loop_function: bool = False,
+            *,
             early_exit: bool = False,
+            loop_function: bool = False,
             interactive_mode: bool = False,
-            override_method: str | None = None,
-            override_function: str | None = None,
-            override_site: int | None = None
+            override_method: Optional[str] = None,
+            override_function: Optional[str] = None,
+            override_site: Optional[int] = None
     ) -> None:
         """Call plotting method for valid user input.
 
@@ -792,45 +829,58 @@ class CallMethods:
 
         # Dictate exit conditions
         attempts, attempts_max = 0, 4
-
-        self._set_internal_attributes(override_method=override_method,
-                                      override_function=override_function,
-                                      override_site=override_site,
-                                      loop_function=loop_function,
-                                      early_exit=early_exit,
-                                      interactive_mode=interactive_mode)
-
         continue_calling_methods = True
+
+        # Set internal attributes
+        # TODO - Turn these internal attributes of the class instance into a dataclass.
+        self.early_exit = early_exit
+        self.loop_function = False  # TODO - Has been set to always FALSE as this attribute's implementation fails.
+        self.interactive_mode = interactive_mode
+
+        if isinstance(override_method, str):
+            self._override_options['method'] = override_method.upper()
+
+        if isinstance(override_function, str):
+            self._override_options['function'] = override_function
+
+        if isinstance(override_site, int):
+            self._override_options['site'] = override_site
+
+        user_method_selection = self._process_selection_on_initialisation()
+
         while continue_calling_methods:
-            match self._method_to_use:
-                case '3P':
-                    self._invoke_three_panes()
-                case 'FS':
-                    self._invoke_fs_functions()
-                case 'FT':
-                    self._invoke_fft_functions()
-                case 'PF':
-                    self._invoke_paper_figures()
-                case 'CP':
-                    self._invoke_contour_plot()
-                case 'EXIT':
-                    self._invoke_exit_conditions()
-                case _:
-                    attempts += 1
-                    print(f"Invalid option. The available functions are: {', '.join(self._accepted_methods)}.")
 
-            # Guards to check invalid attempts
-            if attempts > attempts_max:
-                print(f"Maximum attempts [{attempts_max}] exceeded. Exiting...")
-                continue_calling_methods = False
+            if user_method_selection is None:
+                user_method_selection = input("Select function to use: ").upper()
+
+            spec = next(
+                (s for s in self.accepted_methods.values() if s.abbr == user_method_selection),
+                None
+            )
+
+            if spec is None:
+                # Invalid abbreviation
+                attempts += 1
+                valid = ', '.join(s.abbr for s in self.accepted_methods.values())
+                print(f"Invalid option. Valid abbreviations are: {valid}")
+
+                # Guards to check invalid attempts
+                if attempts > attempts_max:
+                    print(f"Maximum attempts [{attempts_max}] exceeded. Exiting...")
+                    break
+
+                user_method_selection = None
                 continue
 
-            # Conditions to enact only for valid attempts
-            if self.early_exit:
-                continue_calling_methods = False
-                continue
+            else:
+                # Found and called a handler.
+                spec.handler()
 
-            self._method_to_use = input("Select function to use: ").upper()
+                if self.early_exit:
+                    break
+
+                attempts = 0
+                user_method_selection = None
 
         if self.mass_produce:
             log.info(f"Produced: {self.file_terms['identifier']}{self.file_terms['descriptor']}")
@@ -988,8 +1038,8 @@ class CallMethods:
         max_site = max([int(site) for site in self._header_simulated_sites])
         min_row, max_row = 0, int(len(self._data_timestamps) - 1)
 
-        if self.override_function is not None:
-            pf_selection = self.override_function.upper()
+        if self._override_options['function'] is not None:
+            pf_selection = self._override_options['function'].upper()
 
         else:
             pf_selection = str(input(f"Options:"
@@ -1015,8 +1065,8 @@ class CallMethods:
         if pf_selection == pf_keywords["Spat. Ev."][0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                if self.override_site is not None:
-                    rows_to_plot = [self.override_site]
+                if self._override_options['site'] is not None:
+                    rows_to_plot = [self._override_options['site']]
                 else:
                     rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
 
@@ -1038,7 +1088,7 @@ class CallMethods:
                     except IndexError:
                         print(f"IndexError. You chose an invalid row of data: [{row_num}] "
                               f"(options are: {min_row} <= site <= {max_row}).")
-                        self.override_site = None
+                        self._override_options['site'] = None
                         self._invoke_paper_figures()
 
                     else:
@@ -1061,8 +1111,8 @@ class CallMethods:
         elif pf_selection == pf_keywords["Spat. FFT"][0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                if self.override_site is not None:
-                    rows_to_plot = [self.override_site]
+                if self._override_options['site'] is not None:
+                    rows_to_plot = [self._override_options['site']]
                 else:
                     rows_to_plot = (input("Plot which rows of data (-ve to exit): ")).split()
 
@@ -1084,7 +1134,7 @@ class CallMethods:
                     except IndexError:
                         print(f"IndexError. You chose an invalid row of data: [{row_num}] "
                               f"(options are: {min_row} <= site <= {max_row}).")
-                        self.override_site = None
+                        self._override_options['site'] = None
                         self._invoke_paper_figures()
 
                     else:
@@ -1098,7 +1148,7 @@ class CallMethods:
                             log.info(f"Finished plotting PV of row [#{row_num}]. Continuing...")
 
                             if self.loop_function:
-                                self.override_site = None
+                                self._override_options['site'] = None
                             else:
                                 cont_plotting = False
 
@@ -1110,8 +1160,8 @@ class CallMethods:
         elif pf_selection == pf_keywords["Temp. Ev."][0]:
             while cont_plotting:
 
-                if self.override_site is not None:
-                    sites_to_plot = [self.override_site]
+                if self._override_options['site'] is not None:
+                    sites_to_plot = [self._override_options['site']]
                 else:
                     sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
 
@@ -1135,7 +1185,7 @@ class CallMethods:
                     except IndexError:
                         print(f"IndexError. You chose an invalid site [{target_site}] "
                               f"(options are: {min_site} <= site <= {max_site}).")
-                        self.override_site = None
+                        self._override_options['site'] = None
                         self._invoke_paper_figures()
 
                     else:
@@ -1161,8 +1211,8 @@ class CallMethods:
         elif pf_selection == pf_keywords["Heav. Dis."][0]:
             while cont_plotting:
 
-                if self.override_site is not None:
-                    sites_to_plot = [self.override_site]
+                if self._override_options['site'] is not None:
+                    sites_to_plot = [self._override_options['site']]
                 else:
                     sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
 
@@ -1185,7 +1235,7 @@ class CallMethods:
                     except IndexError:
                         print(f"IndexError. You chose an invalid site [{target_site}] "
                               f"(options are: {min_site} <= site <= {max_site}).")
-                        self.override_site = None
+                        self._override_options['site'] = None
                         self._invoke_paper_figures()
 
                     else:
@@ -1222,8 +1272,8 @@ class CallMethods:
         elif pf_selection == pf_keywords["FFT"][0]:
             while cont_plotting:
                 # User will plot one spin site at a time, as plotting can take a long time.
-                if self.override_site is not None:
-                    sites_to_plot = [self.override_site]
+                if self._override_options['site'] is not None:
+                    sites_to_plot = [self._override_options['site']]
                 else:
                     sites_to_plot = (input("Plot which site (-ve to exit): ")).split()
 

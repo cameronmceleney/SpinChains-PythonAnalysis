@@ -15,7 +15,7 @@ Examples:
     (Here, place useful implementations of the contents of test_file.py). Note that leading symbol '>>>' includes the
     code in doctests, while '$' does not.)::
 
-        >>> run(filename_base='1723', batch_processing=True, has_numeric_suffixes=True)
+        >>> run(filename_base='1106', batch_processing=False, has_numeric_suffixes=False)
 
 Todo:
     - Check expressions: For the paper, linearFMR = (2 * np.pi * 28.3e9 / (2 * np.pi))
@@ -54,13 +54,13 @@ from data_analysis import AnalyseData, PlotEigenmodes
 from system_preparation import SystemSetup
 
 # Module-level constants
-TESTING_FILENAME_BASE: str = '1723'
+TESTING_FILENAME_BASE: str = '1106'
 """Quick access to set a known, working file to test execution of package."""
 
-TESTING_INPUT_DIR: str = '2024-08-22'
+TESTING_INPUT_DIR: str = 'test'
 """Quick access to set the path to TESTING_FILENAME_BASE"""
 
-TESTING_OUTPUT_DIR: str = '2025-02-12'
+TESTING_OUTPUT_DIR: str = 'test'
 """Quick access to output path for saving any generated figures."""
 
 
@@ -177,7 +177,7 @@ def run(
         )
         dataset1.process_data()
         dataset1.call_methods(
-            override_method="pf",
+            override_method="3p",
             override_function="hd",
             override_site=40,
             early_exit=True,

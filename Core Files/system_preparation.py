@@ -94,8 +94,8 @@ class SystemSetup:
             else:
                 if platform.processor() == 'arm':
                     # This is my M3 Pro Macbook
-                    mac_dir_root_in = "/Users/cameronmceleney/Data/"
-                    mac_dir_root_out = "/Users/cameronmceleney/Data/"
+                    mac_dir_root_in = '/Users/cameronmceleney/PycharmProjects/SpinChains-PythonAnalysis/resources/'#"/Users/cameronmceleney/Data/"
+                    mac_dir_root_out = '/Users/cameronmceleney/PycharmProjects/SpinChains-PythonAnalysis/resources/'#"/Users/cameronmceleney/Data/"
                 else:
                     # OS X. This is the permanent location on my Intel Macbook
                     mac_dir_root_in = "/Users/cameronaidanmceleney/CLionProjects/Data/"

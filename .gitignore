@@ -43,8 +43,12 @@
 ### File-based project format
 /*.iws
 
+/resources/test/Logs/
+/resources/test/Outputs/
+
 ### Intellij Patch
 # Comment Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-215987721
 # *.iml
 # /.idea/modules.xml.DS_Store
 __pycache__/
+
