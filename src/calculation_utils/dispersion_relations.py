@@ -51,7 +51,7 @@ Notes:
 
 # from __future__ import foo
 
-__all__ = [""]
+__all__ = ["CalculateDispersionRelation"]
 
 import typing
 # Standard library imports
@@ -277,9 +277,9 @@ class CalculateDispersionRelation:
 
         if self.sys_consts.has_uniaxial_anisotropy:
             const_terms += (
-                    (2 * aniso_axis[2] ** 2) / (self.sys_consts.saturation_magnetisation * constants.mu_0)
+                    (2 * self.sys_consts.aniso_axis[2] ** 2) / (self.sys_consts.saturation_magnetisation * constants.mu_0)
                     * (self.sys_consts.uniaxial_anisotropy_K1
-                       + 2 * self.sys_consts.uniaxial_anisotropy_K2 * aniso_axis[2] ** 2)
+                       + 2 * self.sys_consts.uniaxial_anisotropy_K2 * self.sys_consts.aniso_axis[2] ** 2)
             )
 
         if self.sys_consts.has_demagnetisation:
