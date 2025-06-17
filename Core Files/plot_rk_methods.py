@@ -262,11 +262,11 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
 
         if draw_regions_of_interest:
             left, bottom, width, height = (
-                [0, (self.num_sites_total() - self.num_sites_abc()),
-                 (self.driving_region_lhs() + self.num_sites_abc())],
+                [0, (self.num_sites_total() - self.num_sites_abc()), (self.driving_region_lhs() + self.num_sites_abc())],
                 self._axes.get_ylim()[0] * 2,
                 (self.num_sites_abc(), self.driving_region_width()),
-                4 * self._axes.get_ylim()[1])
+                4 * self._axes.get_ylim()[1]
+            )
 
             rectangle_lhs = mpatches.Rectangle((left[0], bottom), width[0], height, lw=0,
                                                alpha=0.5, facecolor="grey", edgecolor=None)

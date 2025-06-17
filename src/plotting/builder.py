@@ -51,13 +51,15 @@ Notes:
 
 __all__ = ['PaperFigures']
 
+import typing
 # Standard library imports
-from functools import cached_property
+from collections import namedtuple
 from typing import Any, Optional
 
-import matplotlib.figure
 # Third-party imports
-import matplotlib.pyplot as plt
+from matplotlib import (pyplot as plt,
+                        ticker as mpl_tick)
+from matplotlib.patches import Rectangle
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import numpy as np
@@ -67,13 +69,17 @@ from scipy import constants
 
 # Local application imports
 from attribute_defintions import SimulationFlagsContainer, SimulationParametersContainer
+from src.plotting.spatial import ClickHandler, SpatialPlot
 
 # Module-level constants
 UREG_: UnitRegistry = UnitRegistry()
 Q_ = UREG_.Quantity
 
 
-class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
+class PaperFigures(
+    SimulationFlagsContainer,
+    SimulationParametersContainer
+):
 
     def __init__(
             self,
@@ -84,7 +90,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             site_indices: list | NDArray,
             output_filepath: str,
             params_container: Optional[SimulationParametersContainer] = None,
-            flags_container: Optional[SimulationFlagsContainer] = None
+            flags_container: Optional[SimulationFlagsContainer] = None,
+            *,
+            is_plot_interactive: bool = False,
+            **kwargs
     ):
         super().__init__()
 
@@ -107,7 +116,24 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             self.update_with_container(flags_container)
 
         # Plotting
-        self.fig: plt.figure = None
+        self.is_interactive = is_plot_interactive
+        self.fig: Figure
+        self.axes: Axes
+        self._yaxis_lim = 1.3
+        self._yaxis_lim_fix = 8e-3
+        self.track_zorder = [[], []]
+
+        _FontSizes = namedtuple(
+            'FontSizes',
+            ('large', 'medium', 'small', 'smaller', 'tiny', 'mini'),
+            defaults=(20, 14, 11, 10, 8, 7)
+        )
+        self._font_sizes: _FontSizes = _FontSizes()
+
+        # Helper objects for plotting
+        self.spatial = SpatialPlot(self)
+
+        self._post_init()
 
     def _post_init(self):
         if self.lattice_constant() < 0:
@@ -120,6 +146,10 @@ class PaperFigures(SimulationFlagsContainer, SimulationParametersContainer):
             # from bad maths.
             self.exchange_dmi_constant *= 2
 
-
+        _FontSizes = namedtuple(
+            'FontSizes',
+            ('large', 'medium', 'small', 'smaller', 'tiny', 'mini'),
+            defaults=(20, 14, 11, 10, 8, 7)
+        )
 
 

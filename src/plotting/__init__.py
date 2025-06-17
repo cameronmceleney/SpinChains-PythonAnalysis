@@ -47,12 +47,14 @@ Notes:
 # Third-party imports
 
 # Local application imports
-from builder import *
-from utils import *
+from src.plotting.builder import *
+from src.plotting.utils import *
+from src.plotting.spatial import *
 
 # Module-level constants
 
 __all__ = [
     'builder',
     'utils',
+    'spatial'
 ]
