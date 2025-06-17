@@ -37,7 +37,7 @@ Notes:
     Project
         SpinChains-PythonAnalysis
     Path
-        src/calculation_utils/dispersion_relations.py
+        src/calculations/dispersion_relations.py
     Author
         Cameron Aidan McEleney < c.mceleney.1@research.gla.ac.uk >
     Created
@@ -53,45 +53,19 @@ Notes:
 
 __all__ = ["CalculateDispersionRelation"]
 
-import typing
 # Standard library imports
-from collections import deque
 from dataclasses import dataclass, field
-from functools import cached_property
-from typing import ClassVar, Deque, Literal, Optional, Sequence
+from typing import ClassVar, Literal, Optional, Sequence
 
 # Third-party imports
-import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
-from scipy import constants
+from scipy.constants import mu_0
 
 # Local application imports
-# (e.g. from .helpers import foo
+from src.calculations.utils import MagneticSystemConstants, Vector3
 
 # Module-level constants
-VECTOR3_FLOATS: typing.TypeAlias = tuple[float, float, float]
-"""A module-level constant with in-line docstring."""
-
-
-@dataclass(frozen=True)
-class Vector3:
-    x: float
-    y: float
-    z: float
-
-    def as_tuple(self) -> VECTOR3_FLOATS:
-        return self.x, self.y, self.z
-
-    def rotate(self, step: int = 1) -> "Vector3":
-        """Cyclic vector's components by `step`.
-
-        Internally uses `collections.deque` for the rotation.
-        """
-
-        seq: Deque[float] = deque(self.as_tuple())
-        seq.rotate(step)
-        return Vector3(*seq)
 
 
 @dataclass
@@ -131,17 +105,35 @@ class DemagnetisationFactorCalculator:
             raise KeyError
         return self.dims.rotate(rotation_map[axis])
 
-    def calculate_factors(self, equation: _OPTIONS) -> None:
-        """"""
+    def calculate_factors(self, equation: _OPTIONS, atol: float = 1e-4) -> None:
+        """
+
+        Args:
+            equation: List of keywords for supported methods for calculating demagnetisation factors.
+            atol: Absolute tolerance used to check that :math:`\sum_{i=0}^{3}(N_{i})` lies in the range
+                  :math:`1.0 \pm \sigma_\text{atol}`
+        """
+
         if equation not in self._OPTIONS:
             raise ValueError(f"Unknown system '{equation}'")
 
+        factors: Vector3(0, 0, 0)  # Placed here so `match equation` doesn't show PyCharm IDE inspection warning.
         match equation:
             case 'uniform_prism':
-                self.factors = Vector3(
+                factors = Vector3(
                     self._calculate_uniform_prism(self._rotation_mapping('x')),
                     self._calculate_uniform_prism(self._rotation_mapping('y')),
                     self._calculate_uniform_prism(self._rotation_mapping('z')))
+            case _:
+                raise ValueError(f"Unknown system '{equation}'")
+
+        if not (1 - atol <= sum(factors.as_tuple()) <= 1 + atol):
+            # Demagnetisation factors must sum to 1.0 (subject to tolerance check) to remain physically valid.
+            raise ArithmeticError(f"""
+                                   Calculated demagnetisation factors using equation {equation!r} summed to more 
+                                   than unity. Error likely to have occurred inside the related invoked private method.
+                                   """)
+        self.factors = factors
 
     @staticmethod
     def _calculate_uniform_prism(base: Vector3) -> float:
@@ -197,42 +189,6 @@ class DemagnetisationFactorCalculator:
         return factor
 
 
-@dataclass
-class MagneticSystemConstants:
-    saturation_magnetisation: float
-    exchange_stiffness: float
-    gyromagnetic_ratio: float
-
-    has_demagnetisation: bool
-    zeeman_field_static: float = None
-    dmi_micromagnetic: float = None
-    aniso_axis: tuple[float, float, float] = None
-    uniaxial_anisotropy_K1: float = None
-    uniaxial_anisotropy_K2: float = None
-
-    p: int = 1
-
-    @property
-    def has_dmi(self):
-        return self.dmi_micromagnetic is not None
-
-    @property
-    def has_uniaxial_anisotropy(self):
-        return bool(self.uniaxial_anisotropy_K1 or self.uniaxial_anisotropy_K2)
-
-    @cached_property
-    def gamma(self):
-        return self.gyromagnetic_ratio * 2 * np.pi
-
-    @cached_property
-    def moon_exchange_energy(self):
-        return (2 * self.exchange_stiffness) / (constants.mu_0 * self.saturation_magnetisation)
-
-    @cached_property
-    def moon_dmi_energy(self):
-        return (2 * self.dmi_micromagnetic) / (constants.mu_0 * self.saturation_magnetisation)
-
-
 class CalculateDispersionRelation:
 
     def __init__(
@@ -267,7 +223,7 @@ class CalculateDispersionRelation:
             `NDArray` of linear frequencies in Hz.
         """
         # This function requires the field components to be in [A m^{-1}]
-        H0 = self.sys_consts.zeeman_field_static / constants.mu_0
+        H0 = self.sys_consts.zeeman_field_static / mu_0
 
         demag = self._demag_factors_calc
         demag.calculate_factors('uniform_prism')
@@ -277,7 +233,7 @@ class CalculateDispersionRelation:
 
         if self.sys_consts.has_uniaxial_anisotropy:
             const_terms += (
-                    (2 * self.sys_consts.aniso_axis[2] ** 2) / (self.sys_consts.saturation_magnetisation * constants.mu_0)
+                    (2 * self.sys_consts.aniso_axis[2] ** 2) / (self.sys_consts.saturation_magnetisation * mu_0)
                     * (self.sys_consts.uniaxial_anisotropy_K1
                        + 2 * self.sys_consts.uniaxial_anisotropy_K2 * self.sys_consts.aniso_axis[2] ** 2)
             )
@@ -293,4 +249,4 @@ class CalculateDispersionRelation:
             # Negative dmi_energy term is to match the orientation convention to my C++ code.
             angular_freqs += -1 * self.sys_consts.moon_dmi_energy * self._wavevectors
 
-        return angular_freqs * self.sys_consts.gamma * constants.mu_0
+        return angular_freqs * self.sys_consts.gamma * mu_0
