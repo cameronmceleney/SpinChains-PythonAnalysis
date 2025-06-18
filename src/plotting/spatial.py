@@ -266,7 +266,7 @@ class SpatialPlot:
 
             # Post processing
             self._.fig.savefig(f"{self._.output_path}_row{index}.png",
-                             bbox_inches='tight')
+                               bbox_inches='tight')
 
             if self._.is_interactive:
                 handler = ClickHandler()
@@ -275,5 +275,7 @@ class SpatialPlot:
 
             plt.close(self._.fig)
 
+    def plot_fft_time_instance(self):
+        raise NotImplementedError
 
 

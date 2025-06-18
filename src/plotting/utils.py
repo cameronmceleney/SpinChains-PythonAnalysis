@@ -69,6 +69,7 @@ import numpy as np
 # Local application imports
 
 # Module-level constants
+SELECT_AXIS = Literal['x', 'y', 'both']
 
 
 class AxLims(NamedTuple):
@@ -144,6 +145,67 @@ class TickCustomisation:
     def __init__(self, owner):
         self._ = owner
 
+    @staticmethod
+    def _ensure_axis_locator(val):
+        if isinstance(val, AxisLocator):
+            return val
+        elif isinstance(val, (tuple, list)) and len(val) == 2:
+            return AxisLocator(*val)
+        else:
+            raise TypeError(f"Invalid axis locator: {val}")
+
+    @staticmethod
+    def _apply_fft_locators(
+            ax: Axes,
+            x_locs: AxisLocator | tuple[float, float],
+            y_locs: AxisLocator | tuple[float, float],
+            sig_figs: tuple[float, float]
+    ) -> Axes:
+        # Setup specific axes ticks, leaving other changes to the FFT plotting method.
+        ax.xaxis.set(major_locator=MultipleLocator(x_locs.major),
+                     minor_locator=MultipleLocator(x_locs.minor),
+                     major_formatter=FormatStrFormatter(f"%{sig_figs[0]}f"))
+
+        _yaxis_base = 10
+        ax.yaxis.set(major_locator=LogLocator(base=_yaxis_base,
+                                              numticks=int(y_locs.major)),
+                     minor_locator=LogLocator(base=_yaxis_base,
+                                              subs=0.1 * np.arange(1, _yaxis_base),
+                                              numticks=int(y_locs.minor)),
+                     minor_formatter=NullFormatter())
+
+        return ax
+
+    def _apply_axis_scaling_and_shift(
+            self,
+            ax: Axes,
+            x_locs: AxisLocator | tuple[float, float],
+            shift_axis: Optional[SELECT_AXIS],
+            x_axis_scaling_factor: Any
+    ) -> None:
+        # Shift axes before updating ticks to prevent difficult logic errors arising.
+        scaled_labels, major_labels, scaled_major = self._choose_scaling(value=x_locs.major / x_axis_scaling_factor)
+        rescaling_ratio = x_axis_scaling_factor / scaled_major
+
+        shift = (-0.5 * self._.num_sites_total()
+                 if shift_axis in ('x', 'both')
+                 else 0)
+
+        xdata = np.array([])
+
+        # Iterate through all line objects in axes
+        for line in ax.get_lines():
+            line_x, line_y = line.get_data()
+
+            # Apply shift and scale transformation
+            line_x = rescaling_ratio * (line_x + shift)
+            line.set_data(line_x, line_y)
+            xdata = np.concatenate((xdata, line_x))
+
+        # Exclude first/last values for stylistic reasons on plots
+        ax.set(xlim=(xdata[0], xdata[-1] + rescaling_ratio),
+               xlabel=f'Length, $L$ ({major_labels[2]})')
+
     def set_ticks(
             self,
             plot: Optional[Axes],
@@ -152,79 +214,103 @@ class TickCustomisation:
             is_fft: bool = False,
             *,
             sig_figs: tuple[float, float] = (.1, .1),
-            scale_type=Literal['plain', 'sci'],
+            scale_type: Literal['plain', 'sci'] = 'sci',
             has_multi_locators_y_axis: bool = False,
             has_scientific_notation: bool = False,
-            has_formated_x_axis: bool = False,
-            has_shifted_x_axis: bool = False,
+            scalar_format_axis: SELECT_AXIS = 'y',
+            shift_axis: Optional[SELECT_AXIS] = None,
             x_axis_scaling_factor=None
     ) -> Axes:
         """"""
-
         # Wrapping for shorter variable names
-        xaxis = (xaxis_locators
-                 if isinstance(xaxis_locators, AxisLocator)
-                 else AxisLocator(*xaxis_locators))
+        x_locs = self._ensure_axis_locator(xaxis_locators)
+        y_locs = self._ensure_axis_locator(yaxis_locators)
+        ax = plot or plt.gca()
 
-        yaxis = (xaxis_locators
-                 if isinstance(xaxis_locators, AxisLocator)
-                 else AxisLocator(*xaxis_locators))
-
-        ax = plt.gca() if plot is None else plot
-
+        # Special case
         if is_fft:
-            ax.xaxis.set(major_locator=MultipleLocator(xaxis.major),
-                         minor_locator=MultipleLocator(xaxis.minor),
-                         major_formatter=FormatStrFormatter(f"%{sig_figs[0]}f"))
-
-            _yaxis_base = 10
-            ax.yaxis.set(major_locator=LogLocator(base=_yaxis_base,
-                                                  numticks=int(yaxis.major)),
-                         minor_locator=LogLocator(base=_yaxis_base,
-                                                  subs=0.1 * np.arange(1, _yaxis_base),
-                                                  numticks=int(yaxis.minor)),
-                         minor_formatter=NullFormatter())
-
-            return ax
+            return self._apply_fft_locators(ax, x_locs, y_locs, sig_figs)
 
         # General cases don't involve plotting Fast Fourier Transform (FFT) results
-        ax.xaxis.set(major_locator=MultipleLocator(xaxis.major),
-                     minor_locator=MultipleLocator(xaxis.minor),
-                     major_formatter=FormatStrFormatter(f"%{sig_figs[0]}f"))
-
-        if has_multi_locators_y_axis:
-            ax.yaxis.set(major_locator=MultipleLocator(yaxis.major),
-                         minor_locator=MultipleLocator(yaxis.minor),
-                         major_formatter=FormatStrFormatter(f"%{sig_figs[1]}f"))
-        else:
-            ax.yaxis.set(major_locator=MaxNLocator(nbins=yaxis.major, prune='lower'),
-                         minor_locator=AutoMinorLocator(yaxis.minor),
-                         major_formatter=FormatStrFormatter(f"&{sig_figs[1]}f")
-                         )
-
         if x_axis_scaling_factor is not None:
-            scaled_labels, major_labels, scaled_major = self._choose_scaling(value=xaxis.major / x_axis_scaling_factor)
-            rescaling_ratio = x_axis_scaling_factor / scaled_major
+            self._apply_axis_scaling_and_shift(ax, x_locs, shift_axis, x_axis_scaling_factor)
 
-            shift = -self._.num_sites_total() / 2 if has_shifted_x_axis else 0
+        # Handle general locators
+        # Initial setup, x-axis
+        ax.xaxis.set(major_locator=MultipleLocator(x_locs.major),
+                     minor_locator=MultipleLocator(x_locs.minor))
 
-            xdata = np.array([])
+        # Initial setup, y-axis
+        if has_multi_locators_y_axis:
+            ax.yaxis.set(major_locator=MultipleLocator(y_locs.major),
+                         minor_locator=MultipleLocator(y_locs.minor))
+        else:
+            ax.yaxis.set(major_locator=MaxNLocator(nbins=int(y_locs.major), prune='lower'),
+                         minor_locator=AutoMinorLocator(int(y_locs.minor)))
 
-            # Iterate through all line objects in axes
-            for line in ax.get_lines():
-                line_x, line_y = line.get_data()
+        # Additional custom major-formatter options.
+        ax.ticklabel_format(axis=scalar_format_axis,
+                            scilimits=(0, 0),
+                            useMathText=True)
 
-                # Apply shift and scale transformation
-                line_x = rescaling_ratio * (line_x + shift)
-                line.set_data(line_x, line_y)
-                xdata = np.concatenate((xdata, line_x))
+        ax.xaxis.set_major_formatter(FormatStrFormatter(f"%{sig_figs[0]}f"))
+        ax.yaxis.set_major_formatter(FormatStrFormatter(f"%{sig_figs[1]}f"))
 
-            # Exclude first/last values for stylistic reasons on plots
-            ax.set(xlim=(xdata[0], xdata[-1] + rescaling_ratio),
-                   xlabel=f'Length, $L$ ({major_labels[2]})')
-
+        # Keep offset, but turn invisible, to not reposition figure elements.
+        if has_scientific_notation:
+            ax.yaxis.get_offset_text().set(x=-0.045, fontsize=8, visible=True)
+        else:
+            ax.yaxis.get_offset_text().set(visible=False)
 
         return ax
 
+    def _choose_scaling(self, value=None, subplot_to_scale=None, row_index=None, presets=None):
+        """
+        TODO. Check if following commented code is a suitable replacement for this method.
+        """
+        # fmt = mtick.EngFormatter(unit='Hz', places=1, sep=" ")
+        # ax.yaxis.set_major_formatter(fmt)
+        # return fmt
+        if value is None and subplot_to_scale is None:
+            exit(1)
 
+        if presets is None:
+            presets = {
+                'nano': [1e-9, r'$\mathrm{nm}$'],
+                'micro': [1e-6, r'$\mathrm{{\mu} m}$'],
+                'milli': [1e-3, r'$\mathrm{mm}$']
+                # Add as needed
+            }
 
+        if subplot_to_scale is not None:
+            value = subplot_to_scale.get_ylim()[1]
+            magnitude_value = int(np.floor(np.log10(value)))
+            # Convert uppermost y-tick label to a float, and compared against ylim (upper). If the uppermost tick is
+            # greater than ylim (upper) it means an automatic scientific notation conversion (10e-2 -> 1e01)
+            # occurred and needs to be undone.
+            if float(subplot_to_scale.get_yticklabels()[-2].get_text()) * 10 ** magnitude_value > value:
+                magnitude_value -= 1
+        else:
+            magnitude_value = int(np.floor(np.log10(value)))
+
+        closest_preset_name, (closest_preset_value, closest_preset_tag) = min(presets.items(),
+                                                                              key=lambda x: abs(
+                                                                                  magnitude_value - np.log10(x[1][0])))
+
+        # Generate labels and values for closest preset and raw value
+        closest_preset_exp = int(np.log10(closest_preset_value))
+        # This gives us the order, so the +1 is required so we can plot across all values in this order
+        # e.g. if value_exp = -3 (i.e. 1e-3 order)
+
+        closest_preset_labels = [
+            r'$\times \mathcal{10}^{' + f'{closest_preset_exp}' + '}$',
+            r'$\mathcal{10}^{' + f'{closest_preset_exp}' + '}$',
+            closest_preset_tag
+        ]
+
+        value_labels = [
+            r'$\times \mathcal{10}^{' + f'{magnitude_value}' + '}$',
+            r'$\mathcal{10}^{' + f'{magnitude_value}' + '}$'
+        ]
+
+        return closest_preset_labels, value_labels, closest_preset_value
