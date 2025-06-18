@@ -268,7 +268,7 @@ class TickCustomisation:
         """
         TODO. Check if following commented code is a suitable replacement for this method.
         """
-        # fmt = mtick.EngFormatter(unit='Hz', places=1, sep=" ")
+        fmt = mtick.EngFormatter(unit='Hz', places=1, sep=" ")
         # ax.yaxis.set_major_formatter(fmt)
         # return fmt
         if value is None and subplot_to_scale is None:

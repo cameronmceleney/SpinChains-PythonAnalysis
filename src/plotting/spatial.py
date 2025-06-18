@@ -54,11 +54,12 @@ Notes:
 # Standard library imports
 from collections import namedtuple
 from textwrap import dedent
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
 # Third-party imports
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 import numpy as np
 
@@ -83,29 +84,80 @@ class ClickHandler:
 
         # Right-click to reset
         if event.button == 3:
-            self.clicks = self.total = 0
-            self.last_wavelength = None
-            print("Click data has been reset.")
-            return
+            self.reset_state()
 
         self.clicks += 1
-        x, y = event.xdata, event.ydata
 
         if self.last_wavelength is not None:
-            diff = abs(x - self.last_wavelength)
-            self.total += diff
+            self.total += self.increment(event)
+            return
 
-            if self.clicks > 1:
-                avg = self.total / (self.clicks - 1)
-                print(f'Click #{self.clicks}: '
-                      f'x: {event.xdata:.1f}, '
-                      f'Avg. \u03BB: {avg:.1f}, '
-                      f'Avg. k: {(2 * np.pi / avg):.3e} | '
-                      f'y: {event.ydata:.3e}')
+        print(f'Click #{self.clicks}: x: {event.xdata}, y: {event.ydata}')
+        self.last_wavelength = event.xdata
+
+    def reset_state(self) -> None:
+        """"""
+        self.clicks = self.total = 0
+        self.last_wavelength = None
+        print("Click data has been reset.")
+        return None
+
+    def increment(self, event: Any, axis: Literal['x', 'y'] = 'x'):
+        """"""
+        val = event.xdata if axis == 'x' else event.ydata
+        diff = abs(val - self.last_wavelength)
+        total = self.total + diff
+
+        self.last_wavelength = val
+
+        if self.clicks > 1:
+            avg = total / (self.clicks - 1)
+            print(f'Click #{self.clicks}: '
+                  f'x: {event.xdata:.1f}, '
+                  f'Avg. \u03BB: {avg:.1f}, '
+                  f'Avg. k: {(2 * np.pi / avg):.3e} | '
+                  f'y: {event.ydata:.3e}')
+
+        return total
+
+
+class PlotHelper:
+    fig = None
+    axis = None
+
+    def set_figure(self, figure: Figure):
+        self.fig = figure
+
+    def set_axis(self, axes: Axes):
+        self.axis = axes
+
+
+class Formatter(PlotHelper):
+
+    def __init__(
+            self,
+            is_single_figure: bool = False,
+            has_highlighted_regions: bool = False,
+
+    ):
+        self.is_single_figure = is_single_figure
+        self.has_highlighted_regions = has_highlighted_regions
+        self.builder = None
+
+    def assign_builder(self, builder: Any):
+        self.builder = builder
+
+    def axes_from_kwargs(self, source: Any):
+        try:
+            source.get('axes')
+        except AttributeError:
+            pass
         else:
-            print(f'Click #{self.clicks}: x: {event.xdata}, y: {event.ydata}')
-
-        self.last_wavelength = x
+            if isinstance(source['axes'], plt.Axes):
+                self.builder.axes = source.get('axes')
+        finally:
+            self._.axes.clear()
+            self._.axes.set_aspect('auto')
 
 
 class SpatialPlot:
@@ -215,7 +267,7 @@ class SpatialPlot:
 
         return fig
 
-    def plot_time_instance(
+    def time_instance(
             self,
             index: int = -1,
             *,
@@ -275,7 +327,26 @@ class SpatialPlot:
 
             plt.close(self._.fig)
 
-    def plot_fft_time_instance(self):
-        raise NotImplementedError
+    def time_instance_fft(
+            self,
+            index: int = -1,
+
+    ):
+        """"""
+        fig = self._.fig if self._.fig is not None else plt.figure(figsize=(4.5, 6.0))
+        ax = []
+
+        grid_len = 3
+        for i in range(0, grid_len):
+            ax.append(
+                plt.subplot2grid(fig=fig,
+                                 shape=(grid_len, grid_len),
+                                 loc=(i, 0),
+                                 rowspan=1,
+                                 colspan=grid_len)
+            )
+
+
+
 
 
