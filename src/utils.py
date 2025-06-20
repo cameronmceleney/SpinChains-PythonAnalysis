@@ -67,13 +67,14 @@ __all__ = ['PairHelper']
 
 
 class PairHelper:
+
     @staticmethod
     def ensure_pair(
             seq: Sequence[Optional[Real]],
             *,
             name: str = 'pair',
             allow_none: bool = False,
-            cast: Callable[[Real], R] = float
+            cast: Callable[[Real], ...] = float
     ) -> tuple[Optional[Real], Optional[Real]]:
         """Turn input sequences into length-2 tuples.
 

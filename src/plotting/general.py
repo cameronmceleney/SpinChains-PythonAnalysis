@@ -60,6 +60,8 @@ from textwrap import dedent
 from typing import Literal, Optional, TypeVar
 
 # Third-party imports
+import mpl_toolkits
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -69,7 +71,7 @@ from pint import UnitRegistry
 
 # Local application imports
 from attribute_defintions import SimulationFlagsContainer, SimulationParametersContainer
-from src.plotting.utils import PlotScheme
+from src.plotting.schemes import PlotScheme, DefaultSchemes
 
 # Module-level constants
 UREG_: UnitRegistry = UnitRegistry()
@@ -159,6 +161,8 @@ class Formatter(ABC):
         self._index = None
         self.data = data
         self.opts = opts
+
+        self._default_layouts = DefaultSchemes(self.data.params, self.data.flags)
 
     def __call__(self, fig=None, ax=None):
         if fig is not None and ax is not None:
@@ -401,10 +405,7 @@ class SpatialInstance(BaseSpatial):
 class SpatialFFT(BaseSpatial):
     def __init__(self, data, opts, index: int = -1):
         super().__init__(data=data, opts=opts, index=index)
-
-        # Important! This offset must be manually controlled; arises due to errors in certain sim. datasets.
-        self.data.params.driving_region_lhs += 300
-        self.data.params.driving_region_rhs += 300
+        self.scheme: PlotScheme = self._default_layouts.basic2
 
     def make_plot(self, fig, index=None) -> None:
         super().make_plot(fig, index=index)
@@ -429,6 +430,55 @@ class SpatialFFT(BaseSpatial):
         fig.subplots_adjust(wspace=1,
                             hspace=0.4,
                             bottom=0.2)
+
+        # Will be three in total for this layout design.
+        ax1, ax2, ax3, _ = fig.axes
+
+        # Upper subplot
+        ax1.set(yscale='linear')
+
+        # Middle subplot
+        ax2.set(xlabel=r"Wavevector, $k$ (nm$^{-1}$)",
+                ylabel="Intensity (a.u.)",
+                xlim=self.scheme.axes['ax2'].xlim,
+                ylim=self.scheme.axes['ax2'].ylim,
+                yscale='log')
+
+        # Bottom subplot
+        ax3.set(ylabel=r"Frequency, $f$ (GHz)",
+                xlim=self.scheme.axes['ax3'].xlim,
+                ylim=self.scheme.axes['ax3'].ylim,
+                yscale='linear')
+
+        ax3.tick_params(pad=2,
+                        labeltop=True,
+                        labelbottom=False,
+                        labelsize=FontSizes['smaller'])
+        ax3.invert_yaxis()
+
+        self._create_colourbar(fig, ax3)
+
+    def _create_colourbar(self, fig: Figure, ax: Axes) -> None:
+        # Create a ScalarMappable for the color mapping
+        norm = mpl.colors.Normalize(vmin=0, vmax=1)
+
+        cmap = 'magma_r'
+        scalar_map = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+        # Adding a colourbar to ax3 using the ScalarMappable
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax)
+        cax3 = divider.append_axes("bottom", size="7.5%", pad=0.0)
+
+        # Set the ticks at the top and bottom using normalized values
+        ax3_cbar = fig.colorbar(scalar_map,
+                                ax=ax,
+                                cax=cax3,
+                                location='bottom',
+                                orientation='horizontal',
+                                shrink=1.0)
+        ax3_cbar.set_label('Intensity (a.u.)', loc='center', labelpad=-5)
+        ax3_cbar.ax.tick_params(axis='x', top=False, bottom=True, pad=3.5)
+        ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.035], labels=['Min', 'Max'])
 
     def format_output(self, path_to_output_file: str):
         """"""
@@ -474,6 +524,15 @@ class FigureBuilder:
 
         self.fig = Figure()
 
+        self._post_init()
+
+    def _post_init(self):
+        """Custom, unique changes."""
+
+        # Important! This offset must be manually controlled; arises due to errors in certain sim. datasets.
+        self.data.params.driving_region_lhs += 300
+        self.data.params.driving_region_rhs += 300
+
     def build(self) -> Figure:
 
         try:
@@ -497,15 +556,15 @@ class PaperFigures:
     def __init__(
             self,
             *,
-            time,
-            amplitude,
-            params,
-            flags,
-            site_indices,
-            output_path,
+            time: NDArray,
+            amplitude: NDArray,
+            params: dict | SimulationParametersContainer,
+            flags: dict | SimulationFlagsContainer,
+            site_indices: NDArray,
+            output_path: str,
             opts: FigureOptions = FigureOptions()
     ):
-        self.data = DataPipeLine(time, amplitude, params, flags, site_indices)
+        self.data = DataPipeLine(time, amplitude, site_indices, params, flags, )
         self.output = output_path
         self.opts = opts
 
