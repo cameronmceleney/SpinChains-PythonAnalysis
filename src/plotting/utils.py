@@ -51,12 +51,12 @@ Notes:
 
 # from __future__ import foo
 
-__all__ = ['SignalConfig', 'SubplotConfig']
+__all__ = ['']
 
 # Standard library imports
 from collections import namedtuple
 from dataclasses import dataclass, field
-from typing import Any, Literal,NamedTuple, Optional
+from typing import Any, Literal, NamedTuple, Optional
 
 # Third-party imports
 from matplotlib.axes import Axes
@@ -70,63 +70,6 @@ import numpy as np
 
 # Module-level constants
 SELECT_AXIS = Literal['x', 'y', 'both']
-
-
-class AxLims(NamedTuple):
-    """Value pair often used for axis limits in the range :math:`[x_\text{lower}, x_\text{upper}]`.
-
-    This class is a private helper for other utilities in this module.
-    """
-    lower: float
-    upper: float
-
-
-@dataclass(frozen=True)
-class SubplotConfig:
-    """Key parameters typically rescaled/edited during processes when generating subplots."""
-    xlim: AxLims
-    ylim: AxLims
-    label: str
-    line_height: Optional[float] = None
-
-
-@dataclass
-class SignalConfig:
-    """Key parameters specific to the main signal required to be tracked during generation of subplots."""
-    xlim: AxLims
-    rescale: Optional[list[float]] = None
-    extras: Optional[list[float | int | str]] = None
-
-
-@dataclass
-class PlotScheme:
-
-    #: maps names like `ax1`, `ax2` to `SubplotConfig`
-    axes: dict[str, SubplotConfig] = field(default_factory=dict)
-
-    #: maps names like `signal1`, `signal2` to `SignalConfig`
-    signals: dict[str, SignalConfig] = field(default_factory=dict)
-
-    def add_axis(self, name: str, cfg: SubplotConfig) -> None:
-        self.axes[name] = cfg
-
-    def add_signal(self, name: str, cfg: SignalConfig) -> None:
-        self.signals[name] = cfg
-
-    def __getitem__(self, key: str) -> SubplotConfig | SignalConfig:
-        if key in self.axes:
-            return self.axes[key]
-        if key in self.signals:
-            return self.signals[key]
-        raise KeyError(f"No axis or signal named [{key}].")
-
-    @property
-    def valid_axes(self) -> list[str]:
-        return list(self.axes)
-
-    @property
-    def valid_signals(self) -> list[str]:
-        return list(self.signals)
 
 
 @dataclass

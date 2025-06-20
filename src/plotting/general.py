@@ -55,20 +55,21 @@ Notes:
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass
-from functools import cached_property
 from itertools import cycle
-from typing import Any, Literal
+from textwrap import dedent
+from typing import Literal, Optional, TypeVar
 
 # Third-party imports
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
-import numpy as np
+from numpy.typing import NDArray
 from pint import UnitRegistry
 
 # Local application imports
 from attribute_defintions import SimulationFlagsContainer, SimulationParametersContainer
+from src.plotting.utils import PlotScheme
 
 # Module-level constants
 UREG_: UnitRegistry = UnitRegistry()
@@ -85,63 +86,60 @@ FontSizes = dict(
     mini=7
 )
 
+CONTAINER = TypeVar(
+    'CONTAINER',
+    SimulationParametersContainer,
+    SimulationFlagsContainer
+)
 
-class DataPipeLine(
-    SimulationFlagsContainer,
-    SimulationParametersContainer
-):
+
+class DataPipeLine:
     def __init__(
             self,
-            time,
-            amplitude,
-            sim_parms: dict | SimulationParametersContainer,
-            sim_flags: dict | SimulationFlagsContainer,
-            sites
+            time: NDArray,
+            amplitude: NDArray,
+            sites: NDArray,
+            simulation_parameters: dict | SimulationParametersContainer,
+            simulation_flags: dict | SimulationFlagsContainer
     ):
         """"""
-        self.time = time
-        self.amplitude = amplitude
-        self._update_containers(sim_parms, sim_flags)
-        self._sites = sites
+        self.times: NDArray = time
+        self.amplitudes: NDArray = amplitude
+        self.site_indices: NDArray = sites
 
-    def correct_sim_presets(self):
-        if self.lattice_constant() < 0:
+        # Instantiate empty containers; previously relied on user to provide these
+        self.params: SimulationParametersContainer = SimulationParametersContainer()
+        self.flags: SimulationFlagsContainer = SimulationFlagsContainer()
+
+        # Update containers. TODO. Fixes required to actual container code (see report)
+        self._update_container(self.params, simulation_parameters)
+        self._update_container(self.flags, simulation_flags)
+        self._correct_sim_presets()
+
+    def _update_container(self, container: CONTAINER, props: dict | CONTAINER) -> None:
+        """Update class instance containers used to generate figures from user simulation properties."""
+
+        if isinstance(props, dict):
+            container.update_with_dict(props)
+            return
+
+        if isinstance(props, type(container)):
+            container.update_with_container(props)
+            return
+
+        raise NotImplementedError(f"Cannot update {type(container).__name__} from {type(props).__name__}")
+
+    def _correct_sim_presets(self) -> None:
+        """"""
+        if self.params.lattice_constant() < 0:
             # Condition is met only when params_container doesn't contain a valid lattice constant.
             # This is true only for my old simulations due to their header layout
-            self.lattice_constant.update(Q_('1nm').to_base_units().m)
+            self.params.lattice_constant.update(Q_('1nm').to_base_units().m)
 
-        if self.exchange_dmi_constant() == 0.625:
+        if self.params.exchange_dmi_constant() == 0.625:
             # Old batch of simulations used this precise value; multiplication required to fix scaling issue
             # from bad maths.
-            self.exchange_dmi_constant *= 2
-
-    def _update_params(self, data: dict | SimulationParametersContainer) -> None:
-        """Load additional simulation parameters into base container."""
-        if isinstance(data, dict):
-            self.update_with_dict(data)
-            return
-
-        if isinstance(data, SimulationParametersContainer):
-            self.update_with_container(data)
-            return
-
-        raise NotImplementedError(f"Cannot update params using an object of type {type(data)}")
-
-    def _update_flags(self, data: dict | SimulationFlagsContainer) -> None:
-        """Load additional simulation flags into base container."""
-        if isinstance(data, dict):
-            self.update_with_dict(data)
-            return
-
-        if isinstance(data, SimulationParametersContainer):
-            self.update_with_container(data)
-            return
-
-        raise NotImplementedError(f"Cannot update params using an object of type {type(data)}")
-
-    def _update_containers(self, sim_params, sim_flags):
-        self._update_params(sim_params)
-        self._update_flags(sim_flags)
+            self.params.exchange_dmi_constant *= 2
 
     def get(self, key):
         return getattr(self, key)
@@ -153,69 +151,59 @@ class FigureOptions:
     highlight_regions: bool = False
     is_interactive: bool = False
     is_for_publication: bool = False
+    autosave: bool = True
 
 
 class Formatter(ABC):
-    def __init__(self, opts: FigureOptions):
+    def __init__(self, *, data: DataPipeLine, opts: FigureOptions):
+        self._index = None
+        self.data = data
         self.opts = opts
 
+    def __call__(self, fig=None, ax=None):
+        if fig is not None and ax is not None:
+            self.make_plot(fig)
+
+        if fig is not None:
+            self.format_figure(fig)
+
+        if ax is not None:
+            self.format_axis(ax)
+
+    @property
+    def index(self) -> int:
+        return self._index
+
+    @index.setter
+    def index(self, val: Optional[int] = None):
+        try:
+            x = self.data.times[val]
+        except IndexError:
+            raise IndexError(f"Index {val} is not within {self.data.times.shape}")
+
+        self._index = (-1
+                       if val is None
+                       else val)
+
     @abstractmethod
-    def format(self, fig: Figure, ax: Axes, data_pipeline: DataPipeLine):
+    def make_plot(self, fig: Figure, index: Optional[int] = None) -> None:
         ...
 
-    def __call__(self, fig, ax, data):
-        return self.format(fig, ax, data)
+    def format_axis(self, ax: Axes) -> Optional[Axes]:
+        raise NotImplementedError('Derived must implement.')
 
+    def format_figure(self, fig: Figure) -> Optional[Figure]:
+        raise NotImplementedError('Derived must implement.')
 
-class AxisFormatter(Formatter):
-    def format(self, fig, ax, data):
-        ax.set(xlabel="time",
-               ylabel="amplitude")
-        ax.grid = False
+    def format_output(self, output_path: str):
+        raise NotImplementedError('Derived must implement.')
 
-
-class BaseSpatial(Formatter):
-    """Plots amplitude vs. time."""
-
-    def __init__(self, opts: FigureOptions, index: int = None):
-        super().__init__(opts)
-        self.index = index
-        self.frame_index = None
-
-    def format(self, fig: Figure, ax: Axes, data_pipeline: DataPipeLine):
-
-        time_data = data_pipeline.get('time')
-        self.frame_index = time_data[self.index]
-        amplitude_data = data_pipeline.get('amplitude')
-
-        amplitudes_at_time = (amplitude_data[self.index, :]
-                              if self.index is not None
-                              else amplitude_data[-1, :])
-
-        ax.plot(time_data,
-                amplitudes_at_time,
-                ls='-',
-                lw=0.75,
-                color='#64bb6a',
-                zorder=1.1,
-                label="Signal"
-                )
-
-        _, y_major_labels, _ = self._._choose_scaling(subplot_to_scale=self._.axes)
-
-        ax.set(xlabel="Site index, n$_{i}$",
-               ylabel=f"m$_x$ (a.u. + {y_major_labels[1]} )",
-               xlim=[0.0, self._.num_sites_total()],
-               ylim=[-self._._yaxis_lim, self._._yaxis_lim])
-
-        if self.opts.highlight_regions:
-            self._highlight_key_regions(fig, ax)
-
-    def format_subplots_for_publication(
-            self,
+    @staticmethod
+    def label_subplots_for_publication(
+            frame_index: int,
             fig: Figure,
             position: Literal['left', 'right', 'split'],
-    ):
+    ) -> Figure:
 
         first_ax = fig.axes[0]
         first_ax.text(x=-0.04,
@@ -236,13 +224,97 @@ class BaseSpatial(Formatter):
             letter = chr(ord('a') + (i % 26))
             ax.text(x=x,
                     y=y,
-                    s=f"({letter}) {self.frame_index: 2.3f} ns",
+                    s=f"({letter}) {frame_index: 2.3f} ns",
                     fontsize=6,
                     va='center',
                     ha='center',
                     transform=ax.transAxes)
 
-    def _highlight_key_regions(self, fig: Figure, ax: Axes):
+        return fig
+
+    @staticmethod
+    def cleanup_subplots(axes: Optional[Axes] = None):
+        axes = axes or plt.gcf().axes
+
+        for ax in axes:
+            ax.tick_params(axis='both',
+                           which='both',
+                           top=True,
+                           right=True,
+                           bottom=True,
+                           left=True,
+                           zorder=1.99)
+            ax.grid(axis='both',
+                    which='both',
+                    visible=False)
+
+            for tick_pos in (1, -2):
+                last_tick_label = ax.get_xticklabels()[tick_pos]
+                last_tick_label.set_visible(False)
+
+                xtick_pos, ytick_pos = last_tick_label.get_position()
+                ytick_pos += (-0.045
+                              # If not central subplot in stack of three.
+                              if not (len(axes) == 3 and ax == axes[2])
+                              else 0.125)
+
+                ax.text(x=xtick_pos,
+                        y=ytick_pos,
+                        s=str(last_tick_label.get_text()),
+                        ha='left' if tick_pos == 1 else 'right',
+                        va='top',
+                        fontsize=FontSizes.get('smaller'),
+                        transform=ax.get_xaxis_transform())
+
+
+class BaseSpatial(Formatter):
+    """Plots amplitude vs. time."""
+
+    def __init__(self, data, opts, index: Optional[int] = None):
+        super().__init__(data=data, opts=opts)
+        self.selected_time: int = 0
+        self.set_indices(index)
+
+    def make_plot(self, fig: Figure, *, index: Optional[int] = None) -> None:
+
+        ax = fig.axes[0]
+
+        if index is not None:
+            self.set_indices(index)
+
+        time = self.data.get('time')
+        amplitudes = self.data.get('amplitude')[self.index, :]
+
+        ax.plot(time,
+                amplitudes,
+                ls='-',
+                lw=0.75,
+                color='#64bb6a',
+                zorder=1.1,
+                label="Signal"
+                )
+
+    def format_axis(self, ax):
+        _, y_major_labels, _ = self._._choose_scaling(subplot_to_scale=ax)
+
+        ax.set(xlabel="Site index, n$_{i}$",
+               ylabel=f"m$_x$ (a.u. + {y_major_labels[1]} )",
+               xlim=[0.0, self.data.params.num_sites_total()],
+               ylim=[-self._._yaxis_lim, self._._yaxis_lim])
+
+        if self.opts.highlight_regions:
+            self._highlight_key_regions(ax)
+
+        return ax
+
+    def format_figure(self, fig, **kwargs):
+        self.label_subplots_for_publication(self.selected_time, fig, kwargs.get('position'))
+
+    def set_indices(self, idx) -> None:
+        self.index = idx
+        self.selected_time = self.data.get('times')[self.index]
+
+    def _highlight_key_regions(self, ax: Axes):
         fields = ('lhs', 'driven', 'rhs')
 
         shape_position = namedtuple(
@@ -252,12 +324,13 @@ class BaseSpatial(Formatter):
 
         _bottom = ax.get_ylim()[0] * 2
         anchors = shape_position(lhs=(0, _bottom),
-                                 driven=(self._.driving_region_lhs() + self._.num_sites_abc(), _bottom),
-                                 rhs=(self._.num_sites_total() - self._.num_sites_abc(), _bottom))
+                                 driven=(self.data.params.driving_region_lhs() + self.data.params.num_sites_abc(),
+                                         _bottom),
+                                 rhs=(self.data.params.num_sites_total() - self.data.params.num_sites_abc(), _bottom))
 
-        widths = shape_position(lhs=self._.num_sites_abc(),
-                                driven=self._.driving_region_width(),
-                                rhs=self._.num_sites_abc())
+        widths = shape_position(lhs=self.data.params.num_sites_abc(),
+                                driven=self.data.params.driving_region_width(),
+                                rhs=self.data.params.num_sites_abc())
 
         _height = 4 * ax.get_ylim()[1]
         heights = shape_position(_height, _height, _height)
@@ -274,19 +347,150 @@ class BaseSpatial(Formatter):
             plt.gca().add_patch(rect)
 
 
+class SpatialInstance(BaseSpatial):
+    Flags = namedtuple(
+        typename='Flags',
+        field_names=('annotate_text',)
+    )
+
+    def __init__(self, data, opts, index: int = -1, *, has_annotated_text: bool = False):
+        super().__init__(data=data, opts=opts, index=index)
+        self.flags = self.Flags(annotate_text=has_annotated_text,)
+
+    def make_plot(self, fig, index=None) -> None:
+        super().make_plot(fig, index=index)
+        ax = fig.gca()
+
+        # TODO. Implement TickSetter and call here.
+        y_major_labels = NotImplementedError()  # TODO. Implement ChooseScaling and call here.
+        self.cleanup_subplots(ax)
+
+        if self.flags.annotate_text:
+            self._add_annotations(ax)
+
+    def _add_annotations(self, ax: Axes) -> plt.Text:
+        """"""
+        p = self.data.params  # Alias due to frequent container accessing
+
+        exchange_string = (
+            f"Uniform Exc.: {p.exchange_heisenberg_min()} (T)"
+            if p.exchange_heisenberg_min() == p.exchange_heisenberg_max()
+            else f"J$_{{min}}$ = {p.exchange_heisenberg_min()} (T) |"
+                 f"J$_{{max}}$ = {p.exchange_heisenberg_min()} (T)"
+        )
+
+        message = dedent(rf"""\
+            H$_{{0}}$ = {p.bias_zeeman_static()} (T)
+            | N = {p.num_sites_chain()}
+            | $\alpha$ = {p.gilbert_chain(): 2.2e}
+            H$_{{D1}}$ = {p.bias_zeeman_oscillating_1(): 2.2e} (T)
+            | H$_{{D2}}$ = {p.bias_zeeman_oscillating_2(): 2.2e} (T)
+            {exchange_string}
+            """)
+
+        return ax.text(x=0.05,
+                       y=1.2,
+                       s=message,
+                       fontsize=FontSizes['small'],
+                       ha='center',
+                       va='center',
+                       bbox=dict(boxstyle='round', facecolor='gainsboro', alpha=0.5),
+                       transform=ax.transAxes)
+
+
+class SpatialFFT(BaseSpatial):
+    def __init__(self, data, opts, index: int = -1):
+        super().__init__(data=data, opts=opts, index=index)
+
+        # Important! This offset must be manually controlled; arises due to errors in certain sim. datasets.
+        self.data.params.driving_region_lhs += 300
+        self.data.params.driving_region_rhs += 300
+
+    def make_plot(self, fig, index=None) -> None:
+        super().make_plot(fig, index=index)
+        ax = fig.get_axes()
+
+        num_rows, num_cols = 3, 3
+        for i in range(0, 3):
+            subplot = plt.subplot2grid(fig=fig,
+                                       shape=(num_rows, num_cols),
+                                       loc=(i, 0),
+                                       rowspan=1,
+                                       colspan=num_cols,)
+            ax.append(subplot)
+
+        if self.opts.is_interactive:
+            # TODO. Link `FigureManager` in here
+            figure_manager = None
+
+        plt.close(fig)
+
+    def format_figure(self, fig, **kwargs):
+        fig.subplots_adjust(wspace=1,
+                            hspace=0.4,
+                            bottom=0.2)
+
+    def format_output(self, path_to_output_file: str):
+        """"""
+
+        try:
+            open(path_to_output_file)
+        except FileNotFoundError:
+            print("Unable to append data to file. Continuing...")
+
+        data = [path_to_output_file]
+
+        def calculate_distance(val: int | float, from_left: bool):
+            sign = -1 if from_left else 1
+            # TODO. Survey others to decide if PINT is more readable when entering S.I. units than normal literals
+            return val + sign * round(Q_('1um').to('m').m / Q_('1nm').to('m').m)
+
+        data.append(str(self.data.amplitudes[self.index,
+                                             calculate_distance(self.data.params.driving_region_lhs(),
+                                                                True)]))
+
+        data.append(str(self.data.amplitudes[self.index,
+                                             calculate_distance(self.data.params.driving_region_rhs(),
+                                                                False)]))
+
+        with open(path_to_output_file, 'a') as file_:
+            file_.write(",".join(data) + "\n")
+            file_.close()
+
+        print(f"Data written to file:\n"
+              f"\t- Before: {data[1]}"
+              f"\t- After: {data[2]}")
+
+
 class FigureBuilder:
-    def __init__(self, data: DataPipeLine, formatters: list[Formatter]):
+    def __init__(
+            self,
+            data: DataPipeLine,
+            formatters: list[Formatter],
+            handlers: Optional[list] = None):
         self.data = data
-        self.formatters = formatters
+        self.formatters = (formatters or None)
+        self.handlers = handlers or []
+
+        self.fig = Figure()
 
     def build(self) -> Figure:
-        fig = Figure()
-        ax = fig.add_subplot(111)
+
+        try:
+            if self.formatters is None:
+                raise TypeError
+        except TypeError:
+            raise TypeError('Must provide at least one formatter to build a figure.')
+
+        ax = self.fig.add_subplot(111)
 
         for fmt in self.formatters:
-            fmt(fig, ax, self.data)
+            fmt(self.fig, ax)
 
-        return fig
+        for handler_ in self.handlers:
+            handler_(self.fig)
+
+        return self.fig
 
 
 class PaperFigures:
@@ -302,26 +506,47 @@ class PaperFigures:
             opts: FigureOptions = FigureOptions()
     ):
         self.data = DataPipeLine(time, amplitude, params, flags, site_indices)
+        self.output = output_path
         self.opts = opts
 
-        self.fmts: list[Formatter] = [AxisFormatter(opts)]
-        self.output = output_path
+        self.fmts: list[Formatter] = []
+        self.handlers: list = []
 
-    def make_spatial_plot(
+    def make_spatial_instance(
             self,
-            frame_index: int,
-            save: bool = False
+            index: int,
+            take_fft: bool = False,
+            *,
+            has_annotated_text: bool = False,
+            has_single_figure: bool = True
     ):
+        builder = FigureBuilder(self.data, self.fmts, self.handlers)
 
-        fmt = BaseSpatial(
-            self.opts,
-            frame_index
-        )
+        # Handle figure
+        # builder.fig = Figure()
 
-        builder = FigureBuilder(self.data, [fmt])
+        if take_fft:
+            builder.fig.set_size_inches(4.5, 6.0)
+            builder.formatters.append(SpatialFFT(self.data,
+                                      self.opts,
+                                      index))
+        else:
+            builder.fig.set_size_inches(4.4, 2.2) if has_single_figure else (4.4, 4.4)
+            builder.formatters.append(SpatialInstance(self.data,
+                                      self.opts,
+                                      index,
+                                      has_annotated_text=has_annotated_text))
+
+        builder.handlers.extend([
+            # ClickHandler()
+        ])
+
         fig = builder.build()
 
-        if save:
-            fig.savefig(self.output, dpi=300)
+        if self.opts.autosave:
+            fig.savefig(self.output,
+                        dpi=1200 if take_fft else 300)
+
+        # fig.builder.handlers()
 
         return fig
