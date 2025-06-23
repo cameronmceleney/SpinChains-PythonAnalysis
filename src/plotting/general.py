@@ -53,7 +53,7 @@ Notes:
 
 # Standard library imports
 from abc import ABC, abstractmethod
-from collections import namedtuple
+from collections import namedtuple, Sequence
 from dataclasses import dataclass
 from itertools import cycle
 from textwrap import dedent
@@ -63,15 +63,19 @@ from typing import Literal, Optional, TypeVar
 import mpl_toolkits
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
+import pint
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from numpy.typing import NDArray
 from pint import UnitRegistry
+from scipy import constants as C_
 
 # Local application imports
 from attribute_defintions import SimulationFlagsContainer, SimulationParametersContainer
 from src.plotting.schemes import PlotScheme, DefaultSchemes
+from figure_manager import colour_schemes as ColourSchemes
 
 # Module-level constants
 UREG_: UnitRegistry = UnitRegistry()
@@ -165,6 +169,13 @@ class Formatter(ABC):
         self._default_layouts = DefaultSchemes(self.data.params, self.data.flags)
 
     def __call__(self, fig=None, ax=None):
+        """Automatically produce a plot using the abstracted methods defined in Formatter.
+
+        Order of execution:
+        1. `make_plot()` - generates the figure and populates with data using `plt.plot().
+        2. `format_figure()` - formats the figure and individual axes (subplots).
+        3. `format_axis()` - common changes to all subplots of the figure.
+        """
         if fig is not None and ax is not None:
             self.make_plot(fig)
 
@@ -191,12 +202,35 @@ class Formatter(ABC):
 
     @abstractmethod
     def make_plot(self, fig: Figure, index: Optional[int] = None) -> None:
+        """Primary commands to produce a plot.
+
+        The contents of this method should be limited to the minimum, high-level requirements of generating plots
+        This might include
+        - creating a figure and axes,
+        - plotting data on the axes,
+        - saving the final figure.
+
+        Each derived class should implement this method, and abstract away details such as:
+            - setting different axis labels to several subplots -> `format_figure()`
+            - setting the same axis label to all subplots -> `format_axis()`
+            - formatting of the output file -> `format_output()`
+            - customised method to draw shapes onto a single subplot -> create private method in concrete class.
+        """
         ...
 
     def format_axis(self, ax: Axes) -> Optional[Axes]:
+        """Define changes affect all axes within a figure.
+
+        .
+        """
         raise NotImplementedError('Derived must implement.')
 
     def format_figure(self, fig: Figure) -> Optional[Figure]:
+        """
+        Define changes affecting the entire figure or key properties of individual subplots
+
+        Key properties might include: axis labels, titles, ... .
+        """
         raise NotImplementedError('Derived must implement.')
 
     def format_output(self, output_path: str):
@@ -405,7 +439,10 @@ class SpatialInstance(BaseSpatial):
 class SpatialFFT(BaseSpatial):
     def __init__(self, data, opts, index: int = -1):
         super().__init__(data=data, opts=opts, index=index)
-        self.scheme: PlotScheme = self._default_layouts.basic2
+
+        # Old code used default_layout `basic2` to strike a balance between clearly showing FFT of
+        # fundamental eigenmodes, and their (possibly appearing) higher harmonics.
+        self.layout_scheme: PlotScheme = self._default_layouts.basic2
 
     def make_plot(self, fig, index=None) -> None:
         super().make_plot(fig, index=index)
@@ -426,6 +463,91 @@ class SpatialFFT(BaseSpatial):
 
         plt.close(fig)
 
+    def _process_signal(
+            self,
+            ax: Axes | Sequence[Axes],
+            ax_name: str = 'ax',
+            index: int = -1,
+            *,
+            has_default_colours: bool = True,
+            colour_scheme_name: int = 0,
+            is_wavevector_negative: bool = False
+    ) -> None:
+
+        if self.layout_scheme['ax_name'].xlim.lower == self.layout_scheme['ax_name'].xlim.upper:
+            # Special case to signify this subplot shouldn't be post-processed.
+            return
+
+        if self.layout_scheme['ax_name'].xlim.lower > self.layout_scheme['ax_name'].xlim.upper:
+            raise ValueError(f"Condition would lead to FFT returning invalid 'n_padded_total < 0'."
+                             f"Either reverse `xlim.lower` and `xlim.upper` or set new values.")
+
+        if (not has_default_colours
+                and colour_scheme_name not in ColourSchemes.keys()):
+            raise AttributeError(f"Invalid colour scheme {colour_scheme_name} provided for signal processing.")
+
+        signal_colour = (ColourSchemes[colour_scheme_name]['ax1_colour_matte']
+                         if has_default_colours
+                         else ColourSchemes[colour_scheme_name][f'signal{index}_colour'])
+
+        # TODO. Create new _fft_data method
+        cyclic_k, fourier_transform = (), ()
+
+        angular_k = Q_(cyclic_k, 'cycle').to('').magnitude
+        if is_wavevector_negative:
+            angular_k *= -1
+
+        # Constant terms
+        linear_freq = (
+                (self.data.params.exchange_heisenberg_max
+                 * self.data.params.lattice_constant() ** 2  # Required for correctly scaled units
+                 * angular_k ** 2)
+                + self.data.params.bias_zeeman_static()
+        )
+
+        if self.data.flags.has_dmi_map:
+            linear_freq += (
+                    self.data.params.lattice_constant()  # Required for correctly scaled units
+                    * self.data.params.exchange_dmi_constant()
+                    * angular_k
+            )
+
+        # Convert all units to GHz for better readability on plots
+        linear_freq *= UREG_.convert(self.data.params.gyro_mag(),
+                                     "1 / (T s)",
+                                     "cycle GHz / T")
+
+        # Now return to original signs
+        angular_k = Q_(cyclic_k, '1/m').to('1/nm').magnitude
+        if is_wavevector_negative:
+            angular_k *= -1
+
+
+        return
+
+    def _plot_z_ordering(
+            self,
+            wavenumbers,
+            fourier_transform: NDArray,
+            use_default: bool = True
+    ):
+
+        z_order: dict = dict(max=None, default=1.3, zorder=1.3)
+
+        abs_diff = np.abs(wavenumbers - self.layout_scheme['ax2'].xlim.upper)
+        closest_idx = np.argmin(abs_diff)
+        z_order['max'] = np.max(fourier_transform[:closest_idx])
+
+        if use_default:
+            return z_order['max'], z_order['default']
+
+        if
+
+
+
+
+        return tracked_orders
+
     def format_figure(self, fig, **kwargs):
         fig.subplots_adjust(wspace=1,
                             hspace=0.4,
@@ -440,34 +562,49 @@ class SpatialFFT(BaseSpatial):
         # Middle subplot
         ax2.set(xlabel=r"Wavevector, $k$ (nm$^{-1}$)",
                 ylabel="Intensity (a.u.)",
-                xlim=self.scheme.axes['ax2'].xlim,
-                ylim=self.scheme.axes['ax2'].ylim,
+                xlim=self.layout_scheme.axes['ax2'].xlim,
+                ylim=self.layout_scheme.axes['ax2'].ylim,
                 yscale='log')
 
         # Bottom subplot
         ax3.set(ylabel=r"Frequency, $f$ (GHz)",
-                xlim=self.scheme.axes['ax3'].xlim,
-                ylim=self.scheme.axes['ax3'].ylim,
+                xlim=self.layout_scheme.axes['ax3'].xlim,
+                ylim=self.layout_scheme.axes['ax3'].ylim,
                 yscale='linear')
 
         ax3.tick_params(pad=2,
                         labeltop=True,
                         labelbottom=False,
                         labelsize=FontSizes['smaller'])
+
         ax3.invert_yaxis()
 
         self._create_colourbar(fig, ax3)
 
-    def _create_colourbar(self, fig: Figure, ax: Axes) -> None:
-        # Create a ScalarMappable for the color mapping
+    def _create_colourbar(self, fig: Figure, ax: Optional[Axes] = None) -> None:
+        """Create in-place axis with colorbar.
+
+        If `ax == None`, method adds colourbar to final (bottom) subplot.
+        """
+
+        try:
+            ax = fig.get_axes()
+        except IndexError:
+            raise IndexError(f"Figure {fig} does not contain any axes.")
+        else:
+            ax = ax[-1]
+
         norm = mpl.colors.Normalize(vmin=0, vmax=1)
 
-        cmap = 'magma_r'
-        scalar_map = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+        # Create a ScalarMappable for the colour mapping
+        scalar_map = mpl.cm.ScalarMappable(cmap='magma_r',
+                                           norm=norm)
 
-        # Adding a colourbar to ax3 using the ScalarMappable
+        # Add a colourbar to the subplot using this ScalarMappable
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax)
-        cax3 = divider.append_axes("bottom", size="7.5%", pad=0.0)
+        cax3 = divider.append_axes("bottom",
+                                   size="7.5%",
+                                   pad=0.0)
 
         # Set the ticks at the top and bottom using normalized values
         ax3_cbar = fig.colorbar(scalar_map,
@@ -476,9 +613,20 @@ class SpatialFFT(BaseSpatial):
                                 location='bottom',
                                 orientation='horizontal',
                                 shrink=1.0)
-        ax3_cbar.set_label('Intensity (a.u.)', loc='center', labelpad=-5)
-        ax3_cbar.ax.tick_params(axis='x', top=False, bottom=True, pad=3.5)
-        ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.035], labels=['Min', 'Max'])
+
+        # Customise colourbar
+        ax3_cbar.ax.tick_params(axis='x',
+                                top=False, bottom=True,
+                                pad=3.5)
+
+        ax3_cbar.set_label('Intensity (a.u.)',
+                           loc='center',
+                           labelpad=-5)
+
+        ax3_cbar.set_ticks(ticks=[norm.vmin + 0.03, norm.vmax - 0.035],
+                           labels=['Min', 'Max'],
+                           # labels=[str(norm.vmin), str(norm.vmax)]
+                           )
 
     def format_output(self, path_to_output_file: str):
         """"""
