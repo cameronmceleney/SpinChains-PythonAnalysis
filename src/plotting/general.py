@@ -48,16 +48,16 @@ Notes:
 .. _Google Python Style Guide:
    https://google.github.io/styleguide/pyguide.html
 """
-
+import typing
 # from __future__ import foo
 
 # Standard library imports
 from abc import ABC, abstractmethod
-from collections import namedtuple, Sequence
-from dataclasses import dataclass
+from collections import Callable, namedtuple, Sequence
+from dataclasses import dataclass, field
 from itertools import cycle
 from textwrap import dedent
-from typing import Literal, Optional, TypeVar
+from typing import Literal, Optional, TypeVar, TypedDict
 
 # Third-party imports
 import mpl_toolkits
@@ -65,11 +65,14 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pint
+from fontTools.t1Lib import font_dictionary_keys
+from matplotlib import ticker
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.patches import Rectangle
 from numpy.typing import NDArray
 from pint import UnitRegistry
+import scipy as sp
 from scipy import constants as C_
 
 # Local application imports
@@ -218,7 +221,7 @@ class Formatter(ABC):
         """
         ...
 
-    def format_axis(self, ax: Axes) -> Optional[Axes]:
+    def format_axes(self, axes: list[Axes]) -> Optional[list[Axes]]:
         """Define changes affect all axes within a figure.
 
         .
@@ -436,6 +439,397 @@ class SpatialInstance(BaseSpatial):
                        transform=ax.transAxes)
 
 
+@dataclass
+class DatasetIndicesForFFTs:
+    """Container for indices used to compute FFTs.
+
+    Helpful when only wishing to plot particular regions of the dataset.
+    """
+    index_pairs: dict[str, tuple[int, int]] = field(default_factory=dict)
+    plot_settings: dict[str, dict[str, typing.Any]] = field(default_factory=dict)
+
+    def __post_init__(self):
+        self._get_default_regions()
+
+
+    def add_region(self, name: str, start: Sequence | int, end: Optional[int] = None) -> None:
+        """.
+
+        .
+        """
+        if isinstance(start, Sequence) and len(start) == 2:
+            start, end = start
+        else:
+            raise ValueError(f"Expected a sequence of two elements or two separate integers for {name!r}, "
+                             f"got {start!r} and {end!r}")
+
+        self.index_pairs[name] = (start, end)
+
+    def _get_default_regions(self, *, is_setup: bool = False) -> dict[str, tuple[int, int]]:
+        """Add default regions to the dataset indices for FFTs.
+
+        These values come from old code.
+        """
+
+        defaults, colours, styles = {}, {}, {}
+
+        # Label wave (regions with indices smallest -> largest to match output plot legend labels).
+        defaults['precursors'] = (12, 3345)
+        colours['precursors'] = '#37782c'
+
+        defaults['shockwave'] = (defaults['wave1'][1], 5079)
+        colours['shockwave'] = '#64bb6a'
+
+        defaults['steady state'] = (defaults['wave2'][1], 10000)
+        colours['steady state'] = '#9fd983'
+
+        for name in defaults.keys():
+            styles[name] = '-'
+
+        # Label precursors with indices largest -> smallest to match output plot legend labels.
+        defaults['precursor_1'] = (2930, 3320)
+        styles['precursor1'] = ':'
+
+        defaults['precursor_2'] = (2350, 2570)
+        styles['precursor2'] = '--'
+
+        defaults['precursor_3'] = (1980, 2130)
+        styles['precursor3'] = '-.'
+
+        for name in ('precursor1', 'precursor2', 'precursor3'):
+            colours[name] = '#37782c'
+
+        # Initial setup
+        if is_setup:
+            self.index_pairs.update(defaults)
+
+            for name, colour in defaults.keys():
+                self.plot_settings[name] = dict(colour=colours[name], style=styles[name])
+
+        return defaults
+
+
+class FFTFormatter(Formatter):
+
+    def __init__(self, site_index, data, opts):
+        super().__init__(data=data, opts=opts)
+        self.site_index = site_index
+
+        self.fft_indices = DatasetIndicesForFFTs()
+
+    def make_plot(self, fig: Figure, index: Optional[int] = None, signal_inset: bool = False) -> None:
+        """.
+
+        .
+        """
+
+        if index is None:
+            raise ValueError('`index` must be provided to `FFTFormatter.make_plot()`')
+
+        # TODO. Implement method that controls Figure creation in base-class make_plot()
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(4, 8))
+        fig.subplots_adjust(wspace=0.1, hspace=-0.3)
+
+        ax1_inset = ax1.inset_axes(bounds=(0.88, 0.47, 1.8, 0.7),
+                                   loc='upper right',
+                                   bbox_transform=ax1.figure.transFigure)
+
+        # Plot upper subplot including inset
+        duration, sample_rate = int(1.5e1), int(5e2)
+        for delay in (0, 1):
+            t, y = self.generate_sine_wave(15, sample_rate, duration, delay)
+
+            freqs = sp.fft.rfftfreq(int(sample_rate * duration), 1 / sample_rate)
+            dft = np.abs(sp.fft.rfft(y))
+
+            colour = '#64bb6a' if delay == 0 else '#ffb55a'
+            zorder = 1.3 if delay == 0 else 1.2
+
+            ax1.plot(freqs,
+                     dft,
+                     lw=1.0,
+                     color=colour,
+
+                     marker='',
+                     markerfacecolor='black',
+                     markeredgecolor='black',
+
+                     label=f'{delay}',
+                     zorder=zorder)
+
+            ax1_inset.plot(t, y, lw=0.5, color=colour, zorder=zorder)
+
+        # Plot lower subplot containing FFT results
+        for name, lims in self.fft_indices.index_pairs.items():
+            dft_samples, dft = self.get_fft(self.data.amplitudes[lims[0]:lims[1], self.site_index], self.data.params)
+
+            ax2.plot(dft_samples,
+                     dft,
+                     ls=self.fft_indices.plot_settings[name]['style'],
+                     lw=1,
+                     color=self.fft_indices.plot_settings[name]['colour'],
+
+                     marker='',
+                     markerfacecolor='black',
+                     markeredgecolor='black',
+
+                     label=name if 'precursor_' not in name else None)
+
+        if signal_inset:
+            self._add_zoomed_signal(ax1)
+            self._add_annotations(ax1, name='upper')
+
+        self._add_annotations(ax2, 'lower')
+
+    def format_figure(self, fig: Figure) -> Optional[Figure]:
+        """."""
+
+        (ax1, ax2) = fig.axes
+        inset = plt.axes()
+
+        # Upper plot containing time-domain signal
+        ax1.set(xlim=(5, 25),
+                ylim=(1e0, 1e4))
+
+        ax1.set_ylabel(f'{ax1.get_ylabel()}\n',
+                       x=-10,
+                       y=1)
+
+        # TODO. Implement TickSetter here
+        ax1.xaxis.set(major_locator=ticker.MultipleLocator(5),
+                      minor_locator=ticker.MultipleLocator(1))
+
+        # Upper plot inset
+        inset.set(xlabel=r'Time, $t$ (ns)',
+                  ylabel='Amplitude (a.u.)',
+                  fontsize=FontSizes['small'],
+                  xlim=(0, 2))
+
+        inset.xaxis.labelpad = -0.5
+        inset.yaxis.set_label_position('right')
+
+        inset.yaxis.tick_right()
+        inset.tick_params(axis='both', labelsize=FontSizes['small'])
+
+        inset.patch.set_color("#f9f2e9")
+
+        inset.xaxis.set(major_locator=ticker.MultipleLocator(1),
+                        minor_locator=ticker.MultipleLocator(0.2))
+
+        # Lower plot containing FFT results
+        ax2.set(xlim=(0, 60),
+                ylim=(1e-4, 1e1),
+                yscale='log')
+
+        # TODO. Implement TickSetter here
+        # self._tick_setter(ax, 20, 5, 3, 4, is_fft_plot=True)
+
+        ax2.legend(ncol=1,
+                   fontsize=FontSizes['small'],
+
+                   frameon=False,
+                   fancybox=True,
+                   facecolor=None,
+                   edgecolor=None,
+
+                   bbox_to_anchor=(0.7, 0.65),
+                   axisbelow=False)
+
+        self.cleanup_subplots(ax2)
+
+    def format_axes(self, axes: list[Axes]) -> Optional[list[Axes]]:
+        """."""
+
+        for ax in axes:
+            ax.set(xlabel=r'Frequency, $f$ (GHz)',
+                   ylabel='Amplitude (a.u.)')
+
+            ax.set_axisbelow(False)
+
+    @staticmethod
+    def _add_annotations(ax: Axes, name: Literal['lower', 'upper']) -> None:
+        """.
+
+        .
+        """
+        arrow_props = {
+            'arrowstyle': '-|>',
+            'connectionstyle': 'angle3,angleA=0,angleB=90',
+            'color': 'black'
+        }
+
+        if name == 'lower':
+            annotations = {
+                'P1': dict(pos_arrow=(24.22, 0.029),
+                           pos_text=(26.31, 0.231)),
+                'P2': dict(pos_arrow=(36.48, 0.0096),
+                           pos_text=(39.91, 0.13)),
+                'P3': dict(pos_arrow=(52.00, 0.0045),
+                           pos_text=(56.25, 0.075))
+            }
+        elif name == 'upper':
+            annotations = {
+                'P1': dict(pos_arrow=(2.228, -1.5e-4),
+                           pos_text=(1.954, -1.5e-4)),
+                'P2': dict(pos_arrow=(1.8, -8.48e-5),
+                           pos_text=(1.407, -1.5e-4)),
+                'P3': dict(pos_arrow=(1.65, 6e-5),
+                           pos_text=(1.407, 1.5e-4))
+            }
+        else:
+            raise AttributeError(f'Unknown subplot axis: {name}')
+
+        for name, props in annotations.items():
+            ax.annotate(text=name,
+                        xy=props['pos_arrow'],
+                        xytext=props['pos_text'],
+                        arrowprops=arrow_props,
+                        va='center',
+                        ha='center',
+                        fontsize=FontSizes['small'])
+
+    def _add_zoomed_signal(self, ax: Axes) -> None:
+        """.
+
+        .
+        """
+        inset = ax.inset_axes(bounds=(0.14, 0.625, 2.4, 0.625),
+                              loc="lower left",
+                              xlim=(1.25, 2.5),
+                              ylim=(-0.2e-3, 0.2e-3),
+                              xticklabels=[],
+                              yticklabels=[],
+                              # alpha=0.3,
+                              # facecolor='red',
+                              bbox_transform=ax.figure.transFigure)
+
+        inset.plot(self.data.times[:],
+                   self.data.amplitudes[:, self.site_index],  # TODO Change to `self.index` from base class
+                   color='#37782c')
+
+        zoom_colour = '#f9f2e9'
+        inset.patch.set_color(zoom_colour)
+
+        ax.indicate_inset_zoom(inset,
+                               lw=0.75,
+                               alpha=0.9,
+                               facecolor=zoom_colour,
+                               edgecolor='black',
+                               zorder=1.0)
+
+    def get_fft(
+            self,
+            inputs: NDArray,
+            params: SimulationParametersContainer,
+            *,
+            spacing: Optional[float] = None,
+            fft_window: Optional[str | Callable] = None
+    ) -> tuple:
+        """Compute the discrete Fourier transform (DFT) of a 1-D signal.
+
+        Args:
+            inputs: Input signal to be transformed.
+            params: ... .
+            spacing: ... .
+            fft_window: Window function to apply before computing the FFT.
+                Defaults to False.
+
+        Returns:
+            DFT `samples` and `transforms` as a tuple.
+
+            If ``inputs`` contain spatial information, then the returned `samples` represent the wavevectors :math:`k`
+            in units of :math:`m^{-1}`. Otherwise, the returned `samples` represent the frequencies :math:`f` in units
+            of :math:`Hz`. The returned `transforms` are the Fourier coefficients corresponding to the `samples`.
+
+        :
+        """
+
+        data = inputs.copy()  # Copy to avoid modifying the original data
+        dp_total = data.size
+        dp_total_with_padding = sp.fft.next_fast_len(dp_total)
+
+        # Determining the sample spacing provides the `bin width/size` for the FFT.
+        bin_width = (spacing
+                     if spacing is not None
+                     else params.sim_time_max() / (params.num_dp_per_site() - 1))
+
+        # Strangely, using `data *= window` here leads to future subplots breaking.
+        data = data * self._get_fft_window(fft_window)
+
+        dft = sp.fft.fft(x=data, n=dp_total_with_padding)
+        dft_samples = sp.fft.fftfreq(n=dp_total_with_padding, d=bin_width)
+
+        # Only want positive samples (e.g. wavevectors, frequencies) and their corresponding transforms.
+        # For total indices (N) the Nyquist frequency is at N/2.
+        # Always skip y[0] component as it's the DC component (zero frequency) of the signal's mean value.
+        pos_indices = (slice(1, dp_total_with_padding // 2)  # `y = [1, N / 2 - 1]`
+                       if dp_total_with_padding % 2 == 0
+                       else slice(1, (dp_total_with_padding + 1) // 2))  # `y = [1, (N - 1) / 2]`
+
+        return dft_samples[pos_indices], np.abs(dft[pos_indices])
+
+    @staticmethod
+    def _get_fft_window(
+            datapoints: int,
+            fft_window: str | Callable | None,
+    ) -> sp.signal.windows | int:
+        """Helper method.
+
+        For valid windows, see `scipy.signal.windows`_ documentation.
+
+        .. _scipy.signal.windows:
+            https://docs.scipy.org/doc/scipy/reference/signal.windows.html
+
+        """
+
+        if fft_window is None:
+            # Special case (for unit-tests and debugging) signifying no windowing.
+            return 1
+
+        if isinstance(fft_window, str):
+            func = getattr(sp.signals.windows, fft_window.lower(), 'hann')
+            return func(datapoints)
+
+        if callable(fft_window) and hasattr(sp.signal, 'fft_window'):
+            return sp.signal.fft_window(datapoints)
+
+        raise TypeError("fft_window must be a valid string or callable, got {fft_window!r}")
+
+    @staticmethod
+    def generate_sine_wave(
+            frequency: float,
+            sample_rate: int,
+            duration: int,
+            delay_start: Optional[int] = None
+    ) -> tuple[NDArray, NDArray]:
+        """Generate a sine wave signal.
+
+        Args:
+            frequency: Frequency of the sine wave in Hz.
+            sample_rate: Number of samples per second.
+            duration: Duration of the signal in seconds.
+            delay_start: Delay before the signal starts in seconds.
+
+        Returns:
+            Tuple containing time samples and corresponding sine wave values.
+        """
+        delay = int(sample_rate * delay_start if delay_start is not None else 1)
+
+        t = np.linspace(0, duration, sample_rate * duration, endpoint=False)
+
+        y_1 = np.zeros(delay)
+        y_2 = np.sin(t[delay:] * UREG_.convert(frequency, 'cycle / s', 'Hz'))
+        y_con = np.concatenate((y_1, y_2))
+
+        return t, y_con
+
+
+@dataclass
+class TrackLinesLayers:
+    peak: float
+    zorder: float = 1.3
+
+
 class SpatialFFT(BaseSpatial):
     def __init__(self, data, opts, index: int = -1):
         super().__init__(data=data, opts=opts, index=index)
@@ -443,19 +837,27 @@ class SpatialFFT(BaseSpatial):
         # Old code used default_layout `basic2` to strike a balance between clearly showing FFT of
         # fundamental eigenmodes, and their (possibly appearing) higher harmonics.
         self.layout_scheme: PlotScheme = self._default_layouts.basic2
+        self._z_orders: dict[str, TrackLinesLayers] = {}
 
     def make_plot(self, fig, index=None) -> None:
         super().make_plot(fig, index=index)
-        ax = fig.get_axes()
+        orig_ax = fig.axes[0]
 
-        num_rows, num_cols = 3, 3
-        for i in range(0, 3):
-            subplot = plt.subplot2grid(fig=fig,
-                                       shape=(num_rows, num_cols),
-                                       loc=(i, 0),
-                                       rowspan=1,
-                                       colspan=num_cols,)
-            ax.append(subplot)
+        gs = fig.add_gridspec(3, 3)
+
+        fig.axes.clear()
+        fig.add_subplot(gs[0, :], label='base')
+
+        orig_ax.set_subplotspec(gs[0, :])
+        fig.axes.append(orig_ax)
+
+        axs = []
+        for row in (1, 2):
+            ax = fig.add_subplot(gs[row, :])
+            axs.append(ax)
+
+        if fig.axes != [orig_ax] + axs:
+            raise ValueError()
 
         if self.opts.is_interactive:
             # TODO. Link `FigureManager` in here
@@ -465,30 +867,19 @@ class SpatialFFT(BaseSpatial):
 
     def _process_signal(
             self,
-            ax: Axes | Sequence[Axes],
+            fig: Figure,
             ax_name: str = 'ax',
-            index: int = -1,
+            row_index: int = -1,
+            signal_index: int = 1,
             *,
             has_default_colours: bool = True,
             colour_scheme_name: int = 0,
             is_wavevector_negative: bool = False
     ) -> None:
 
-        if self.layout_scheme['ax_name'].xlim.lower == self.layout_scheme['ax_name'].xlim.upper:
+        if self.layout_scheme.axes[ax_name].xlim.lower == self.layout_scheme.axes[ax_name].xlim.upper:
             # Special case to signify this subplot shouldn't be post-processed.
             return
-
-        if self.layout_scheme['ax_name'].xlim.lower > self.layout_scheme['ax_name'].xlim.upper:
-            raise ValueError(f"Condition would lead to FFT returning invalid 'n_padded_total < 0'."
-                             f"Either reverse `xlim.lower` and `xlim.upper` or set new values.")
-
-        if (not has_default_colours
-                and colour_scheme_name not in ColourSchemes.keys()):
-            raise AttributeError(f"Invalid colour scheme {colour_scheme_name} provided for signal processing.")
-
-        signal_colour = (ColourSchemes[colour_scheme_name]['ax1_colour_matte']
-                         if has_default_colours
-                         else ColourSchemes[colour_scheme_name][f'signal{index}_colour'])
 
         # TODO. Create new _fft_data method
         cyclic_k, fourier_transform = (), ()
@@ -522,31 +913,88 @@ class SpatialFFT(BaseSpatial):
         if is_wavevector_negative:
             angular_k *= -1
 
+        self._calculate_z_order(ax_name, angular_k, fourier_transform)
 
-        return
+        # Plotting time
+        if self.layout_scheme.axes[ax_name].xlim.lower > self.layout_scheme.axes[ax_name].xlim.upper:
+            raise ValueError(f"Condition would lead to FFT returning invalid 'n_padded_total < 0'."
+                             f"Either reverse `xlim.lower` and `xlim.upper` or set new values.")
 
-    def _plot_z_ordering(
+        if (not has_default_colours
+                and colour_scheme_name not in ColourSchemes.keys()):
+            raise AttributeError(f"Invalid colour scheme {colour_scheme_name} provided for signal processing.")
+
+        signal_colour = (ColourSchemes[colour_scheme_name]['ax1_colour_matte']
+                         if has_default_colours
+                         else ColourSchemes[colour_scheme_name][f'signal{signal_index}_colour'])
+
+        xlims = self.layout_scheme.signals[ax_name].xlim
+        data_pairing = [
+            (np.arange(xlims.lower, xlims.upper),
+             self.data.amplitudes[row_index, xlims.lower:xlims.upper]),
+            (angular_k, fourier_transform),
+        ]
+
+        # Onto the plotting
+        axes = fig.axes
+
+        for i, (x, y) in enumerate(data_pairing):
+            axes[i].plot(
+                x, y,
+                ls='-',
+                lw=1.5,
+                color=signal_colour,
+                label=f"Segment {signal_index}",
+                zorder=self._z_orders[ax_name].zorder,
+
+                marker='' if i != 0 else None,
+                markerfacecolor='black',
+                markeredgecolor='black',
+            )
+
+        if signal_index == 4:
+            # Add dispersion relation to imshow
+            axes[2].plot(self.data.times,
+                         self.data.amplitudes[self.data.params.num_sites_abc():self.data.params.num_sites_total()
+                                              - self.data.params.num_sites_abc()])
+
+    def _calculate_z_order(
             self,
+            ax_name: str,
             wavenumbers,
             fourier_transform: NDArray,
             use_default: bool = True
     ):
-
-        z_order: dict = dict(max=None, default=1.3, zorder=1.3)
-
-        abs_diff = np.abs(wavenumbers - self.layout_scheme['ax2'].xlim.upper)
-        closest_idx = np.argmin(abs_diff)
-        z_order['max'] = np.max(fourier_transform[:closest_idx])
-
-        if use_default:
-            return z_order['max'], z_order['default']
-
-        if
+        """.
 
 
+        """
+        cutoff = self.layout_scheme['ax2'].xlim.upper
+        closest_idx = np.argmin(np.abs(wavenumbers - cutoff))
+        peak = float(np.max(fourier_transform[closest_idx:]))
 
+        if use_default or not self._z_orders:
+            zo = TrackLinesLayers(peak=peak)
+            if not self._z_orders:
+                self._z_orders[ax_name] = zo
+            return zo
 
-        return tracked_orders
+        existing = list(self._z_orders.values())
+        min_ = min(existing, key=lambda z: z.peak)
+        max_ = max(existing, key=lambda z: z.peak)
+
+        if peak < min_.peak:
+            new_z = min_.zorder + 0.01
+        elif peak > max_.peak:
+            new_z = max_.zorder - 0.01
+        else:
+            new_z = self._z_orders['ax1'].zorder
+
+        z_o = TrackLinesLayers(peak=peak, zorder=new_z)
+        self._z_orders[ax_name] = z_o
+
+        return z_o
+
 
     def format_figure(self, fig, **kwargs):
         fig.subplots_adjust(wspace=1,
